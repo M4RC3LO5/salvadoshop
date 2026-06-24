@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/middleware"
 
 // Rotas do painel admin restritas ao perfil Master
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado quando roles forem implementados
@@ -8,29 +9,17 @@ const MASTER_ONLY_ROUTES = [
   "/admin/relatorios",
 ]
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (!pathname.startsWith("/admin")) {
     return NextResponse.next()
   }
 
-  // TODO: substituir pela verificação real de sessão via Supabase Auth quando
-  // o cliente Supabase estiver configurado em src/lib/supabase/.
-  // Exemplo:
-  //   const supabase = createMiddlewareClient({ req: request, res: response })
-  //   const { data: { session } } = await supabase.auth.getSession()
-  //
-  // Após obter a sessão, buscar o perfil em admin_usuarios para verificar o role:
-  //   const role = session?.user?.user_metadata?.role  // 'master' | 'auxiliar'
-  //
-  // Regras:
-  //   - Não autenticado  → redireciona para /conta/login
-  //   - Cliente (sem role admin) → redireciona para /
-  //   - Auxiliar + rota MASTER_ONLY_ROUTES → redireciona para /admin
-  //   - Master → acesso total em /admin/*
+  const response = NextResponse.next({ request })
+  const supabase = createClient(request, response)
 
-  const session = null // placeholder até Supabase estar conectado
+  const { data: { session } } = await supabase.auth.getSession()
 
   if (!session) {
     const loginUrl = new URL("/conta/login", request.url)
@@ -38,7 +27,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  return NextResponse.next()
+  // TODO: verificar role do usuário na tabela admin_usuarios quando o banco estiver configurado.
+  // Regras a implementar:
+  //   - Cliente (sem registro em admin_usuarios) → redireciona para /
+  //   - Auxiliar + rota em MASTER_ONLY_ROUTES   → redireciona para /admin
+  //   - Master                                  → acesso total em /admin/*
+
+  return response
 }
 
 export const config = {
