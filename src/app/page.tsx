@@ -1,5 +1,6 @@
 import { Hero } from "@/components/shared/Hero"
 import { CardProdutoTipoA, type ProdutoTipoA } from "@/components/produto/CardProdutoTipoA"
+import { CardProdutoTipoB, type ProdutoTipoB } from "@/components/produto/CardProdutoTipoB"
 
 const produtosExemplo: ProdutoTipoA[] = [
   {
@@ -19,9 +20,26 @@ const produtosExemplo: ProdutoTipoA[] = [
   {
     id: "3",
     slug: "tv-lg-50-4k",
-    nome: "Smart TV LG 50\" 4K UHD LED com ThinQ AI e WebOS",
+    nome: 'Smart TV LG 50" 4K UHD LED com ThinQ AI e WebOS',
     estado: "Bom",
     precoML: 3299.00,
+  },
+]
+
+const lotesExemplo: ProdutoTipoB[] = [
+  {
+    id: "L1",
+    slug: "lote-smartphones-variados",
+    nome: "Lote Smartphones Variados — Diversas Marcas e Modelos",
+    quantidade: 50,
+    unidade: "unidades",
+  },
+  {
+    id: "L2",
+    slug: "lote-eletrodomesticos-sinistrados",
+    nome: "Lote Eletrodomésticos Sinistrados — Geladeiras, Fogões e Micro-ondas",
+    quantidade: 20,
+    unidade: "peças",
   },
 ]
 
@@ -42,6 +60,23 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {produtosExemplo.map((produto) => (
               <CardProdutoTipoA key={produto.id} produto={produto} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Lotes — Tipo B */}
+      <section id="lotes" className="bg-zinc-50 py-12">
+        <div className="container">
+          <div className="flex flex-col gap-2 mb-8">
+            <h2 className="text-2xl font-bold text-marrom-800">Lotes para Revendedores</h2>
+            <p className="text-marrom-500 text-sm">
+              Quantidade fixa, negociação direta. Ideal para lojas, investidores e revendedores.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {lotesExemplo.map((lote) => (
+              <CardProdutoTipoB key={lote.id} produto={lote} />
             ))}
           </div>
         </div>
