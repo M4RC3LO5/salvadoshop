@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import { cn } from "@/lib/utils";
 import { Header } from "@/components/shared/Header";
 import { Footer } from "@/components/shared/Footer";
+import { BannerCookies } from "@/components/shared/BannerCookies";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -32,6 +33,7 @@ export default function RootLayout({
         <Header />
         <main>{children}</main>
         <Footer />
+        <BannerCookies />
       </body>
     </html>
   );
