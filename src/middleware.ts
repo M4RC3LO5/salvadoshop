@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/middleware"
 
-// Rotas do painel admin restritas ao perfil Master
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado quando roles forem implementados
 const MASTER_ONLY_ROUTES = [
   "/admin/aprovacoes",
   "/admin/usuarios",
@@ -19,20 +17,38 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })
   const supabase = createClient(request, response)
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // getUser() valida o JWT com o servidor — mais seguro que getSession() no middleware
+  const { data: { user } } = await supabase.auth.getUser()
 
-  if (!session) {
-    const loginUrl = new URL("/conta/login", request.url)
+  if (!user) {
+    const loginUrl = new URL("/admin/login", request.url)
     loginUrl.searchParams.set("redirect", pathname)
     return NextResponse.redirect(loginUrl)
   }
 
-  // TODO: verificar role do usuário na tabela admin_usuarios quando o banco estiver configurado.
-  // Regras a implementar:
-  //   - Cliente (sem registro em admin_usuarios) → redireciona para /
-  //   - Auxiliar + rota em MASTER_ONLY_ROUTES   → redireciona para /admin
-  //   - Master                                  → acesso total em /admin/*
+  // Consulta o role na tabela admin_usuarios para o usuário autenticado.
+  // RLS garante que cada usuário só enxerga o próprio registro.
+  const { data: adminUser } = await supabase
+    .from("admin_usuarios")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("ativo", true)
+    .single()
 
+  // Usuário autenticado mas sem registro ativo em admin_usuarios → é cliente, não admin
+  if (!adminUser) {
+    return NextResponse.redirect(new URL("/", request.url))
+  }
+
+  // Auxiliar tentando acessar rota exclusiva de Master → redireciona para o dashboard
+  if (
+    adminUser.role === "auxiliar" &&
+    MASTER_ONLY_ROUTES.some((route) => pathname.startsWith(route))
+  ) {
+    return NextResponse.redirect(new URL("/admin/dashboard", request.url))
+  }
+
+  // Master: acesso total. Auxiliar: acesso ao restante de /admin/*.
   return response
 }
 
