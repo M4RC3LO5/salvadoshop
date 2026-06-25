@@ -17,12 +17,16 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // Injeta o pathname como header para layouts server-side poderem ler a rota atual
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set("x-pathname", pathname)
+
   // Página de login é pública — sem ela ninguém consegue entrar
   if (PUBLIC_ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next()
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
-  const response = NextResponse.next({ request })
+  const response = NextResponse.next({ request: { headers: requestHeaders } })
   const supabase = createClient(request, response)
 
   // getUser() valida o JWT com o servidor — mais seguro que getSession() no middleware
