@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/middleware"
 
-// Rotas do painel admin restritas ao perfil Master
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- usado quando roles forem implementados
 const MASTER_ONLY_ROUTES = [
   "/admin/aprovacoes",
   "/admin/usuarios",
@@ -27,7 +25,7 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request })
   const supabase = createClient(request, response)
 
-  // getUser() valida o JWT no servidor — mais seguro que getSession() no middleware
+  // getUser() valida o JWT com o servidor — mais seguro que getSession() no middleware
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
