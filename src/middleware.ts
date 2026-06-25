@@ -7,10 +7,18 @@ const MASTER_ONLY_ROUTES = [
   "/admin/relatorios",
 ]
 
+// Rotas públicas dentro de /admin que não exigem autenticação
+const PUBLIC_ADMIN_ROUTES = ["/admin/login"]
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (!pathname.startsWith("/admin")) {
+    return NextResponse.next()
+  }
+
+  // Página de login é pública — sem ela ninguém consegue entrar
+  if (PUBLIC_ADMIN_ROUTES.some((route) => pathname.startsWith(route))) {
     return NextResponse.next()
   }
 
