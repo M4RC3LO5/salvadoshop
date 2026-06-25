@@ -1,12 +1,11 @@
-{
+﻿{
   "version": "0.0.1",
   "configurations": [
     {
       "name": "salvadoshop-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 3000,
-      "autoPort": false
+      "port": 3000
     }
   ]
 }
