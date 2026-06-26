@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Package, Layers } from "lucide-react"
+import { RichTextEditor } from "@/components/admin/RichTextEditor"
 
 type TipoProduto = "tipo_a" | "tipo_b" | null
 
@@ -14,12 +15,15 @@ export function NovoProdutoForm() {
   const [precoML, setPrecoML] = useState<string>("")
   const [nome, setNome] = useState<string>("")
   const [specs, setSpecs] = useState<string>("")
+  const [descricao, setDescricao] = useState<string>("")
   const [quantidade, setQuantidade] = useState<string>("")
 
   const precoMLNum = parseFloat(precoML.replace(",", ".")) || 0
   const precoSite = precoMLNum > 0 ? precoMLNum * 0.82 : null
 
   const nomeError = nome.length > 0 && nome.length < 10
+  const formIsValid =
+    nome.length >= 10 && specs.trim().length > 0 && descricao.trim().length > 0 && tipo !== null
 
   return (
     <form className="flex flex-col gap-8" onSubmit={(e) => e.preventDefault()}>
@@ -100,7 +104,7 @@ export function NovoProdutoForm() {
               id="specs"
               name="specs"
               required
-              rows={6}
+              rows={4}
               value={specs}
               onChange={(e) => setSpecs(e.target.value)}
               placeholder="Bateria 40h, Bluetooth 5.3, cancelamento de ruído, tela AMOLED 6.7'', 256GB armazenamento..."
@@ -113,6 +117,9 @@ export function NovoProdutoForm() {
 
         </div>
       </div>
+
+      {/* ── Descrição Comercial (Rich Text) ── */}
+      <RichTextEditor onChange={setDescricao} />
 
       {/* ── Seletor de tipo ── */}
       <div className="flex flex-col gap-3">
@@ -305,9 +312,9 @@ export function NovoProdutoForm() {
         </button>
         <button
           type="submit"
-          disabled
-          className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-semibold text-white opacity-60 cursor-not-allowed"
-          title="Salvar será habilitado na próxima etapa"
+          disabled={!formIsValid}
+          className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+          title={!formIsValid ? "Preencha todos os campos obrigatórios" : undefined}
         >
           Salvar Produto
         </button>
