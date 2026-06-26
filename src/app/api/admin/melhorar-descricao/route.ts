@@ -12,7 +12,12 @@ const bodySchema = z.object({
 const SYSTEM_PROMPT = `Você é um redator especialista em e-commerce de produtos salvados. \
 Escreva descrições comerciais persuasivas, honestas e que destacam o custo-benefício do produto. \
 Use linguagem clara e direta. \
-Retorne apenas o HTML da descrição, sem markdown, sem explicações.`
+REGRAS OBRIGATÓRIAS DE FORMATO:
+- Retorne SOMENTE o HTML puro, começando diretamente com a tag <p>, <h2> ou <ul>
+- NUNCA use blocos de código, backticks, markdown ou texto fora do HTML
+- NUNCA escreva \`\`\`html ou \`\`\` em nenhuma parte da resposta
+- Use apenas tags: <p>, <h2>, <h3>, <ul>, <ol>, <li>, <strong>, <em>
+- Máximo 4 parágrafos ou seções — seja conciso e direto`
 
 export async function POST(request: NextRequest) {
   // Verifica autenticação e role admin antes de qualquer processamento

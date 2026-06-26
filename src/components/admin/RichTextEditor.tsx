@@ -40,6 +40,8 @@ const SESSION_KEY = "ia_descricao_confirmado"
 // O HTML completo só é inserido no documento via editor.commands.setContent() (ProseMirror).
 function htmlParaTextoPreview(html: string): string {
   return html
+    .replace(/```html?/gi, "")
+    .replace(/```/g, "")
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
     .replace(/<\/li>/gi, "\n")
@@ -49,7 +51,7 @@ function htmlParaTextoPreview(html: string): string {
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&nbsp;/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n{2,}/g, "\n")
     .trim()
 }
 
