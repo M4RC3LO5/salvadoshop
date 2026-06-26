@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback } from "react"
 import Image from "next/image"
-import { Upload, X, AlertCircle, Loader2, ImagePlus } from "lucide-react"
+import { Upload, X, AlertCircle, Loader2, ImagePlus, Pencil } from "lucide-react"
+import { EditorImagem } from "@/components/admin/EditorImagem"
 
 interface ImagemUpload {
   id: string          // id local (para UI)
@@ -35,6 +36,7 @@ interface ImageUploadZoneProps {
 export function ImageUploadZone({ onChange }: ImageUploadZoneProps) {
   const [galeria, setGaleria] = useState<ItemGaleria[]>([])
   const [dragAtivo, setDragAtivo] = useState(false)
+  const [editando, setEditando] = useState<ImagemUpload | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const imagensOk = galeria.filter(isUpload)
@@ -211,6 +213,26 @@ export function ImageUploadZone({ onChange }: ImageUploadZoneProps) {
         </div>
       )}
 
+      {/* Editor de imagem */}
+      {editando && (
+        <EditorImagem
+          imagem={editando}
+          onSalvar={(novaUrl) => {
+            setGaleria((prev) => {
+              const nova = prev.map((item) =>
+                item.id === editando.id
+                  ? ({ ...editando, url: novaUrl } as ImagemUpload)
+                  : item
+              )
+              notificar(nova)
+              return nova
+            })
+            setEditando(null)
+          }}
+          onCancelar={() => setEditando(null)}
+        />
+      )}
+
       {/* Grade de previews */}
       {total > 0 && (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4">
@@ -218,15 +240,23 @@ export function ImageUploadZone({ onChange }: ImageUploadZoneProps) {
             <div key={item.id} className="relative aspect-square">
               {item.status === "ok" ? (
                 <>
-                  <div className="h-full w-full overflow-hidden rounded-lg border border-stone-200">
+                  <button
+                    type="button"
+                    onClick={() => setEditando(item as ImagemUpload)}
+                    aria-label="Editar imagem"
+                    className="group h-full w-full overflow-hidden rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
                     <Image
                       src={(item as ImagemUpload).url}
                       alt="Preview da imagem do produto"
                       fill
-                      className="object-cover"
+                      className="object-cover transition group-hover:brightness-75"
                       sizes="(max-width: 640px) 33vw, 25vw"
                     />
-                  </div>
+                    <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover:opacity-100">
+                      <Pencil size={18} className="text-white drop-shadow" aria-hidden="true" />
+                    </span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => remover(item)}
