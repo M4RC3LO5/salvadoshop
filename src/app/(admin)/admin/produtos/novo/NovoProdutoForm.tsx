@@ -3,8 +3,14 @@
 import { useState } from "react"
 import { Package, Layers } from "lucide-react"
 import { RichTextEditor } from "@/components/admin/RichTextEditor"
+import { ImageUploadZone } from "@/components/admin/ImageUploadZone"
 
 type TipoProduto = "tipo_a" | "tipo_b" | null
+
+interface ImagemSalva {
+  url: string
+  public_id: string
+}
 
 function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -17,13 +23,18 @@ export function NovoProdutoForm() {
   const [specs, setSpecs] = useState<string>("")
   const [descricao, setDescricao] = useState<string>("")
   const [quantidade, setQuantidade] = useState<string>("")
+  const [imagens, setImagens] = useState<ImagemSalva[]>([])
 
   const precoMLNum = parseFloat(precoML.replace(",", ".")) || 0
   const precoSite = precoMLNum > 0 ? precoMLNum * 0.82 : null
 
   const nomeError = nome.length > 0 && nome.length < 10
   const formIsValid =
-    nome.length >= 10 && specs.trim().length > 0 && descricao.trim().length > 0 && tipo !== null
+    nome.length >= 10 &&
+    specs.trim().length > 0 &&
+    descricao.trim().length > 0 &&
+    tipo !== null &&
+    imagens.length > 0
 
   return (
     <form className="flex flex-col gap-8" onSubmit={(e) => e.preventDefault()}>
@@ -31,35 +42,8 @@ export function NovoProdutoForm() {
       {/* Layout duas colunas */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
-        {/* ── Coluna esquerda — imagem (placeholder) ── */}
-        <div className="flex flex-col gap-3">
-          <span className="text-sm font-medium text-stone-600">
-            Imagens do Produto
-          </span>
-          <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-stone-300 bg-stone-50 p-6 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-stone-200">
-              <Package className="h-7 w-7 text-stone-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-stone-500">
-                Upload de imagens
-              </p>
-              <p className="mt-0.5 text-xs text-stone-400">
-                JPG, PNG ou WEBP · máx. 10MB · até 10 fotos
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled
-              className="mt-2 rounded-lg border border-stone-300 bg-white px-4 py-2 text-xs font-medium text-stone-500 opacity-60 cursor-not-allowed"
-            >
-              Selecionar arquivos
-            </button>
-            <p className="text-xs text-amber-600">
-              Upload disponível na próxima etapa
-            </p>
-          </div>
-        </div>
+        {/* ── Coluna esquerda — upload de imagens ── */}
+        <ImageUploadZone onChange={setImagens} />
 
         {/* ── Coluna direita — campos de texto ── */}
         <div className="flex flex-col gap-5">
@@ -147,10 +131,7 @@ export function NovoProdutoForm() {
               <Package className="h-5 w-5" />
             </div>
             <div>
-              <p className={cn(
-                "font-semibold",
-                tipo === "tipo_a" ? "text-amber-800" : "text-stone-700"
-              )}>
+              <p className={cn("font-semibold", tipo === "tipo_a" ? "text-amber-800" : "text-stone-700")}>
                 Produto Individual
               </p>
               <p className="mt-0.5 text-xs text-stone-500">
@@ -178,10 +159,7 @@ export function NovoProdutoForm() {
               <Layers className="h-5 w-5" />
             </div>
             <div>
-              <p className={cn(
-                "font-semibold",
-                tipo === "tipo_b" ? "text-amber-800" : "text-stone-700"
-              )}>
+              <p className={cn("font-semibold", tipo === "tipo_b" ? "text-amber-800" : "text-stone-700")}>
                 Lote para Revendedores
               </p>
               <p className="mt-0.5 text-xs text-stone-500">
@@ -199,17 +177,13 @@ export function NovoProdutoForm() {
           <h3 className="text-sm font-semibold text-stone-700">
             Precificação — Produto Individual
           </h3>
-
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Preço ML */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="preco_ml" className="text-sm font-medium text-stone-700">
                 Preço no Mercado Livre (R$) <span className="text-red-500" aria-hidden="true">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
-                  R$
-                </span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">R$</span>
                 <input
                   id="preco_ml"
                   name="preco_ml"
@@ -224,34 +198,21 @@ export function NovoProdutoForm() {
                 />
               </div>
             </div>
-
-            {/* Preço Site — calculado */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-stone-700">
-                Preço no Site (−18% automático)
-              </span>
+              <span className="text-sm font-medium text-stone-700">Preço no Site (−18% automático)</span>
               <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
                 {precoSite !== null ? (
                   <>
                     <span className="text-lg font-bold text-green-700">
-                      {new Intl.NumberFormat("pt-BR", {
-                        style: "currency",
-                        currency: "BRL",
-                      }).format(precoSite)}
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(precoSite)}
                     </span>
-                    <span className="text-xs text-green-600">
-                      (calculado automaticamente)
-                    </span>
+                    <span className="text-xs text-green-600">(calculado automaticamente)</span>
                   </>
                 ) : (
-                  <span className="text-sm text-stone-400">
-                    Informe o preço ML para calcular
-                  </span>
+                  <span className="text-sm text-stone-400">Informe o preço ML para calcular</span>
                 )}
               </div>
-              <p className="text-xs text-stone-400">
-                Fórmula: Preço ML × 0,82 — gerado pelo banco de dados
-              </p>
+              <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82 — gerado pelo banco de dados</p>
             </div>
           </div>
         </div>
@@ -259,12 +220,8 @@ export function NovoProdutoForm() {
 
       {tipo === "tipo_b" && (
         <div className="flex flex-col gap-5 rounded-xl border border-stone-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-stone-700">
-            Detalhes do Lote
-          </h3>
-
+          <h3 className="text-sm font-semibold text-stone-700">Detalhes do Lote</h3>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {/* Quantidade */}
             <div className="flex flex-col gap-1.5">
               <label htmlFor="quantidade_lote" className="text-sm font-medium text-stone-700">
                 Quantidade de Itens no Lote <span className="text-red-500" aria-hidden="true">*</span>
@@ -281,22 +238,14 @@ export function NovoProdutoForm() {
                 placeholder="Ex: 40"
                 className="rounded-lg border border-stone-300 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
               />
-              <p className="text-xs text-stone-400">
-                Quantidade fixa — não pode ser alterada pelo comprador.
-              </p>
+              <p className="text-xs text-stone-400">Quantidade fixa — não pode ser alterada pelo comprador.</p>
             </div>
-
-            {/* Preço sob consulta */}
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-stone-700">Preço</span>
               <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <span className="text-sm font-semibold text-amber-700">
-                  Preço sob consulta
-                </span>
+                <span className="text-sm font-semibold text-amber-700">Preço sob consulta</span>
               </div>
-              <p className="text-xs text-stone-400">
-                Negociação via WhatsApp — sem preço fixo para lotes.
-              </p>
+              <p className="text-xs text-stone-400">Negociação via WhatsApp — sem preço fixo para lotes.</p>
             </div>
           </div>
         </div>
