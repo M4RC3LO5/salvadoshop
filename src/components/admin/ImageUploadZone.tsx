@@ -156,10 +156,18 @@ function Miniatura({ item, isPrincipal, onEditar, onRemover }: MiniaturaProps) {
 
 interface ImageUploadZoneProps {
   onChange: (imagens: { url: string; public_id: string }[]) => void
+  initialImages?: { url: string; public_id: string }[]
 }
 
-export function ImageUploadZone({ onChange }: ImageUploadZoneProps) {
-  const [galeria, setGaleria] = useState<ItemGaleria[]>([])
+export function ImageUploadZone({ onChange, initialImages }: ImageUploadZoneProps) {
+  const [galeria, setGaleria] = useState<ItemGaleria[]>(() =>
+    (initialImages ?? []).map((img, i) => ({
+      id: `initial-${i}-${img.public_id}`,
+      url: img.url,
+      public_id: img.public_id,
+      status: "ok" as const,
+    }))
+  )
   const [dragAtivo, setDragAtivo] = useState(false)
   const [editando, setEditando] = useState<ImagemUpload | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)

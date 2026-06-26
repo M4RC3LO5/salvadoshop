@@ -20,6 +20,21 @@ interface ToastState {
   slug?: string
 }
 
+export interface ProdutoParaEditar {
+  id: string
+  nome: string
+  specs_tecnicas: { texto: string } | null
+  descricao: string | null
+  tipo: "tipo_a" | "tipo_b"
+  categoria: string
+  preco_ml: number | null
+  url_ml: string | null
+  estoque: number | null
+  quantidade_lote: number | null
+  status: string
+  imagens: { url: string; public_id: string }[]
+}
+
 function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }
@@ -146,31 +161,41 @@ function inputCls(erro: boolean) {
 
 interface NovoProdutoFormProps {
   role: Role
+  produto?: ProdutoParaEditar
+  modo?: "criar" | "editar"
 }
 
-export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
+export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFormProps) {
   const router = useRouter()
   const isMaster = role === "master"
+  const isEdicao = modo === "editar"
 
   const [submetido, setSubmetido] = useState(false)
   const [salvando, setSalvando] = useState<"rascunho" | "pendente" | "publicado" | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
 
-  // Campos comuns
-  const [tipo, setTipo] = useState<TipoProduto>(null)
-  const [nome, setNome] = useState("")
-  const [specs, setSpecs] = useState("")
-  const [descricao, setDescricao] = useState("")
-  const [imagens, setImagens] = useState<ImagemSalva[]>([])
-  const [categoria, setCategoria] = useState("")
-  const [estoque, setEstoque] = useState("")
+  // Campos comuns — inicializados com dados existentes no modo edição
+  const [tipo, setTipo] = useState<TipoProduto>(produto?.tipo ?? null)
+  const [nome, setNome] = useState(produto?.nome ?? "")
+  const [specs, setSpecs] = useState(produto?.specs_tecnicas?.texto ?? "")
+  const [descricao, setDescricao] = useState(produto?.descricao ?? "")
+  const [imagens, setImagens] = useState<ImagemSalva[]>(produto?.imagens ?? [])
+  const [categoria, setCategoria] = useState(produto?.categoria ?? "")
+  const [estoque, setEstoque] = useState(produto?.estoque != null ? String(produto.estoque) : "")
 
   // Tipo A
-  const [precoMLFormatado, setPrecoMLFormatado] = useState("")
-  const [urlML, setUrlML] = useState("")
+  const [precoMLFormatado, setPrecoMLFormatado] = useState(() => {
+    if (produto?.preco_ml != null) {
+      return produto.preco_ml.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+    return ""
+  })
+  const [urlML, setUrlML] = useState(produto?.url_ml ?? "")
 
   // Tipo B
-  const [quantidadeLote, setQuantidadeLote] = useState("")
+  const [quantidadeLote, setQuantidadeLote] = useState(
+    produto?.quantidade_lote != null ? String(produto.quantidade_lote) : ""
+  )
 
   // ── Derivados ──
   const precoMLNum = parseMoeda(precoMLFormatado)
@@ -239,8 +264,13 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
         body.quantidade = parseInt(quantidadeLote, 10)
       }
 
-      const res = await fetch("/api/admin/produtos", {
-        method: "POST",
+      const url = isEdicao
+        ? `/api/admin/produtos/${produto!.id}`
+        : "/api/admin/produtos"
+      const method = isEdicao ? "PUT" : "POST"
+
+      const res = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
@@ -255,17 +285,23 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
         return
       }
 
-      const statusLabel: Record<string, string> = {
-        rascunho: "salvo como rascunho",
-        pendente: "enviado para aprovação",
-        publicado: "publicado com sucesso",
+      if (isEdicao) {
+        const msg = json.data.pendente_aprovacao
+          ? "Alterações enviadas para aprovação!"
+          : "Produto atualizado com sucesso!"
+        setToast({ tipo: "sucesso", mensagem: msg, slug: json.data.slug })
+      } else {
+        const statusLabel: Record<string, string> = {
+          rascunho: "salvo como rascunho",
+          pendente: "enviado para aprovação",
+          publicado: "publicado com sucesso",
+        }
+        setToast({
+          tipo: "sucesso",
+          mensagem: `Produto ${statusLabel[json.data.status] ?? "salvo"}!`,
+          slug: json.data.slug,
+        })
       }
-
-      setToast({
-        tipo: "sucesso",
-        mensagem: `Produto ${statusLabel[json.data.status] ?? "salvo"}!`,
-        slug: json.data.slug,
-      })
 
       setTimeout(() => router.push("/admin/produtos"), 2000)
     } catch {
@@ -291,7 +327,7 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
 
           {/* ── Coluna esquerda — upload ── */}
           <div className="flex flex-col gap-2">
-            <ImageUploadZone onChange={setImagens} />
+            <ImageUploadZone onChange={setImagens} initialImages={produto?.imagens} />
             {erros.imagens && (
               <p className="text-xs text-red-600" role="alert">{erros.imagens}</p>
             )}
@@ -343,7 +379,7 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
         </div>
 
         {/* ── Descrição Comercial ── */}
-        <RichTextEditor onChange={setDescricao} nome={nome} specs={specs} />
+        <RichTextEditor onChange={setDescricao} initialContent={produto?.descricao ?? undefined} nome={nome} specs={specs} />
         {erros.descricao && (
           <p className="-mt-6 text-xs text-red-600" role="alert">{erros.descricao}</p>
         )}
@@ -640,8 +676,8 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
               )}
             >
               {salvando === "publicado"
-                ? <><Loader2 className="h-4 w-4 animate-spin" /> Publicando...</>
-                : "Publicar Produto"
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
+                : isEdicao ? "Salvar Alterações" : "Publicar Produto"
               }
             </button>
           ) : (
@@ -658,7 +694,7 @@ export function NovoProdutoForm({ role }: NovoProdutoFormProps) {
             >
               {salvando === "pendente"
                 ? <><Loader2 className="h-4 w-4 animate-spin" /> Enviando...</>
-                : "Enviar para Aprovação"
+                : isEdicao ? "Enviar Alterações" : "Enviar para Aprovação"
               }
             </button>
           )}
