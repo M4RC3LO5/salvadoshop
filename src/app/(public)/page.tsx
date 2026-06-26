@@ -1,86 +1,70 @@
+import { createClient } from "@/lib/supabase/server"
 import { Hero } from "@/components/shared/Hero"
-import { CardProdutoTipoA, type ProdutoTipoA } from "@/components/produto/CardProdutoTipoA"
-import { CardProdutoTipoB, type ProdutoTipoB } from "@/components/produto/CardProdutoTipoB"
+import { VitrineCliente } from "@/components/produto/VitrineCliente"
 
-const produtosExemplo: ProdutoTipoA[] = [
-  {
-    id: "1",
-    slug: "notebook-dell-inspiron-15",
-    nome: "Notebook Dell Inspiron 15 — Core i5, 8GB RAM, 256GB SSD",
-    estado: "Bom",
-    precoML: 2499.90,
-  },
-  {
-    id: "2",
-    slug: "smartphone-samsung-galaxy-a54",
-    nome: "Smartphone Samsung Galaxy A54 5G 128GB Azul",
-    estado: "Regular",
-    precoML: 1199.00,
-  },
-  {
-    id: "3",
-    slug: "tv-lg-50-4k",
-    nome: 'Smart TV LG 50" 4K UHD LED com ThinQ AI e WebOS',
-    estado: "Bom",
-    precoML: 3299.00,
-  },
-]
+// ── Tipo interno da query ─────────────────────────────────────────────────────
 
-const lotesExemplo: ProdutoTipoB[] = [
-  {
-    id: "L1",
-    slug: "lote-smartphones-variados",
-    nome: "Lote Smartphones Variados — Diversas Marcas e Modelos",
-    quantidade: 50,
-    unidade: "unidades",
-  },
-  {
-    id: "L2",
-    slug: "lote-eletrodomesticos-sinistrados",
-    nome: "Lote Eletrodomésticos Sinistrados — Geladeiras, Fogões e Micro-ondas",
-    quantidade: 20,
-    unidade: "peças",
-  },
-]
+export interface ProdutoPublico {
+  id: string
+  slug: string
+  nome: string
+  tipo: "tipo_a" | "tipo_b"
+  categoria: string | null
+  preco_ml: number | null
+  quantidade_lote: number | null
+  sinistro: string | null
+  imagem_url: string | null
+}
 
-export default function Home() {
+// ── Busca produtos publicados com primeira imagem ─────────────────────────────
+
+async function buscarProdutos(): Promise<ProdutoPublico[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("produtos")
+    .select(`
+      id,
+      slug,
+      nome,
+      tipo,
+      categoria,
+      preco_ml,
+      quantidade_lote,
+      sinistro,
+      produto_imagens!left (url_cloudinary, ordem)
+    `)
+    .eq("status", "publicado")
+    .order("created_at", { ascending: false })
+
+  if (error || !data) return []
+
+  return data.map((p) => {
+    const imagens = (p.produto_imagens ?? []) as { url_cloudinary: string; ordem: number }[]
+    const principal = imagens.sort((a, b) => a.ordem - b.ordem)[0]
+    return {
+      id: p.id,
+      slug: p.slug,
+      nome: p.nome,
+      tipo: p.tipo,
+      categoria: p.categoria,
+      preco_ml: p.preco_ml ? Number(p.preco_ml) : null,
+      quantidade_lote: p.quantidade_lote,
+      sinistro: p.sinistro,
+      imagem_url: principal?.url_cloudinary ?? null,
+    }
+  })
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
+
+export default async function Home() {
+  const produtos = await buscarProdutos()
+
   return (
     <>
       <Hero />
-
-      {/* Vitrine — produtos Tipo A */}
-      <section id="catalogo" className="bg-white py-12">
-        <div className="container">
-          <div className="flex flex-col gap-2 mb-8">
-            <h2 className="text-2xl font-bold text-marrom-800">Produtos em Destaque</h2>
-            <p className="text-marrom-500 text-sm">
-              Compre pelo site e economize 18% em relação ao Mercado Livre.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {produtosExemplo.map((produto) => (
-              <CardProdutoTipoA key={produto.id} produto={produto} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Lotes — Tipo B */}
-      <section id="lotes" className="bg-zinc-50 py-12">
-        <div className="container">
-          <div className="flex flex-col gap-2 mb-8">
-            <h2 className="text-2xl font-bold text-marrom-800">Lotes para Revendedores</h2>
-            <p className="text-marrom-500 text-sm">
-              Quantidade fixa, negociação direta. Ideal para lojas, investidores e revendedores.
-            </p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {lotesExemplo.map((lote) => (
-              <CardProdutoTipoB key={lote.id} produto={lote} />
-            ))}
-          </div>
-        </div>
-      </section>
+      <VitrineCliente produtos={produtos} />
     </>
   )
 }
