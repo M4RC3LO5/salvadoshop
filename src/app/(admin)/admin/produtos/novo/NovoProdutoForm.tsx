@@ -119,7 +119,7 @@ export function NovoProdutoForm() {
       </div>
 
       {/* ── Descrição Comercial (Rich Text) ── */}
-      <RichTextEditor onChange={setDescricao} />
+      <RichTextEditor onChange={setDescricao} nome={nome} specs={specs} />
 
       {/* ── Seletor de tipo ── */}
       <div className="flex flex-col gap-3">

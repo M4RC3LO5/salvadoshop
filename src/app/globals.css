@@ -58,6 +58,12 @@
   }
 }
 
+/* ── Animações ─────────────────────────────────────────────────────────────── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
 /* ── Tiptap editor ─────────────────────────────────────────────────────────── */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
