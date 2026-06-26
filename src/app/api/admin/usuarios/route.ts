@@ -114,9 +114,10 @@ export async function POST(request: NextRequest) {
   })
 
   if (authError || !authData.user) {
+    console.error("[usuarios/POST] authError:", authError)
     const msg = authError?.message?.includes("already registered")
       ? "Este e-mail já está cadastrado."
-      : "Erro ao criar usuário na autenticação."
+      : `Erro ao criar usuário: ${authError?.message ?? "desconhecido"}`
     return Response.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: msg } },
       { status: 400 }
