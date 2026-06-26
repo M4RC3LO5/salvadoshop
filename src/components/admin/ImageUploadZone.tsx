@@ -244,7 +244,7 @@ export function ImageUploadZone({ onChange }: ImageUploadZoneProps) {
                     type="button"
                     onClick={() => setEditando(item as ImagemUpload)}
                     aria-label="Editar imagem"
-                    className="group h-full w-full overflow-hidden rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    className="group relative h-full w-full overflow-hidden rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <Image
                       src={(item as ImagemUpload).url}
