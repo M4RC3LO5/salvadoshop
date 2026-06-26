@@ -54,7 +54,7 @@ export default async function NovoProdutoPage() {
 
       {/* Formulário */}
       <div className="rounded-2xl border border-stone-200 bg-stone-50 p-6">
-        <NovoProdutoForm />
+        <NovoProdutoForm role={adminUser?.role === "master" ? "master" : "auxiliar"} />
       </div>
 
     </div>
