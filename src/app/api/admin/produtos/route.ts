@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   // Verifica role admin
   const { data: adminUser } = await supabase
     .from("admin_usuarios")
-    .select("role")
+    .select("id, role")
     .eq("user_id", user.id)
     .eq("ativo", true)
     .single()
@@ -158,21 +158,21 @@ export async function POST(request: NextRequest) {
     nome: dados.nome,
     slug,
     descricao: dados.descricao,
-    specs_tecnicas: dados.specs,
+    specs_tecnicas: { texto: dados.specs },
     tipo: dados.tipo,
     categoria: dados.categoria,
     status,
-    criado_por: user.id,
-    ...(status === "publicado" ? { aprovado_por: user.id } : {}),
+    criado_por: adminUser.id,
+    ...(status === "publicado" ? { aprovado_por: adminUser.id } : {}),
   }
 
   if (dados.tipo === "tipo_a") {
     produtoPayload.preco_ml = dados.preco_ml
-    produtoPayload.preco_site = Math.round(dados.preco_ml * 0.82 * 100) / 100
     produtoPayload.url_ml = dados.url_ml
     produtoPayload.estoque = dados.estoque
   } else {
-    produtoPayload.estoque = dados.quantidade
+    produtoPayload.quantidade_lote = dados.quantidade
+    produtoPayload.estoque = 0
   }
 
   // Insere o produto
