@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Package, Layers } from "lucide-react"
+import { Package, Layers, MessageCircle } from "lucide-react"
 import { RichTextEditor } from "@/components/admin/RichTextEditor"
 import { ImageUploadZone } from "@/components/admin/ImageUploadZone"
 
@@ -16,94 +16,208 @@ function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
 }
 
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
+
+const CATEGORIAS = [
+  "Eletrônicos",
+  "Eletrodomésticos",
+  "Móveis",
+  "Veículos",
+  "Ferramentas",
+  "Outros",
+]
+
+// Formata dígitos como moeda BR enquanto o usuário digita
+function formatarMoeda(raw: string): string {
+  const digitos = raw.replace(/\D/g, "")
+  if (!digitos) return ""
+  const centavos = parseInt(digitos, 10)
+  return (centavos / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function parseMoeda(formatted: string): number {
+  const limpo = formatted.replace(/\./g, "").replace(",", ".")
+  return parseFloat(limpo) || 0
+}
+
+function urlMLValida(url: string): boolean {
+  if (!url) return false
+  try {
+    const host = new URL(url).hostname.replace("www.", "")
+    return host === "mercadolivre.com.br" || host === "produto.mercadolivre.com.br"
+  } catch {
+    return false
+  }
+}
+
+// ── Componente de campo reutilizável ─────────────────────────────────────────
+
+interface CampoProps {
+  label: string
+  htmlFor: string
+  obrigatorio?: boolean
+  erro?: string
+  dica?: string
+  children: React.ReactNode
+}
+
+function Campo({ label, htmlFor, obrigatorio, erro, dica, children }: CampoProps) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-stone-700">
+        {label}{obrigatorio && <span className="ml-0.5 text-red-500" aria-hidden="true">*</span>}
+      </label>
+      {children}
+      {erro && <p className="text-xs text-red-600" role="alert">{erro}</p>}
+      {!erro && dica && <p className="text-xs text-stone-400">{dica}</p>}
+    </div>
+  )
+}
+
+function inputCls(erro: boolean) {
+  return cn(
+    "rounded-lg border px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:ring-2",
+    erro
+      ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+      : "border-stone-300 focus:border-amber-700 focus:ring-amber-700/20"
+  )
+}
+
+// ── Formulário principal ──────────────────────────────────────────────────────
+
 export function NovoProdutoForm() {
+  const [submetido, setSubmetido] = useState(false)
+
+  // Campos comuns
   const [tipo, setTipo] = useState<TipoProduto>(null)
-  const [precoML, setPrecoML] = useState<string>("")
-  const [nome, setNome] = useState<string>("")
-  const [specs, setSpecs] = useState<string>("")
-  const [descricao, setDescricao] = useState<string>("")
-  const [quantidade, setQuantidade] = useState<string>("")
+  const [nome, setNome] = useState("")
+  const [specs, setSpecs] = useState("")
+  const [descricao, setDescricao] = useState("")
   const [imagens, setImagens] = useState<ImagemSalva[]>([])
+  const [categoria, setCategoria] = useState("")
+  const [estoque, setEstoque] = useState("")
 
-  const precoMLNum = parseFloat(precoML.replace(",", ".")) || 0
+  // Tipo A
+  const [precoMLFormatado, setPrecoMLFormatado] = useState("")
+  const [urlML, setUrlML] = useState("")
+
+  // Tipo B
+  const [quantidadeLote, setQuantidadeLote] = useState("")
+
+  // ── Derivados ──
+  const precoMLNum = parseMoeda(precoMLFormatado)
   const precoSite = precoMLNum > 0 ? precoMLNum * 0.82 : null
+  const economia = precoMLNum > 0 ? precoMLNum - (precoMLNum * 0.82) : null
 
-  const nomeError = nome.length > 0 && nome.length < 10
+  // ── Erros (só exibe após tentativa de submit) ──
+  const erros = {
+    nome: nome.length > 0 && nome.length < 10
+      ? "Nome deve ter pelo menos 10 caracteres."
+      : submetido && nome.length < 10
+        ? "Nome é obrigatório (mínimo 10 caracteres)."
+        : "",
+    specs: submetido && !specs.trim() ? "Especificações são obrigatórias." : "",
+    descricao: submetido && !descricao.trim() ? "Descrição comercial é obrigatória." : "",
+    tipo: submetido && !tipo ? "Selecione o tipo do produto." : "",
+    imagens: submetido && imagens.length === 0 ? "Adicione ao menos uma imagem." : "",
+    categoria: submetido && !categoria ? "Selecione uma categoria." : "",
+    estoque: submetido && tipo === "tipo_a" && !estoque ? "Informe o estoque disponível." : "",
+    precoML: submetido && tipo === "tipo_a" && precoMLNum <= 0 ? "Informe o preço no Mercado Livre." : "",
+    urlML: submetido && tipo === "tipo_a" && !urlMLValida(urlML)
+      ? "Informe uma URL válida do Mercado Livre (mercadolivre.com.br)."
+      : urlML && !urlMLValida(urlML)
+        ? "A URL deve ser do mercadolivre.com.br"
+        : "",
+    quantidadeLote: submetido && tipo === "tipo_b" && !quantidadeLote
+      ? "Informe a quantidade do lote."
+      : "",
+  }
+
   const formIsValid =
     nome.length >= 10 &&
     specs.trim().length > 0 &&
     descricao.trim().length > 0 &&
     tipo !== null &&
-    imagens.length > 0
+    imagens.length > 0 &&
+    categoria !== "" &&
+    (tipo === "tipo_a"
+      ? precoMLNum > 0 && urlMLValida(urlML) && estoque !== ""
+      : quantidadeLote !== "")
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmetido(true)
+    if (!formIsValid) return
+    // TODO: salvar no Supabase
+  }
 
   return (
-    <form className="flex flex-col gap-8" onSubmit={(e) => e.preventDefault()}>
+    <form className="flex flex-col gap-8" onSubmit={handleSubmit} noValidate>
 
       {/* Layout duas colunas */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
-        {/* ── Coluna esquerda — upload de imagens ── */}
-        <ImageUploadZone onChange={setImagens} />
+        {/* ── Coluna esquerda — upload ── */}
+        <div className="flex flex-col gap-2">
+          <ImageUploadZone onChange={setImagens} />
+          {erros.imagens && (
+            <p className="text-xs text-red-600" role="alert">{erros.imagens}</p>
+          )}
+        </div>
 
-        {/* ── Coluna direita — campos de texto ── */}
+        {/* ── Coluna direita — campos básicos ── */}
         <div className="flex flex-col gap-5">
 
           {/* Nome */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="nome" className="text-sm font-medium text-stone-700">
-              Nome do Produto <span className="text-red-500" aria-hidden="true">*</span>
-            </label>
+          <Campo
+            label="Nome do Produto"
+            htmlFor="nome"
+            obrigatorio
+            erro={erros.nome}
+          >
             <input
               id="nome"
               name="nome"
               type="text"
-              required
-              minLength={10}
               maxLength={200}
               value={nome}
               onChange={(e) => setNome(e.target.value)}
               placeholder='Ex: Smart TV Samsung 55" 4K Crystal UHD'
-              aria-describedby={nomeError ? "nome-error" : undefined}
-              className={cn(
-                "rounded-lg border px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:ring-2",
-                nomeError
-                  ? "border-red-400 focus:border-red-400 focus:ring-red-200"
-                  : "border-stone-300 focus:border-amber-700 focus:ring-amber-700/20"
-              )}
+              className={inputCls(!!erros.nome)}
             />
-            {nomeError && (
-              <p id="nome-error" className="text-xs text-red-600" role="alert">
-                Nome deve ter pelo menos 10 caracteres.
-              </p>
-            )}
             <p className="text-xs text-stone-400">{nome.length}/200 caracteres</p>
-          </div>
+          </Campo>
 
-          {/* Especificações Técnicas */}
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="specs" className="text-sm font-medium text-stone-700">
-              Especificações Técnicas <span className="text-red-500" aria-hidden="true">*</span>
-            </label>
+          {/* Especificações */}
+          <Campo
+            label="Especificações Técnicas"
+            htmlFor="specs"
+            obrigatorio
+            erro={erros.specs}
+            dica="Campo livre — descreva as especificações relevantes para o comprador."
+          >
             <textarea
               id="specs"
               name="specs"
-              required
               rows={4}
               value={specs}
               onChange={(e) => setSpecs(e.target.value)}
               placeholder="Bateria 40h, Bluetooth 5.3, cancelamento de ruído, tela AMOLED 6.7'', 256GB armazenamento..."
-              className="resize-y rounded-lg border border-stone-300 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+              className={cn("resize-y", inputCls(!!erros.specs))}
             />
-            <p className="text-xs text-stone-400">
-              Campo livre — descreva as especificações relevantes para o comprador.
-            </p>
-          </div>
+          </Campo>
 
         </div>
       </div>
 
-      {/* ── Descrição Comercial (Rich Text) ── */}
+      {/* ── Descrição Comercial ── */}
       <RichTextEditor onChange={setDescricao} nome={nome} specs={specs} />
+      {erros.descricao && (
+        <p className="-mt-6 text-xs text-red-600" role="alert">{erros.descricao}</p>
+      )}
 
       {/* ── Seletor de tipo ── */}
       <div className="flex flex-col gap-3">
@@ -111,7 +225,6 @@ export function NovoProdutoForm() {
           Tipo de Produto <span className="text-red-500" aria-hidden="true">*</span>
         </span>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-
           {/* Tipo A */}
           <button
             type="button"
@@ -167,86 +280,193 @@ export function NovoProdutoForm() {
               </p>
             </div>
           </button>
-
         </div>
+        {erros.tipo && <p className="text-xs text-red-600" role="alert">{erros.tipo}</p>}
       </div>
 
-      {/* ── Campos condicionais ── */}
+      {/* ── Campos condicionais — Tipo A ── */}
       {tipo === "tipo_a" && (
         <div className="flex flex-col gap-5 rounded-xl border border-stone-200 bg-white p-5">
           <h3 className="text-sm font-semibold text-stone-700">
             Precificação — Produto Individual
           </h3>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="preco_ml" className="text-sm font-medium text-stone-700">
-                Preço no Mercado Livre (R$) <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
+
+            {/* Preço ML */}
+            <Campo
+              label="Preço no Mercado Livre"
+              htmlFor="preco_ml"
+              obrigatorio
+              erro={erros.precoML}
+            >
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">R$</span>
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                  R$
+                </span>
                 <input
                   id="preco_ml"
                   name="preco_ml"
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  required
-                  value={precoML}
-                  onChange={(e) => setPrecoML(e.target.value)}
+                  type="text"
+                  inputMode="numeric"
+                  value={precoMLFormatado}
+                  onChange={(e) => setPrecoMLFormatado(formatarMoeda(e.target.value))}
                   placeholder="0,00"
-                  className="w-full rounded-lg border border-stone-300 py-2.5 pl-9 pr-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                  className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoML))}
                 />
               </div>
-            </div>
+            </Campo>
+
+            {/* Preço Site (readonly) */}
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-medium text-stone-700">Preço no Site (−18% automático)</span>
-              <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+              <div className={cn(
+                "flex min-h-[42px] items-center gap-2 rounded-lg border px-3 py-2.5",
+                precoSite !== null
+                  ? "border-green-200 bg-green-50"
+                  : "border-stone-200 bg-stone-50"
+              )}>
                 {precoSite !== null ? (
-                  <>
-                    <span className="text-lg font-bold text-green-700">
-                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(precoSite)}
-                    </span>
-                    <span className="text-xs text-green-600">(calculado automaticamente)</span>
-                  </>
+                  <span className="text-lg font-bold text-green-700">{BRL.format(precoSite)}</span>
                 ) : (
                   <span className="text-sm text-stone-400">Informe o preço ML para calcular</span>
                 )}
               </div>
-              <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82 — gerado pelo banco de dados</p>
+              {economia !== null && (
+                <p className="text-xs font-medium text-green-700">
+                  O cliente economiza {BRL.format(economia)} comprando pelo site
+                </p>
+              )}
+              {!economia && (
+                <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82</p>
+              )}
+            </div>
+          </div>
+
+          {/* URL do ML */}
+          <Campo
+            label="URL do produto no Mercado Livre"
+            htmlFor="url_ml"
+            obrigatorio
+            erro={erros.urlML}
+            dica="Cole o link direto do anúncio no Mercado Livre"
+          >
+            <input
+              id="url_ml"
+              name="url_ml"
+              type="url"
+              value={urlML}
+              onChange={(e) => setUrlML(e.target.value)}
+              placeholder="https://www.mercadolivre.com.br/..."
+              className={inputCls(!!erros.urlML)}
+            />
+          </Campo>
+        </div>
+      )}
+
+      {/* ── Campos condicionais — Tipo B ── */}
+      {tipo === "tipo_b" && (
+        <div className="flex flex-col gap-5 rounded-xl border border-stone-200 bg-white p-5">
+          <h3 className="text-sm font-semibold text-stone-700">Detalhes do Lote</h3>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+            {/* Quantidade do lote */}
+            <Campo
+              label="Quantidade de Itens no Lote"
+              htmlFor="quantidade_lote"
+              obrigatorio
+              erro={erros.quantidadeLote}
+              dica="Quantidade fixa — não pode ser alterada pelo comprador."
+            >
+              <div className="relative">
+                <input
+                  id="quantidade_lote"
+                  name="quantidade_lote"
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantidadeLote}
+                  onChange={(e) => setQuantidadeLote(e.target.value)}
+                  placeholder="Ex: 50"
+                  className={cn("w-full pr-20", inputCls(!!erros.quantidadeLote))}
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                  unidades
+                </span>
+              </div>
+            </Campo>
+
+            {/* Preço sob consulta */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-stone-700">Preço</span>
+              <div className="flex min-h-[42px] items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <MessageCircle size={16} className="shrink-0 text-amber-600" aria-hidden="true" />
+                <span className="text-sm font-semibold text-amber-700">
+                  Preço sob consulta — negociação via WhatsApp
+                </span>
+              </div>
+              <p className="text-xs text-stone-400">Sem preço fixo para lotes.</p>
             </div>
           </div>
         </div>
       )}
 
-      {tipo === "tipo_b" && (
+      {/* ── Campos comuns ── */}
+      {tipo !== null && (
         <div className="flex flex-col gap-5 rounded-xl border border-stone-200 bg-white p-5">
-          <h3 className="text-sm font-semibold text-stone-700">Detalhes do Lote</h3>
+          <h3 className="text-sm font-semibold text-stone-700">Informações Adicionais</h3>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="quantidade_lote" className="text-sm font-medium text-stone-700">
-                Quantidade de Itens no Lote <span className="text-red-500" aria-hidden="true">*</span>
-              </label>
-              <input
-                id="quantidade_lote"
-                name="quantidade_lote"
-                type="number"
-                min="1"
-                step="1"
-                required
-                value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
-                placeholder="Ex: 40"
-                className="rounded-lg border border-stone-300 px-3 py-2.5 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
-              />
-              <p className="text-xs text-stone-400">Quantidade fixa — não pode ser alterada pelo comprador.</p>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-medium text-stone-700">Preço</span>
-              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <span className="text-sm font-semibold text-amber-700">Preço sob consulta</span>
-              </div>
-              <p className="text-xs text-stone-400">Negociação via WhatsApp — sem preço fixo para lotes.</p>
-            </div>
+
+            {/* Categoria */}
+            <Campo
+              label="Categoria"
+              htmlFor="categoria"
+              obrigatorio
+              erro={erros.categoria}
+            >
+              <select
+                id="categoria"
+                name="categoria"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                className={inputCls(!!erros.categoria)}
+              >
+                <option value="">Selecione uma categoria</option>
+                {CATEGORIAS.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </Campo>
+
+            {/* Estoque (só Tipo A) */}
+            {tipo === "tipo_a" && (
+              <Campo
+                label="Estoque Disponível"
+                htmlFor="estoque"
+                obrigatorio
+                erro={erros.estoque}
+                dica="Quantidade de unidades disponíveis para venda."
+              >
+                <div className="relative">
+                  <input
+                    id="estoque"
+                    name="estoque"
+                    type="number"
+                    min="0"
+                    step="1"
+                    value={estoque}
+                    onChange={(e) => setEstoque(e.target.value)}
+                    placeholder="Ex: 10"
+                    className={cn("w-full pr-20", inputCls(!!erros.estoque))}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                    unidades
+                  </span>
+                </div>
+              </Campo>
+            )}
           </div>
         </div>
       )}
@@ -261,8 +481,12 @@ export function NovoProdutoForm() {
         </button>
         <button
           type="submit"
-          disabled={!formIsValid}
-          className="rounded-lg bg-amber-700 px-5 py-2.5 text-sm font-semibold text-white transition disabled:opacity-50 disabled:cursor-not-allowed"
+          className={cn(
+            "rounded-lg px-5 py-2.5 text-sm font-semibold text-white transition",
+            formIsValid
+              ? "bg-amber-700 hover:bg-amber-800"
+              : "cursor-not-allowed bg-amber-700 opacity-50"
+          )}
           title={!formIsValid ? "Preencha todos os campos obrigatórios" : undefined}
         >
           Salvar Produto
