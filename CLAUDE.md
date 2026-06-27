@@ -474,5 +474,97 @@ RESEND_API_KEY=
 
 ---
 
+## 16. PAGAMENTOS — DECISÕES ARQUITETURAIS
+
+### 16.1 Stripe (Cartão)
+
+- Conta gratuita — cobrança apenas por transação (3,99% + R$ 0,39 nacional)
+- **NUNCA** armazenar dados de cartão — sempre via Stripe Checkout hosted ou Stripe Elements
+- Webhooks validados com `stripe.webhooks.constructEvent()` SEMPRE
+- Em desenvolvimento: usar Stripe CLI para receber webhooks localmente (`stripe listen --forward-to localhost:3000/api/webhook/stripe`)
+- Stripe **não suporta Pix no Brasil** — usar Mercado Pago para Pix
+
+### 16.2 Mercado Pago (Pix)
+
+- Usado exclusivamente para pagamentos via Pix
+- Conta atual: conta pessoal do Marcelo (m4rc3lo5@gmail.com) — uso temporário durante desenvolvimento
+- Webhooks do MP validados com header `x-signature` SEMPRE
+- Polling de status a cada 5 segundos enquanto aguarda confirmação do Pix
+
+### 16.3 Modelo Multi-vendedor (Fase Futura)
+
+O sistema foi projetado para suportar múltiplos vendedores no futuro (ex: produtos do Marcelo + produtos do sogro com contas MP e Stripe separadas).
+
+**Arquitetura preparada — tabela `configuracoes_loja`:**
+
+```sql
+configuracoes_loja (
+  id            UUID PRIMARY KEY,
+  nome_loja     TEXT NOT NULL,
+  whatsapp      TEXT,
+  mp_access_token    TEXT,  -- token MP do vendedor (server-only, nunca expor)
+  stripe_account_id  TEXT,  -- conta Stripe do vendedor
+  ml_url_loja        TEXT,  -- URL da loja no Mercado Livre
+  ativo         BOOLEAN DEFAULT true,
+  created_at    TIMESTAMPTZ DEFAULT now()
+)
+```
+
+Cada produto terá um campo `loja_id` associado. Por enquanto todos os produtos usam a configuração padrão (loja única). A UI de seleção de loja por produto será implementada na Fase 4.
+
+**Regra crítica:** `mp_access_token` e `stripe_account_id` são SEMPRE server-only — NUNCA expor no frontend.
+
+### 16.4 Fluxo de pagamento Pix
+
+```
+Cliente escolhe Pix no checkout
+→ API Route cria cobrança no Mercado Pago
+→ Exibe QR Code + código copia-e-cola
+→ Polling a cada 5s verifica status
+→ Webhook MP confirma pagamento
+→ Cria pedido no banco
+→ Atualiza estoque (decrementa quantidade)
+→ Envia email de confirmação (Resend)
+→ Redireciona para /checkout/sucesso
+```
+
+### 16.5 Fluxo de pagamento Cartão
+
+```
+Cliente escolhe Cartão no checkout
+→ API Route cria Stripe Checkout Session
+→ Redireciona para página hosted do Stripe
+→ Cliente paga no ambiente seguro do Stripe
+→ Stripe redireciona para /checkout/sucesso ou /checkout/falha
+→ Webhook Stripe confirma pagamento
+→ Cria pedido no banco
+→ Atualiza estoque
+→ Envia email de confirmação (Resend)
+```
+
+---
+
+## 17. VARIÁVEIS DE AMBIENTE — FASE 3 (PAGAMENTOS)
+
+Adicionar ao `.env.local` e configurar no Vercel:
+
+```bash
+# Stripe
+STRIPE_SECRET_KEY=sk_live_...          # NUNCA expor no frontend
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Mercado Pago
+MERCADOPAGO_ACCESS_TOKEN=APP_USR-...   # NUNCA expor no frontend
+
+# URLs de retorno (Stripe e MP precisam de URLs absolutas)
+NEXT_PUBLIC_APP_URL=https://salvadoshop.com.br  # produção
+# Em dev: http://localhost:3000
+```
+
+**Em desenvolvimento:** usar chaves de teste do Stripe (`sk_test_...` e `pk_test_...`) e sandbox do Mercado Pago.
+
+---
+
 *Última atualização: Junho 2026*
-*Versão: 1.0*
+*Versão: 2.0*
