@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import type { ProdutoTipoA } from "./CardProdutoTipoA"
+import { useCarrinho } from "@/contexts/CarrinhoContext"
 
 interface PopupCompraTipoAProps {
   produto: ProdutoTipoA
@@ -13,6 +14,9 @@ function formatarPreco(valor: number) {
 }
 
 export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
+  const { adicionar } = useCarrinho()
+  const [toastVisivel, setToastVisivel] = useState(false)
+
   const precoSite = produto.precoML * 0.82
   const economia = produto.precoML - precoSite
 
@@ -30,6 +34,22 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
     document.body.style.overflow = "hidden"
     return () => { document.body.style.overflow = "" }
   }, [])
+
+  function handleComprarAqui() {
+    adicionar({
+      produto_id: produto.id,
+      nome: produto.nome,
+      preco_site: precoSite,
+      preco_ml: produto.precoML,
+      url_ml: produto.urlML,
+      imagem: produto.imagemUrl,
+    })
+    setToastVisivel(true)
+    setTimeout(() => {
+      setToastVisivel(false)
+      onFechar()
+    }, 1500)
+  }
 
   return (
     <div
@@ -118,13 +138,20 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
               </p>
             </div>
             <button
-              onClick={() => {
-                // TODO: implementar fluxo de checkout interno (Pix ou Cartão)
-                alert("Fluxo de checkout será implementado em breve!")
-              }}
-              className="w-full inline-flex items-center justify-center bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
+              onClick={handleComprarAqui}
+              disabled={toastVisivel}
+              className="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:bg-green-500 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
             >
-              Comprar aqui
+              {toastVisivel ? (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Adicionado!
+                </>
+              ) : (
+                "Comprar aqui"
+              )}
             </button>
           </div>
 
@@ -135,6 +162,20 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
           🔒 Pagamentos processados com segurança via Stripe e Mercado Pago
         </p>
       </div>
+
+      {/* Toast */}
+      {toastVisivel && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] flex items-center gap-2 bg-green-700 text-white text-sm font-semibold px-5 py-3 rounded-full shadow-lg animate-in fade-in slide-in-from-bottom-4 duration-200"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Produto adicionado ao carrinho!
+        </div>
+      )}
     </div>
   )
 }

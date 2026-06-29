@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useCarrinho } from "@/contexts/CarrinhoContext"
 
 const navLinks = [
   { href: "/", label: "Catálogo" },
@@ -11,6 +12,7 @@ const navLinks = [
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false)
+  const { totalItens } = useCarrinho()
 
   return (
     <header className="bg-marrom-700 text-white shadow-md">
@@ -40,8 +42,8 @@ export function Header() {
           {/* Botão Carrinho */}
           <Link
             href="/carrinho"
-            aria-label="Ver carrinho"
-            className="flex items-center gap-2 bg-ambar-500 hover:bg-ambar-600 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors"
+            aria-label={`Ver carrinho${totalItens > 0 ? ` — ${totalItens} ${totalItens === 1 ? "item" : "itens"}` : ""}`}
+            className="relative flex items-center gap-2 bg-ambar-500 hover:bg-ambar-600 text-white text-sm font-semibold px-4 py-2 rounded-md transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -60,6 +62,16 @@ export function Header() {
               <path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
             </svg>
             <span className="hidden sm:inline">Carrinho</span>
+
+            {/* Badge contador */}
+            {totalItens > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute -top-2 -right-2 min-w-[20px] h-5 flex items-center justify-center bg-white text-ambar-700 text-[11px] font-bold rounded-full px-1 shadow"
+              >
+                {totalItens > 99 ? "99+" : totalItens}
+              </span>
+            )}
           </Link>
 
           {/* Botão hamburguer — mobile */}
