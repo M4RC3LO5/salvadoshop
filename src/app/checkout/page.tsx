@@ -87,6 +87,10 @@ export default function PaginaCheckout() {
   const [cidade, setCidade] = useState("")
   const [uf, setUf] = useState("")
 
+  // Envio do pedido
+  const [enviando, setEnviando] = useState(false)
+  const [erroPagamento, setErroPagamento] = useState("")
+
   // CPF
   const cpfDigitos = cpf.replace(/\D/g, "")
   const cpfCompleto = cpfDigitos.length === 11
@@ -131,6 +135,49 @@ export default function PaginaCheckout() {
       setBuscandoCep(false)
     }
   }
+
+  async function handleContinuar() {
+    if (metodoPagamento === "cartao") {
+      setEnviando(true)
+      setErroPagamento("")
+
+      try {
+        const res = await fetch("/api/checkout/stripe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: crypto.randomUUID(),
+            itens: itens.map((item) => ({
+              produto_id: item.produto_id,
+              nome: item.nome,
+              preco_site: item.preco_site,
+              quantidade: item.quantidade,
+            })),
+            customerEmail: email || undefined,
+          }),
+        })
+
+        const json = await res.json() as {
+          success: boolean
+          data?: { url: string }
+          error?: { message: string }
+        }
+
+        if (!json.success || !json.data) {
+          setErroPagamento(json.error?.message ?? "Não foi possível iniciar o pagamento. Tente novamente.")
+          setEnviando(false)
+          return
+        }
+
+        window.location.href = json.data.url
+      } catch {
+        setErroPagamento("Erro de conexão. Verifique sua internet e tente novamente.")
+        setEnviando(false)
+      }
+    }
+  }
+
+  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && !enviando
 
   return (
     <div className="container py-8 px-4 max-w-2xl mx-auto">
@@ -506,12 +553,23 @@ export default function PaginaCheckout() {
       </div>
 
       {/* Rodapé */}
-      <div className="mt-6">
+      <div className="mt-6 flex flex-col gap-3">
+        {erroPagamento && (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3" role="alert">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 shrink-0 mt-0.5" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+            <p className="text-sm text-red-700 font-semibold">{erroPagamento}</p>
+          </div>
+        )}
+
         <button
-          disabled
-          className="w-full bg-green-600 text-white text-sm font-bold py-3.5 rounded-xl opacity-40 cursor-not-allowed"
+          type="button"
+          onClick={handleContinuar}
+          disabled={!podeContinuar}
+          className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-bold py-3.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Continuar
+          {enviando ? "Redirecionando para pagamento…" : "Continuar"}
         </button>
       </div>
     </div>
