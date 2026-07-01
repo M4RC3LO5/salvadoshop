@@ -1,5 +1,6 @@
 import Link from "next/link"
 import Stripe from "stripe"
+import { LimpaCarrinhoNoSucesso } from "./LimpaCarrinhoNoSucesso"
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -31,6 +32,7 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
   if (pago) {
     return (
       <div className="container py-8 px-4 max-w-lg mx-auto">
+        <LimpaCarrinhoNoSucesso />
         <div className="flex flex-col items-center text-center gap-6 py-8">
           <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-green-600" aria-hidden="true">
