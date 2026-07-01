@@ -26,24 +26,37 @@ const CarrinhoContext = createContext<CarrinhoContextValue | null>(null)
 
 const CHAVE_LOCAL_STORAGE = "salvadoshop_carrinho"
 
+function lerCarrinhoInicial(): ItemCarrinho[] {
+  // No servidor não há localStorage — inicia vazio (o `carregado` abaixo
+  // garante que o valor exposto só passa a refletir o localStorage após o
+  // mount, evitando mismatch de hidratação SSR/CSR).
+  if (typeof window === "undefined") return []
+  try {
+    const salvo = window.localStorage.getItem(CHAVE_LOCAL_STORAGE)
+    return salvo ? JSON.parse(salvo) : []
+  } catch {
+    // localStorage indisponível ou JSON inválido — ignorar silenciosamente
+    return []
+  }
+}
+
 export function CarrinhoProvider({ children }: { children: React.ReactNode }) {
-  const [itens, setItens] = useState<ItemCarrinho[]>([])
+  // Leitura do valor inicial via lazy initializer: o estado já nasce com o
+  // conteúdo do localStorage na primeira renderização client-side. Não há mais
+  // um useEffect de hidratação que releia o localStorage depois do mount — era
+  // essa segunda leitura tardia que podia sobrescrever um limpar() disparado
+  // por um componente filho (ex: LimpaCarrinhoNoSucesso) montado na mesma leva.
+  const [itens, setItens] = useState<ItemCarrinho[]>(lerCarrinhoInicial)
   const [carregado, setCarregado] = useState(false)
 
-  // Hidratar do localStorage após mount (evita hydration mismatch)
+  // Marca o mount client-side. Serve só para (a) alinhar o valor exposto entre
+  // SSR e a primeira renderização do cliente e (b) impedir que o efeito de
+  // persistência grave antes do mount.
   useEffect(() => {
-    try {
-      const salvo = localStorage.getItem(CHAVE_LOCAL_STORAGE)
-      if (salvo) {
-        setItens(JSON.parse(salvo))
-      }
-    } catch {
-      // localStorage indisponível ou JSON inválido — ignorar silenciosamente
-    }
     setCarregado(true)
   }, [])
 
-  // Persistir no localStorage a cada mudança
+  // Persistir no localStorage a cada mudança (somente após o mount)
   useEffect(() => {
     if (!carregado) return
     try {
@@ -82,12 +95,16 @@ export function CarrinhoProvider({ children }: { children: React.ReactNode }) {
     setItens([])
   }, [])
 
-  const totalItens = itens.reduce((acc, i) => acc + i.quantidade, 0)
-  const subtotal = itens.reduce((acc, i) => acc + i.preco_site * i.quantidade, 0)
+  // Valor exposto: antes do mount client-side, expõe vazio para bater com o
+  // HTML do SSR (evita mismatch). Após o mount, reflete o estado real — que já
+  // foi lido do localStorage pelo lazy initializer, sem releitura tardia.
+  const itensVisiveis = carregado ? itens : []
+  const totalItens = itensVisiveis.reduce((acc, i) => acc + i.quantidade, 0)
+  const subtotal = itensVisiveis.reduce((acc, i) => acc + i.preco_site * i.quantidade, 0)
 
   return (
     <CarrinhoContext.Provider
-      value={{ itens, totalItens, subtotal, adicionar, remover, atualizarQuantidade, limpar }}
+      value={{ itens: itensVisiveis, totalItens, subtotal, adicionar, remover, atualizarQuantidade, limpar }}
     >
       {children}
     </CarrinhoContext.Provider>
