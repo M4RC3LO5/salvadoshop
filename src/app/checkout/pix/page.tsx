@@ -172,7 +172,7 @@ function PaginaPix() {
               </span>
               <div className="pt-0.5">
                 <p className="text-sm font-semibold text-zinc-800">Acesse a área Pix</p>
-                <p className="text-xs text-zinc-500 mt-0.5">Escolha "Pagar" ou "Ler QR Code"</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Escolha &quot;Pagar&quot; ou &quot;Ler QR Code&quot;</p>
               </div>
             </li>
 
