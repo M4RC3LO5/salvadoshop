@@ -149,10 +149,9 @@ export default function PaginaCheckout() {
             orderId: crypto.randomUUID(),
             itens: itens.map((item) => ({
               produto_id: item.produto_id,
-              nome: item.nome,
-              preco_site: item.preco_site,
               quantidade: item.quantidade,
             })),
+            enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
             customerEmail: email || undefined,
           }),
         })
@@ -177,7 +176,8 @@ export default function PaginaCheckout() {
     }
   }
 
-  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && !enviando
+  const enderecoCompleto = Boolean(cepEndereco && rua && numero && bairro && cidade && uf)
+  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && enderecoCompleto && !enviando
 
   return (
     <div className="container py-8 px-4 max-w-2xl mx-auto">
@@ -561,6 +561,10 @@ export default function PaginaCheckout() {
             </svg>
             <p className="text-sm text-red-700 font-semibold">{erroPagamento}</p>
           </div>
+        )}
+
+        {metodoPagamento === "cartao" && !enderecoCompleto && (
+          <p className="text-xs text-zinc-400 text-center">Preencha o endereço de entrega para continuar.</p>
         )}
 
         <button

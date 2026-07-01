@@ -566,5 +566,23 @@ NEXT_PUBLIC_APP_URL=https://salvadoshop.com.br  # produção
 
 ---
 
-*Última atualização: Junho 2026*
-*Versão: 2.0*
+## 18. DECISÕES PENDENTES
+
+### 18.1 RESOLVIDA — Quando o pedido é criado no Supabase (Bloco 6, item 29)
+
+**Decisão:** o pedido (`pedidos` + `pedido_itens`) é criado no Supabase **antes** do checkout — ao clicar em "Continuar" na página `/checkout`, dentro da rota `POST /api/checkout/stripe` — e não dentro do webhook. O webhook (`/api/webhook/stripe`) apenas **atualiza** o status do pedido existente para `pago` ao receber `checkout.session.completed`; ele nunca cria um pedido novo.
+
+A baixa de estoque acontece no mesmo momento (antes do checkout), de forma atômica, via a função `criar_pedido_com_estoque` (`src/lib/supabase/migrations/004_rpc_pedido_estoque.sql`). Se o estoque for insuficiente para qualquer item, a função lança exceção, a transação inteira é revertida (nenhum pedido é criado, nenhum estoque é decrementado) e o cliente recebe o erro **antes** de pagar. O preço unitário também é lido de `produtos.preco_site` dentro da função — nunca aceito do cliente — para impedir manipulação de preço.
+
+**Ainda não implementado (fora do escopo do item 29):** estorno/reversão de estoque quando o pagamento falha ou a sessão do Stripe expira sem conclusão (o pedido fica em `aguardando_pagamento` com o estoque já debitado). Isso deve virar um item futuro do checklist.
+
+### 18.2 ABERTA — Identidade do cliente no checkout sem conta (guest checkout)
+
+A tabela `pedidos.cliente_id` é `UUID NOT NULL` com FK para `auth.users.id`, e a RLS de INSERT exige `cliente_id = auth.uid()`. Como o cadastro/login de cliente (`app/(public)/conta/`) ainda não foi implementado, a rota `POST /api/checkout/stripe` usa **Supabase Anonymous Sign-in** (`supabase.auth.signInAnonymously()`) para garantir uma sessão válida antes de criar o pedido — o comprador convidado vira um usuário anônimo real do Supabase Auth, que pode futuramente ser convertido em conta completa sem perder o histórico de pedidos.
+
+**Ação necessária, fora do código:** habilitar "Allow anonymous sign-ins" no Supabase Dashboard → Authentication → Sign In / Providers do projeto `salvadoshop`. Sem isso, `signInAnonymously()` falha com `"Anonymous sign-ins are disabled"` e o checkout com cartão retorna `AUTH_REQUIRED`. Confirmado em teste local nesta sessão — a lógica de pedido/estoque foi validada diretamente contra o banco (RPC chamada com um `cliente_id` real), mas o fluxo HTTP completo via `/api/checkout/stripe` só funciona de ponta a ponta depois que essa opção for ativada.
+
+---
+
+*Última atualização: Julho 2026*
+*Versão: 2.1*
