@@ -56,8 +56,9 @@ export default function PaginaCheckout() {
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
 
-  // Pagamento
-  const [metodoPagamento, setMetodoPagamento] = useState<"pix" | "cartao" | null>(null)
+  // Pagamento — Pix indisponível neste bloco; Cartão é a única opção,
+  // pré-selecionada. O setter é mantido para reintroduzir Pix no futuro.
+  const [metodoPagamento, setMetodoPagamento] = useState<"cartao">("cartao")
 
   const [cepEndereco, setCepEndereco] = useState("")
   const [buscandoCep, setBuscandoCep] = useState(false)
@@ -72,6 +73,15 @@ export default function PaginaCheckout() {
   // Envio do pedido
   const [enviando, setEnviando] = useState(false)
   const [erroPagamento, setErroPagamento] = useState("")
+
+  // orderId estável por sessão de checkout: gerado uma vez por montagem da
+  // página e reutilizado em todas as tentativas de "Continuar", para que um
+  // retry não gere um novo pedido / debite estoque de novo para o mesmo
+  // carrinho. O guard de window impede que crypto.randomUUID() rode no SSR
+  // (crypto não é global no Node 18); o valor só é usado no cliente, no clique.
+  const [orderId] = useState(() =>
+    typeof window === "undefined" ? "" : crypto.randomUUID()
+  )
 
   // CPF
   const cpfDigitos = cpf.replace(/\D/g, "")
@@ -128,7 +138,7 @@ export default function PaginaCheckout() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            orderId: crypto.randomUUID(),
+            orderId,
             itens: itens.map((item) => ({
               produto_id: item.produto_id,
               quantidade: item.quantidade,
@@ -363,53 +373,6 @@ export default function PaginaCheckout() {
           {/* ── Forma de Pagamento ── */}
           <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
             <h2 className="text-base font-bold text-marrom-800">Forma de Pagamento</h2>
-
-            {/* Toggle Pix / Cartão */}
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setMetodoPagamento("pix")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-colors ${
-                  metodoPagamento === "pix"
-                    ? "border-ambar-500 bg-ambar-50 text-ambar-700"
-                    : "border-zinc-200 text-zinc-600 hover:border-ambar-300"
-                }`}
-                aria-pressed={metodoPagamento === "pix"}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-                </svg>
-                Pix
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setMetodoPagamento("cartao")}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-colors ${
-                  metodoPagamento === "cartao"
-                    ? "border-marrom-600 bg-marrom-50 text-marrom-700"
-                    : "border-zinc-200 text-zinc-600 hover:border-marrom-300"
-                }`}
-                aria-pressed={metodoPagamento === "cartao"}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-                </svg>
-                Cartão de Crédito
-              </button>
-            </div>
-
-            {/* Pix */}
-            {metodoPagamento === "pix" && (
-              <div className="flex items-start gap-3 bg-ambar-50 border border-ambar-200 rounded-xl p-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ambar-600 shrink-0 mt-0.5" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <p className="text-sm text-ambar-800 font-medium">
-                  O QR Code será gerado após confirmar o pedido.
-                </p>
-              </div>
-            )}
 
             {/* Cartão de Crédito — pagamento concluído na página hospedada do Stripe */}
             {metodoPagamento === "cartao" && (
