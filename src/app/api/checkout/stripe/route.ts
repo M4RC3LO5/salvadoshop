@@ -74,6 +74,7 @@ export async function POST(request: NextRequest) {
 
     if (erroPedido) {
       const estoqueInsuficiente = erroPedido.message?.includes('ESTOQUE_INSUFICIENTE')
+      const naoAutorizado = erroPedido.message?.includes('UNAUTHORIZED')
 
       console.error(JSON.stringify({
         event: 'checkout.stripe.erro_criar_pedido',
@@ -81,6 +82,13 @@ export async function POST(request: NextRequest) {
         error: erroPedido.message,
         timestamp: new Date().toISOString(),
       }))
+
+      if (naoAutorizado) {
+        return NextResponse.json(
+          { success: false, error: { code: 'AUTH_REQUIRED', message: 'Não foi possível validar sua sessão. Recarregue a página e tente novamente.' } },
+          { status: 401 }
+        )
+      }
 
       return NextResponse.json(
         {
@@ -139,6 +147,10 @@ export async function POST(request: NextRequest) {
       success_url: `${appUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${appUrl}/checkout/falha`,
       metadata: { orderId },
+      // Expira em 30 min (mínimo permitido pelo Stripe). Ao expirar, o Stripe
+      // emite checkout.session.expired e o webhook estorna o estoque do pedido
+      // não pago. Timestamp Unix em SEGUNDOS.
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
     })
 
     if (!session.url) {

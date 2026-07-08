@@ -98,5 +98,51 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (event.type === 'checkout.session.expired') {
+    const session = event.data.object as Stripe.Checkout.Session
+    const orderId = session.metadata?.orderId
+
+    console.log(JSON.stringify({
+      event: 'webhook.stripe.checkout_session_expired',
+      sessionId: session.id,
+      orderId: orderId ?? null,
+      timestamp: new Date().toISOString(),
+    }))
+
+    if (!orderId) {
+      console.error(JSON.stringify({
+        event: 'webhook.stripe.orderId_ausente',
+        sessionId: session.id,
+        timestamp: new Date().toISOString(),
+      }))
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    const supabase = criarSupabaseAdmin()
+
+    // Estorna o estoque e cancela o pedido, mas SOMENTE se ele ainda estiver
+    // em aguardando_pagamento — a idempotência e a proteção contra corrida com
+    // um pagamento tardio moram dentro da própria RPC (UPDATE condicional).
+    const { error: erroEstorno } = await supabase.rpc('estornar_pedido_estoque', {
+      p_pedido_id: orderId,
+    })
+
+    if (erroEstorno) {
+      console.error(JSON.stringify({
+        event: 'webhook.stripe.erro_estornar_estoque',
+        orderId,
+        error: erroEstorno.message,
+        timestamp: new Date().toISOString(),
+      }))
+    } else {
+      console.log(JSON.stringify({
+        event: 'webhook.stripe.estoque_estornado',
+        orderId,
+        sessionId: session.id,
+        timestamp: new Date().toISOString(),
+      }))
+    }
+  }
+
   return NextResponse.json({ received: true }, { status: 200 })
 }
