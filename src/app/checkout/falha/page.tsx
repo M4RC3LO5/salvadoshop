@@ -1,7 +1,5 @@
 import Link from "next/link"
 
-// TODO: reverter o estoque debitado quando o pagamento falha/expira sem
-// conclusão — fora do escopo do Bloco 6 (ver CLAUDE.md, seção 18.1).
 export default function PaginaCheckoutFalha() {
   return (
     <div className="container py-8 px-4 max-w-lg mx-auto">
