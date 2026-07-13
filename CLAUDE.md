@@ -566,5 +566,75 @@ NEXT_PUBLIC_APP_URL=https://salvadoshop.com.br  # produção
 
 ---
 
-*Última atualização: Junho 2026*
-*Versão: 2.0*
+## 18. DECISÕES PENDENTES
+
+### 18.1 RESOLVIDA — Quando o pedido é criado no Supabase (Bloco 6, item 29)
+
+**Decisão:** o pedido (`pedidos` + `pedido_itens`) é criado no Supabase **antes** do checkout — ao clicar em "Continuar" na página `/checkout`, dentro da rota `POST /api/checkout/stripe` — e não dentro do webhook. O webhook (`/api/webhook/stripe`) apenas **atualiza** o status do pedido existente para `pago` ao receber `checkout.session.completed`; ele nunca cria um pedido novo.
+
+A baixa de estoque acontece no mesmo momento (antes do checkout), de forma atômica, via a função `criar_pedido_com_estoque` (`src/lib/supabase/migrations/004_rpc_pedido_estoque.sql`). Se o estoque for insuficiente para qualquer item, a função lança exceção, a transação inteira é revertida (nenhum pedido é criado, nenhum estoque é decrementado) e o cliente recebe o erro **antes** de pagar. O preço unitário também é lido de `produtos.preco_site` dentro da função — nunca aceito do cliente — para impedir manipulação de preço.
+
+**Estorno implementado (ver 18.4):** a reversão de estoque quando a sessão do Stripe expira sem conclusão foi implementada. O parágrafo original desta nota (que marcava isso como pendência) foi resolvido no fechamento do Bloco 6.
+
+### 18.2 ABERTA — Identidade do cliente no checkout sem conta (guest checkout)
+
+A tabela `pedidos.cliente_id` é `UUID NOT NULL` com FK para `auth.users.id`, e a RLS de INSERT exige `cliente_id = auth.uid()`. Como o cadastro/login de cliente (`app/(public)/conta/`) ainda não foi implementado, a rota `POST /api/checkout/stripe` usa **Supabase Anonymous Sign-in** (`supabase.auth.signInAnonymously()`) para garantir uma sessão válida antes de criar o pedido — o comprador convidado vira um usuário anônimo real do Supabase Auth, que pode futuramente ser convertido em conta completa sem perder o histórico de pedidos.
+
+**Ação necessária, fora do código:** habilitar "Allow anonymous sign-ins" no Supabase Dashboard → Authentication → Sign In / Providers do projeto `salvadoshop`. Sem isso, `signInAnonymously()` falha com `"Anonymous sign-ins are disabled"` e o checkout com cartão retorna `AUTH_REQUIRED`. Confirmado em teste local nesta sessão — a lógica de pedido/estoque foi validada diretamente contra o banco (RPC chamada com um `cliente_id` real), mas o fluxo HTTP completo via `/api/checkout/stripe` só funciona de ponta a ponta depois que essa opção for ativada.
+
+### 18.3 RESOLVIDA — Correções pós-revisão de diff (Bloco 6)
+
+Três correções aplicadas após revisão do diff completo do bloco, todas
+commitadas em `feature/bloco6-item26-stripe-checkout-session`:
+
+1. **Autorização na RPC `criar_pedido_com_estoque`.** A função é
+   `SECURITY DEFINER` e contornava a RLS de INSERT em `pedidos`, permitindo
+   que qualquer usuário autenticado (inclusive sessão anônima) criasse pedido
+   e debitasse estoque em nome de outro `cliente_id` via chamada direta da
+   RPC. Corrigido validando `p_cliente_id` contra `auth.uid()`
+   (`migrations/005_fix_rpc_autorizacao_cliente.sql`), com hardening para
+   barrar também chamadas sem sessão — `auth.uid() IS NULL`
+   (`migrations/006_hardening_rpc_auth_null.sql`). Ambas aplicadas em produção
+   e verificadas diretamente no banco (retorno `UNAUTHORIZED` confirmado).
+
+2. **`orderId` estável no checkout.** Antes gerado a cada clique em
+   "Continuar", o que permitia pedido duplicado / duplo débito de estoque em
+   retry. Agora gerado uma vez por montagem da página (`src/app/checkout/page.tsx`)
+   e reutilizado nas tentativas. Paliativo — a reversão completa de estoque
+   continua pendente (ver 18.1).
+
+3. **Opção Pix ocultada.** Não funcional neste bloco; Cartão de Crédito passa
+   a ser a única forma de pagamento, pré-selecionada. Toggle removido de
+   `src/app/checkout/page.tsx`.
+
+### 18.4 RESOLVIDA — Estorno de estoque para pedidos não pagos (Bloco 6)
+
+Fecha a pendência que estava aberta na 18.1. Quando um pedido é criado (estoque
+debitado) mas o pagamento não se conclui, o estoque é devolvido e o pedido
+cancelado, via a abordagem de expiração da Checkout Session:
+
+- **Expiração curta:** a Checkout Session é criada com `expires_at` de 30 min
+  (mínimo do Stripe) em `src/app/api/checkout/stripe/route.ts`, reduzindo o
+  tempo que o estoque fica retido.
+- **RPC de estorno:** `estornar_pedido_estoque(p_pedido_id)`
+  (`migrations/007_rpc_estornar_estoque.sql`) cancela o pedido e devolve o
+  estoque de cada item, mas **somente** se o pedido ainda estiver em
+  `aguardando_pagamento` (UPDATE condicional). Isso garante idempotência
+  (reentrega do evento não estorna duas vezes) e evita corrida com pagamento
+  tardio (não estorna pedido já `pago`). Status final do pedido estornado:
+  `cancelado`. Sem GRANT — chamada só pelo webhook via service role. Testada
+  diretamente no banco (estorno, idempotência e não-mexer-em-pago verificados).
+- **Webhook:** `checkout.session.expired` em
+  `src/app/api/webhook/stripe/route.ts` extrai o `orderId` do metadata e chama
+  a RPC.
+
+**Pendência de configuração (fora do código):** o evento
+`checkout.session.expired` precisa ser habilitado no endpoint de webhook do
+Stripe (Developers → Webhooks), em ambientes de teste e produção. Sem isso o
+Stripe não entrega o evento e o estorno não dispara. Recomenda-se validar
+ponta a ponta com `stripe trigger checkout.session.expired` (Stripe CLI).
+
+---
+
+*Última atualização: Julho 2026*
+*Versão: 2.3*

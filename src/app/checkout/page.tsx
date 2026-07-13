@@ -28,18 +28,6 @@ function validarCpf(valor: string): boolean {
   return calc(10) === parseInt(d[9]) && calc(11) === parseInt(d[10])
 }
 
-// ─── Cartão helpers ──────────────────────────────────────────────────────────
-
-function mascaraCartao(valor: string): string {
-  const d = valor.replace(/\D/g, "").slice(0, 16)
-  return d.replace(/(.{4})/g, "$1 ").trim()
-}
-
-function mascaraValidade(valor: string): string {
-  const d = valor.replace(/\D/g, "").slice(0, 4)
-  return d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d
-}
-
 // ─── CEP helpers ─────────────────────────────────────────────────────────────
 
 function mascaraCep(valor: string): string {
@@ -68,14 +56,9 @@ export default function PaginaCheckout() {
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
 
-  // Endereço
-  // Pagamento
-  const [metodoPagamento, setMetodoPagamento] = useState<"pix" | "cartao" | null>(null)
-  const [numeroCartao, setNumeroCartao] = useState("")
-  const [nomeCartao, setNomeCartao] = useState("")
-  const [validade, setValidade] = useState("")
-  const [cvv, setCvv] = useState("")
-  const [parcelas, setParcelas] = useState("1")
+  // Pagamento — Pix indisponível neste bloco; Cartão é a única opção,
+  // pré-selecionada. O setter é mantido para reintroduzir Pix no futuro.
+  const [metodoPagamento, setMetodoPagamento] = useState<"cartao">("cartao")
 
   const [cepEndereco, setCepEndereco] = useState("")
   const [buscandoCep, setBuscandoCep] = useState(false)
@@ -86,6 +69,19 @@ export default function PaginaCheckout() {
   const [bairro, setBairro] = useState("")
   const [cidade, setCidade] = useState("")
   const [uf, setUf] = useState("")
+
+  // Envio do pedido
+  const [enviando, setEnviando] = useState(false)
+  const [erroPagamento, setErroPagamento] = useState("")
+
+  // orderId estável por sessão de checkout: gerado uma vez por montagem da
+  // página e reutilizado em todas as tentativas de "Continuar", para que um
+  // retry não gere um novo pedido / debite estoque de novo para o mesmo
+  // carrinho. O guard de window impede que crypto.randomUUID() rode no SSR
+  // (crypto não é global no Node 18); o valor só é usado no cliente, no clique.
+  const [orderId] = useState(() =>
+    typeof window === "undefined" ? "" : crypto.randomUUID()
+  )
 
   // CPF
   const cpfDigitos = cpf.replace(/\D/g, "")
@@ -132,387 +128,331 @@ export default function PaginaCheckout() {
     }
   }
 
+  async function handleContinuar() {
+    if (metodoPagamento === "cartao") {
+      setEnviando(true)
+      setErroPagamento("")
+
+      try {
+        const res = await fetch("/api/checkout/stripe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId,
+            itens: itens.map((item) => ({
+              produto_id: item.produto_id,
+              quantidade: item.quantidade,
+            })),
+            enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
+            customerEmail: email || undefined,
+          }),
+        })
+
+        const json = await res.json() as {
+          success: boolean
+          data?: { url: string }
+          error?: { message: string }
+        }
+
+        if (!json.success || !json.data) {
+          setErroPagamento(json.error?.message ?? "Não foi possível iniciar o pagamento. Tente novamente.")
+          setEnviando(false)
+          return
+        }
+
+        window.location.href = json.data.url
+      } catch {
+        setErroPagamento("Erro de conexão. Verifique sua internet e tente novamente.")
+        setEnviando(false)
+      }
+    }
+  }
+
+  const enderecoCompleto = Boolean(cepEndereco && rua && numero && bairro && cidade && uf)
+  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && enderecoCompleto && !enviando
+
   return (
-    <div className="container py-8 px-4 max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-marrom-800 mb-6">Finalizar Compra</h1>
+    <div className="container py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto">
+      <h1 className="text-xl sm:text-2xl font-bold text-marrom-800 mb-4 sm:mb-6">Finalizar Compra</h1>
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6">
 
-        {/* ── Dados Pessoais ── */}
-        <section className="bg-white border border-marrom-100 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-          <h2 className="text-base font-bold text-marrom-800">Dados Pessoais</h2>
+        {/* ── Coluna principal ── */}
+        <div className="flex-1 flex flex-col gap-4">
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="nome" className="text-xs font-medium text-zinc-600">Nome completo</label>
-            <input
-              id="nome"
-              type="text"
-              placeholder="João da Silva"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              autoComplete="name"
-              className={inputNormal}
-            />
-          </div>
+          {/* ── Dados Pessoais ── */}
+          <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
+            <h2 className="text-base font-bold text-marrom-800">Dados Pessoais</h2>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="cpf" className="text-xs font-medium text-zinc-600">CPF</label>
-            <input
-              id="cpf"
-              type="text"
-              inputMode="numeric"
-              placeholder="000.000.000-00"
-              value={cpf}
-              onChange={handleCpfChange}
-              onBlur={() => setCpfTocado(true)}
-              maxLength={14}
-              autoComplete="off"
-              aria-invalid={mostrarErroCpf}
-              aria-describedby={mostrarErroCpf ? "cpf-erro" : undefined}
-              className={mostrarErroCpf ? inputErro : inputNormal}
-            />
-            {mostrarErroCpf && (
-              <p id="cpf-erro" role="alert" className="text-[11px] text-red-600 font-medium">
-                CPF inválido. Verifique os dígitos.
-              </p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs font-medium text-zinc-600">E-mail</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="joao@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              className={inputNormal}
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="telefone" className="text-xs font-medium text-zinc-600">Telefone</label>
-            <input
-              id="telefone"
-              type="tel"
-              inputMode="numeric"
-              placeholder="(11) 99999-9999"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              maxLength={15}
-              autoComplete="tel"
-              className={inputNormal}
-            />
-          </div>
-        </section>
-
-        {/* ── Endereço de Entrega ── */}
-        <section className="bg-white border border-marrom-100 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-          <h2 className="text-base font-bold text-marrom-800">Endereço de Entrega</h2>
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="cep-endereco" className="text-xs font-medium text-zinc-600">CEP</label>
-            <div className="relative">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="nome" className="text-xs font-medium text-zinc-600">Nome completo</label>
               <input
-                id="cep-endereco"
+                id="nome"
+                type="text"
+                placeholder="João da Silva"
+                value={nome}
+                onChange={(e) => setNome(e.target.value)}
+                autoComplete="name"
+                className={inputNormal}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="cpf" className="text-xs font-medium text-zinc-600">CPF</label>
+              <input
+                id="cpf"
                 type="text"
                 inputMode="numeric"
-                placeholder="00000-000"
-                value={cepEndereco}
-                onChange={handleCepChange}
-                maxLength={9}
-                autoComplete="postal-code"
-                disabled={buscandoCep}
-                aria-invalid={!!erroCep}
-                aria-describedby={erroCep ? "cep-erro" : undefined}
-                className={`${erroCep ? inputErro : inputNormal} pr-9 disabled:bg-zinc-50`}
+                placeholder="000.000.000-00"
+                value={cpf}
+                onChange={handleCpfChange}
+                onBlur={() => setCpfTocado(true)}
+                maxLength={14}
+                autoComplete="off"
+                aria-invalid={mostrarErroCpf}
+                aria-describedby={mostrarErroCpf ? "cpf-erro" : undefined}
+                className={mostrarErroCpf ? inputErro : inputNormal}
               />
-              {buscandoCep && (
-                <svg
-                  className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-ambar-500"
-                  width="16" height="16" viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth="2"
-                  aria-hidden="true"
-                >
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg>
+              {mostrarErroCpf && (
+                <p id="cpf-erro" role="alert" className="text-[11px] text-red-600 font-medium">
+                  CPF inválido. Verifique os dígitos.
+                </p>
               )}
             </div>
-            {erroCep && (
-              <p id="cep-erro" role="alert" className="text-[11px] text-red-600 font-medium">
-                {erroCep}
-              </p>
-            )}
-          </div>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="rua" className="text-xs font-medium text-zinc-600">Rua</label>
-            <input
-              id="rua"
-              type="text"
-              placeholder="Rua das Flores"
-              value={rua}
-              onChange={(e) => setRua(e.target.value)}
-              autoComplete="address-line1"
-              className={inputNormal}
-            />
-          </div>
-
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1.5 w-28 shrink-0">
-              <label htmlFor="numero" className="text-xs font-medium text-zinc-600">Número</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-zinc-600">E-mail</label>
               <input
-                id="numero"
-                type="text"
+                id="email"
+                type="email"
+                placeholder="joao@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                className={inputNormal}
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="telefone" className="text-xs font-medium text-zinc-600">Telefone</label>
+              <input
+                id="telefone"
+                type="tel"
                 inputMode="numeric"
-                placeholder="42"
-                value={numero}
-                onChange={(e) => setNumero(e.target.value)}
-                autoComplete="address-line2"
+                placeholder="(11) 99999-9999"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                maxLength={15}
+                autoComplete="tel"
                 className={inputNormal}
               />
             </div>
-            <div className="flex flex-col gap-1.5 flex-1">
-              <label htmlFor="complemento" className="text-xs font-medium text-zinc-600">Complemento</label>
-              <input
-                id="complemento"
-                type="text"
-                placeholder="Apto 3 (opcional)"
-                value={complemento}
-                onChange={(e) => setComplemento(e.target.value)}
-                autoComplete="address-line3"
-                className={inputNormal}
-              />
-            </div>
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="bairro" className="text-xs font-medium text-zinc-600">Bairro</label>
-            <input
-              id="bairro"
-              type="text"
-              placeholder="Centro"
-              value={bairro}
-              onChange={(e) => setBairro(e.target.value)}
-              className={inputNormal}
-            />
-          </div>
+          {/* ── Endereço de Entrega ── */}
+          <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
+            <h2 className="text-base font-bold text-marrom-800">Endereço de Entrega</h2>
 
-          <div className="flex gap-3">
-            <div className="flex flex-col gap-1.5 flex-1">
-              <label htmlFor="cidade" className="text-xs font-medium text-zinc-600">Cidade</label>
-              <input
-                id="cidade"
-                type="text"
-                placeholder="São Paulo"
-                value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-                autoComplete="address-level2"
-                className={inputNormal}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5 w-20 shrink-0">
-              <label htmlFor="uf" className="text-xs font-medium text-zinc-600">Estado</label>
-              <input
-                id="uf"
-                type="text"
-                placeholder="SP"
-                value={uf}
-                onChange={(e) => setUf(e.target.value.toUpperCase().slice(0, 2))}
-                maxLength={2}
-                autoComplete="address-level1"
-                className={`${inputNormal} uppercase`}
-              />
-            </div>
-          </div>
-        </section>
-
-        {/* ── Forma de Pagamento ── */}
-        <section className="bg-white border border-marrom-100 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-          <h2 className="text-base font-bold text-marrom-800">Forma de Pagamento</h2>
-
-          {/* Toggle Pix / Cartão */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setMetodoPagamento("pix")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-colors ${
-                metodoPagamento === "pix"
-                  ? "border-ambar-500 bg-ambar-50 text-ambar-700"
-                  : "border-zinc-200 text-zinc-600 hover:border-ambar-300"
-              }`}
-              aria-pressed={metodoPagamento === "pix"}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
-              </svg>
-              Pix
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMetodoPagamento("cartao")}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border-2 text-sm font-semibold transition-colors ${
-                metodoPagamento === "cartao"
-                  ? "border-marrom-600 bg-marrom-50 text-marrom-700"
-                  : "border-zinc-200 text-zinc-600 hover:border-marrom-300"
-              }`}
-              aria-pressed={metodoPagamento === "cartao"}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-              </svg>
-              Cartão de Crédito
-            </button>
-          </div>
-
-          {/* Pix */}
-          {metodoPagamento === "pix" && (
-            <div className="flex items-start gap-3 bg-ambar-50 border border-ambar-200 rounded-xl p-4">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ambar-600 shrink-0 mt-0.5" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <p className="text-sm text-ambar-800 font-medium">
-                O QR Code será gerado após confirmar o pedido.
-              </p>
-            </div>
-          )}
-
-          {/* Cartão de Crédito */}
-          {metodoPagamento === "cartao" && (
-            <div className="flex flex-col gap-4">
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="numero-cartao" className="text-xs font-medium text-zinc-600">Número do cartão</label>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="cep-endereco" className="text-xs font-medium text-zinc-600">CEP</label>
+              <div className="relative">
                 <input
-                  id="numero-cartao"
+                  id="cep-endereco"
                   type="text"
                   inputMode="numeric"
-                  placeholder="0000 0000 0000 0000"
-                  value={numeroCartao}
-                  onChange={(e) => setNumeroCartao(mascaraCartao(e.target.value))}
-                  maxLength={19}
-                  autoComplete="cc-number"
+                  placeholder="00000-000"
+                  value={cepEndereco}
+                  onChange={handleCepChange}
+                  maxLength={9}
+                  autoComplete="postal-code"
+                  disabled={buscandoCep}
+                  aria-invalid={!!erroCep}
+                  aria-describedby={erroCep ? "cep-erro" : undefined}
+                  className={`${erroCep ? inputErro : inputNormal} pr-9 disabled:bg-zinc-50`}
+                />
+                {buscandoCep && (
+                  <svg
+                    className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-ambar-500"
+                    width="16" height="16" viewBox="0 0 24 24"
+                    fill="none" stroke="currentColor" strokeWidth="2"
+                    aria-hidden="true"
+                  >
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
+                )}
+              </div>
+              {erroCep && (
+                <p id="cep-erro" role="alert" className="text-[11px] text-red-600 font-medium">
+                  {erroCep}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="rua" className="text-xs font-medium text-zinc-600">Rua</label>
+              <input
+                id="rua"
+                type="text"
+                placeholder="Rua das Flores"
+                value={rua}
+                onChange={(e) => setRua(e.target.value)}
+                autoComplete="address-line1"
+                className={inputNormal}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-1.5 sm:w-28 sm:shrink-0">
+                <label htmlFor="numero" className="text-xs font-medium text-zinc-600">Número</label>
+                <input
+                  id="numero"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="42"
+                  value={numero}
+                  onChange={(e) => setNumero(e.target.value)}
+                  autoComplete="address-line2"
                   className={inputNormal}
                 />
               </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="nome-cartao" className="text-xs font-medium text-zinc-600">Nome no cartão</label>
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label htmlFor="complemento" className="text-xs font-medium text-zinc-600">Complemento</label>
                 <input
-                  id="nome-cartao"
+                  id="complemento"
                   type="text"
-                  placeholder="JOÃO DA SILVA"
-                  value={nomeCartao}
-                  onChange={(e) => setNomeCartao(e.target.value.toUpperCase())}
-                  autoComplete="cc-name"
+                  placeholder="Apto 3 (opcional)"
+                  value={complemento}
+                  onChange={(e) => setComplemento(e.target.value)}
+                  autoComplete="address-line3"
+                  className={inputNormal}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="bairro" className="text-xs font-medium text-zinc-600">Bairro</label>
+              <input
+                id="bairro"
+                type="text"
+                placeholder="Centro"
+                value={bairro}
+                onChange={(e) => setBairro(e.target.value)}
+                className={inputNormal}
+              />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col gap-1.5 flex-1">
+                <label htmlFor="cidade" className="text-xs font-medium text-zinc-600">Cidade</label>
+                <input
+                  id="cidade"
+                  type="text"
+                  placeholder="São Paulo"
+                  value={cidade}
+                  onChange={(e) => setCidade(e.target.value)}
+                  autoComplete="address-level2"
+                  className={inputNormal}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:w-20 sm:shrink-0">
+                <label htmlFor="uf" className="text-xs font-medium text-zinc-600">Estado</label>
+                <input
+                  id="uf"
+                  type="text"
+                  placeholder="SP"
+                  value={uf}
+                  onChange={(e) => setUf(e.target.value.toUpperCase().slice(0, 2))}
+                  maxLength={2}
+                  autoComplete="address-level1"
                   className={`${inputNormal} uppercase`}
                 />
               </div>
+            </div>
+          </section>
 
-              <div className="flex gap-3">
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <label htmlFor="validade" className="text-xs font-medium text-zinc-600">Validade</label>
-                  <input
-                    id="validade"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM/AA"
-                    value={validade}
-                    onChange={(e) => setValidade(mascaraValidade(e.target.value))}
-                    maxLength={5}
-                    autoComplete="cc-exp"
-                    className={inputNormal}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5 w-24 shrink-0">
-                  <label htmlFor="cvv" className="text-xs font-medium text-zinc-600">CVV</label>
-                  <input
-                    id="cvv"
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="000"
-                    value={cvv}
-                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    maxLength={4}
-                    autoComplete="cc-csc"
-                    className={inputNormal}
-                  />
-                </div>
+          {/* ── Forma de Pagamento ── */}
+          <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
+            <h2 className="text-base font-bold text-marrom-800">Forma de Pagamento</h2>
+
+            {/* Cartão de Crédito — pagamento concluído na página hospedada do Stripe */}
+            {metodoPagamento === "cartao" && (
+              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
+                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
+                </svg>
+                <p className="text-sm text-marrom-800 font-medium">
+                  Você será redirecionado para a página de pagamento seguro do Stripe para inserir os dados do cartão.
+                </p>
               </div>
+            )}
+          </section>
+        </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="parcelas" className="text-xs font-medium text-zinc-600">Parcelas</label>
-                <select
-                  id="parcelas"
-                  value={parcelas}
-                  onChange={(e) => setParcelas(e.target.value)}
-                  className={inputNormal}
-                >
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((n) => (
-                    <option key={n} value={String(n)}>
-                      {n}× sem juros
-                    </option>
-                  ))}
-                </select>
+        {/* ── Resumo do Pedido (sidebar a partir de lg:) ── */}
+        <aside className="lg:w-80 shrink-0" aria-label="Resumo do pedido">
+          <div className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4 lg:sticky lg:top-4">
+            <h2 className="text-base font-bold text-marrom-800">Resumo do Pedido</h2>
+
+            {itens.length === 0 ? (
+              <p className="text-sm text-zinc-400">Nenhum item no carrinho.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {itens.map((item) => (
+                  <li key={item.produto_id} className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-zinc-700 flex-1 line-clamp-1">{item.nome}</span>
+                    <span className="text-zinc-400 shrink-0">× {item.quantidade}</span>
+                    <span className="text-zinc-800 font-medium shrink-0">
+                      {formatarPreco(item.preco_site * item.quantidade)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <hr className="border-zinc-100" />
+
+            <div className="flex flex-col gap-1.5 text-sm">
+              <div className="flex justify-between text-zinc-600">
+                <span>Subtotal</span>
+                <span>{formatarPreco(subtotal)}</span>
               </div>
-
+              <div className="flex justify-between text-zinc-400">
+                <span>Frete</span>
+                <span>A calcular</span>
+              </div>
             </div>
-          )}
-        </section>
 
-        {/* ── Resumo do Pedido ── */}
-        <section className="bg-white border border-marrom-100 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-          <h2 className="text-base font-bold text-marrom-800">Resumo do Pedido</h2>
+            <hr className="border-zinc-100" />
 
-          {itens.length === 0 ? (
-            <p className="text-sm text-zinc-400">Nenhum item no carrinho.</p>
-          ) : (
-            <ul className="flex flex-col gap-2">
-              {itens.map((item) => (
-                <li key={item.produto_id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-zinc-700 flex-1 line-clamp-1">{item.nome}</span>
-                  <span className="text-zinc-400 shrink-0">× {item.quantidade}</span>
-                  <span className="text-zinc-800 font-medium shrink-0">
-                    {formatarPreco(item.preco_site * item.quantidade)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <hr className="border-zinc-100" />
-
-          <div className="flex flex-col gap-1.5 text-sm">
-            <div className="flex justify-between text-zinc-600">
-              <span>Subtotal</span>
-              <span>{formatarPreco(subtotal)}</span>
+            <div className="flex justify-between items-center font-bold text-marrom-800">
+              <span>Total</span>
+              <span className="text-lg">{formatarPreco(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-zinc-400">
-              <span>Frete</span>
-              <span>A calcular</span>
-            </div>
+
+            {erroPagamento && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3" role="alert">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500 shrink-0 mt-0.5" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                <p className="text-sm text-red-700 font-semibold">{erroPagamento}</p>
+              </div>
+            )}
+
+            {metodoPagamento === "cartao" && !enderecoCompleto && (
+              <p className="text-xs text-zinc-400 text-center">Preencha o endereço de entrega para continuar.</p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleContinuar}
+              disabled={!podeContinuar}
+              className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-bold py-3.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {enviando ? "Redirecionando para pagamento…" : "Continuar"}
+            </button>
           </div>
+        </aside>
 
-          <hr className="border-zinc-100" />
-
-          <div className="flex justify-between items-center font-bold text-marrom-800">
-            <span>Total</span>
-            <span className="text-lg">{formatarPreco(subtotal)}</span>
-          </div>
-        </section>
-
-      </div>
-
-      {/* Rodapé */}
-      <div className="mt-6">
-        <button
-          disabled
-          className="w-full bg-green-600 text-white text-sm font-bold py-3.5 rounded-xl opacity-40 cursor-not-allowed"
-        >
-          Continuar
-        </button>
       </div>
     </div>
   )
