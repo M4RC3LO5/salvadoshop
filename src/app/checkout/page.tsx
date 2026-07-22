@@ -57,9 +57,8 @@ export default function PaginaCheckout() {
   const [telefone, setTelefone] = useState("")
 
   // Pagamento — Pix indisponível neste bloco; Cartão é a única opção,
-  // pré-selecionada. O setter é mantido para reintroduzir Pix no futuro.
-  const [metodoPagamento, setMetodoPagamento] = useState<"cartao">("cartao")
-
+  // pré-selecionada. O setter removido para reintroduzir Pix no futuro.
+  const [metodoPagamento] = useState<"cartao">("cartao")
   const [cepEndereco, setCepEndereco] = useState("")
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState("")
