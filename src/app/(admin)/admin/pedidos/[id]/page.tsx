@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import { AcoesPedido } from "./AcoesPedido"
 
 interface PageProps {
   params: { id: string }
@@ -113,6 +114,18 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
           </h1>
           <StatusBadge status={pedido.status} />
         </div>
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-base font-bold text-stone-800">Ações</h2>
+        <AcoesPedido
+          pedidoId={pedido.id}
+          statusAtual={pedido.status}
+          role={adminUser.role as "master" | "auxiliar"}
+          codigoRastreio={pedido.codigo_rastreio}
+          transportadora={pedido.transportadora}
+          urlRastreamento={pedido.url_rastreamento}
+        />
       </div>
 
       {/* Grid: Comprador + Entrega */}
