@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -25,6 +26,8 @@ const checkoutSchema = z.object({
   itens: z.array(itemSchema).min(1),
   enderecoEntrega: enderecoSchema,
   customerEmail: z.string().email().optional(),
+  compradorNome: z.string().trim().min(2).max(120),
+  compradorTelefone: z.string().trim().min(10).max(20),
 })
 
 export async function POST(request: NextRequest) {
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { orderId, itens, enderecoEntrega, customerEmail } = parsed.data
+    const { orderId, itens, enderecoEntrega, customerEmail, compradorNome, compradorTelefone } = parsed.data
     const supabase = createClient()
 
     // Checkout de convidado: garante uma sessão (anônima, se preciso) para
@@ -99,6 +102,39 @@ export async function POST(request: NextRequest) {
         },
         { status: estoqueInsuficiente ? 409 : 500 }
       )
+    }
+
+    // Persiste os dados do comprador no pedido. Requer service role porque a
+    // RLS de UPDATE em `pedidos` só permite is_master() — a sessão aqui é a do
+    // cliente. O escopo é apertado de propósito: filtra por id E cliente_id
+    // (mesmo com service role, só toca o pedido do próprio usuário) e escreve
+    // apenas as três colunas de comprador — nunca status, total ou outras.
+    // Não altera `status`, então o trigger de transição não dispara.
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    )
+
+    const { error: erroComprador } = await supabaseAdmin
+      .from('pedidos')
+      .update({
+        comprador_nome: compradorNome,
+        comprador_email: customerEmail ?? null,
+        comprador_telefone: compradorTelefone,
+      })
+      .eq('id', orderId)
+      .eq('cliente_id', user.id)
+
+    if (erroComprador) {
+      // Não bloqueia o checkout: o pedido e o estoque já estão corretos. Apenas
+      // registra, para não perder a venda por causa de dado de contato.
+      console.error(JSON.stringify({
+        event: 'checkout.stripe.erro_persistir_comprador',
+        orderId,
+        error: erroComprador.message,
+        timestamp: new Date().toISOString(),
+      }))
     }
 
     // Busca os itens gravados (preço autoritativo) para montar os line_items

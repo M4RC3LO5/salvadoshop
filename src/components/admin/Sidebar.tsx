@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Receipt,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -32,6 +33,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard",     href: "/admin/dashboard",  icon: LayoutDashboard },
   { label: "Produtos",      href: "/admin/produtos",   icon: Package },
+  { label: "Pedidos",       href: "/admin/pedidos",    icon: Receipt },
   { label: "Novo Produto",  href: "/admin/produtos/novo", icon: PlusCircle },
   { label: "Aprovações",    href: "/admin/aprovacoes", icon: CheckSquare, masterOnly: true },
   { label: "Usuários",      href: "/admin/usuarios",   icon: Users,       masterOnly: true },
