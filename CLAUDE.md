@@ -634,7 +634,61 @@ Stripe (Developers → Webhooks), em ambientes de teste e produção. Sem isso o
 Stripe não entrega o evento e o estorno não dispara. Recomenda-se validar
 ponta a ponta com `stripe trigger checkout.session.expired` (Stripe CLI).
 
+### 18.5 RESOLVIDA — Pedidos no Admin (Bloco 7)
+
+Painel de administração de pedidos (ações 32–36), com trabalho de banco na
+migration 008.
+
+**Banco (`migrations/008_admin_pedidos_campos_e_rls.sql`):**
+- Seis colunas novas em `pedidos`: `comprador_nome`, `comprador_email`,
+  `comprador_telefone` (dados do comprador) e `codigo_rastreio`,
+  `transportadora`, `url_rastreamento` (rastreio).
+- Função `is_auxiliar()` e policies de RLS dando ao Auxiliar leitura e
+  atualização de pedidos.
+- Trigger `validar_transicao_status_pedido`: valida transições de status.
+  Master pode qualquer uma; Auxiliar só o fluxo operacional
+  (`pago → em_separacao → enviado → entregue`). Contexto de sistema
+  (`auth.uid() IS NULL`, ex.: webhook do Stripe e RPC de estorno) é liberado —
+  sem esse guard o checkout quebraria. Aplicada e testada em produção.
+
+**Telas e API:**
+- `/admin/pedidos` (lista com filtro por status) e `/admin/pedidos/[id]`
+  (detalhe somente leitura).
+- `PATCH /api/admin/pedidos/[id]` + componente `AcoesPedido`: botões de
+  transição conforme papel; a transição para "enviado" abre formulário inline
+  exigindo transportadora e código de rastreio.
+- Item "Pedidos" no menu lateral (visível para Master e Auxiliar).
+
+**Coleta de dados do comprador (LGPD — execução de contrato):** o checkout
+passou a enviar, validar e persistir nome/e-mail/telefone no pedido
+(UPDATE com service role em `src/app/api/checkout/stripe/route.ts`, escopado
+por `id` + `cliente_id`).
+
+**Decisão de negócio:** Auxiliar opera pedidos, mas cancelamento e reembolso
+são exclusivos do Master. A distinção vive no trigger (fonte única da verdade),
+não na rota.
+
+**Limitações conhecidas:**
+- RLS restringe linhas e o estado resultante, não colunas; a proteção por
+  coluna depende da API escrever apenas o permitido.
+- O comportamento do Auxiliar não foi testado com sessão real (apenas Master).
+
+**Débito técnico — retenção LGPD (pendente, bloco futuro):** os dados do
+comprador devem ser eliminados após a entrega do pedido + prazo de devolução
+(política definida). A exclusão automática (cron/job) ainda NÃO foi
+implementada. Ao implementar, verificar prazos fiscais/legais de retenção do
+registro da transação (possivelmente mais longos que o prazo de devolução).
+
+### 18.6 PROCESSO — Verificação de build antes de merge
+
+Erro de ESLint (`@typescript-eslint/no-unused-vars`) atravessou dois blocos
+sem ser detectado porque a verificação usava apenas `npx tsc --noEmit`, que
+checa tipos mas NÃO roda o ESLint. O build de produção (`next build`, que a
+Vercel executa) trava nesse tipo de erro. **Regra:** antes de qualquer merge,
+rodar `npm run build` (não apenas `tsc --noEmit`) para reproduzir localmente o
+que a Vercel fará.
+
 ---
 
 *Última atualização: Julho 2026*
-*Versão: 2.3*
+*Versão: 2.4*
