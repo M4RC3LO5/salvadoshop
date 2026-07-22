@@ -145,6 +145,8 @@ export default function PaginaCheckout() {
             })),
             enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
             customerEmail: email || undefined,
+            compradorNome: nome.trim(),
+            compradorTelefone: telefone.trim(),
           }),
         })
 
@@ -169,7 +171,14 @@ export default function PaginaCheckout() {
   }
 
   const enderecoCompleto = Boolean(cepEndereco && rua && numero && bairro && cidade && uf)
-  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && enderecoCompleto && !enviando
+
+  // Dados do comprador são persistidos no pedido (execução de contrato) e
+  // usados para contato operacional — exigidos antes de seguir ao pagamento.
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const telefoneDigitos = telefone.replace(/\D/g, "")
+  const dadosCompradorOk = nome.trim().length >= 2 && emailValido && telefoneDigitos.length >= 10
+
+  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && enderecoCompleto && !enviando && dadosCompradorOk
 
   return (
     <div className="container py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto">
