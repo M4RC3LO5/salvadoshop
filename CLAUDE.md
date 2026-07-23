@@ -576,11 +576,18 @@ A baixa de estoque acontece no mesmo momento (antes do checkout), de forma atôm
 
 **Estorno implementado (ver 18.4):** a reversão de estoque quando a sessão do Stripe expira sem conclusão foi implementada. O parágrafo original desta nota (que marcava isso como pendência) foi resolvido no fechamento do Bloco 6.
 
-### 18.2 ABERTA — Identidade do cliente no checkout sem conta (guest checkout)
+### 18.2 RESOLVIDA — Identidade do cliente no checkout sem conta (guest checkout)
 
 A tabela `pedidos.cliente_id` é `UUID NOT NULL` com FK para `auth.users.id`, e a RLS de INSERT exige `cliente_id = auth.uid()`. Como o cadastro/login de cliente (`app/(public)/conta/`) ainda não foi implementado, a rota `POST /api/checkout/stripe` usa **Supabase Anonymous Sign-in** (`supabase.auth.signInAnonymously()`) para garantir uma sessão válida antes de criar o pedido — o comprador convidado vira um usuário anônimo real do Supabase Auth, que pode futuramente ser convertido em conta completa sem perder o histórico de pedidos.
 
-**Ação necessária, fora do código:** habilitar "Allow anonymous sign-ins" no Supabase Dashboard → Authentication → Sign In / Providers do projeto `salvadoshop`. Sem isso, `signInAnonymously()` falha com `"Anonymous sign-ins are disabled"` e o checkout com cartão retorna `AUTH_REQUIRED`. Confirmado em teste local nesta sessão — a lógica de pedido/estoque foi validada diretamente contra o banco (RPC chamada com um `cliente_id` real), mas o fluxo HTTP completo via `/api/checkout/stripe` só funciona de ponta a ponta depois que essa opção for ativada.
+**Configuração concluída:** "Allow anonymous sign-ins" está habilitado no
+Supabase (Authentication → Sign In / Providers) do projeto `salvadoshop`,
+confirmado no painel. O guest checkout está destravado.
+
+**Pendência para produção:** o próprio painel do Supabase recomenda habilitar
+captcha para sign-ins anônimos, para evitar abuso (bots criando sessões em
+massa, inflando o banco e o custo de MAU). Não é necessário em teste; avaliar
+antes de abrir a loja ao público.
 
 ### 18.3 RESOLVIDA — Correções pós-revisão de diff (Bloco 6)
 
@@ -628,11 +635,16 @@ cancelado, via a abordagem de expiração da Checkout Session:
   `src/app/api/webhook/stripe/route.ts` extrai o `orderId` do metadata e chama
   a RPC.
 
-**Pendência de configuração (fora do código):** o evento
-`checkout.session.expired` precisa ser habilitado no endpoint de webhook do
-Stripe (Developers → Webhooks), em ambientes de teste e produção. Sem isso o
-Stripe não entrega o evento e o estorno não dispara. Recomenda-se validar
-ponta a ponta com `stripe trigger checkout.session.expired` (Stripe CLI).
+**Configuração concluída (ambiente de teste):** o evento
+`checkout.session.expired` foi habilitado no endpoint de webhook do Stripe
+(Workbench → Webhooks → destino `vibrant-voyage`, apontando para
+`https://salvadoshop.vercel.app/api/webhook/stripe`), convivendo com
+`checkout.session.completed`. O estorno automático dispara no ambiente
+deployado — não no `localhost`, que exigiria encaminhamento via Stripe CLI.
+
+**Pendência para produção:** webhooks de teste e produção são separados no
+Stripe. Ao alternar para a conta de produção, repetir a configuração do
+endpoint e dos eventos.
 
 ### 18.5 RESOLVIDA — Pedidos no Admin (Bloco 7)
 
@@ -691,4 +703,4 @@ que a Vercel fará.
 ---
 
 *Última atualização: Julho 2026*
-*Versão: 2.4*
+*Versão: 2.5*
