@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import Stripe from 'stripe'
 import { enviarConfirmacaoPedido } from '@/lib/email/enviar-confirmacao-pedido'
+import { enviarNotificacaoAdmin } from '@/lib/email/enviar-notificacao-admin'
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
       // internamente e nunca lança — falha de email não pode impedir o
       // webhook de responder 200 ao Stripe.
       await enviarConfirmacaoPedido(orderId)
+      await enviarNotificacaoAdmin(orderId)
     }
   }
 
