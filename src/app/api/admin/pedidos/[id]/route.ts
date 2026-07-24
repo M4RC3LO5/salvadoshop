@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { enviarRastreio } from "@/lib/email/enviar-rastreio"
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,13 @@ export async function PATCH(
     novoStatus: status,
     timestamp: new Date().toISOString(),
   }))
+
+  // Email de rastreio ao cliente, apenas na transição para "enviado".
+  // A função trata os próprios erros e nunca lança — falha de email não
+  // pode invalidar a atualização de status que já foi gravada.
+  if (status === "enviado") {
+    await enviarRastreio(params.id)
+  }
 
   return Response.json({ success: true, data })
 }
