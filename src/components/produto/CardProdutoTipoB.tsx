@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 
 export interface ProdutoTipoB {
   id: string
@@ -29,10 +30,10 @@ export function CardProdutoTipoB({ produto }: CardProdutoTipoBProps) {
   const unidade = produto.unidade ?? "unidades"
 
   return (
-    <article className="flex flex-col bg-white border border-marrom-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+    <article className="flex flex-col bg-white border border-marrom-100 rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md duration-200">
 
-      {/* Imagem */}
-      <div className="relative w-full aspect-square bg-zinc-100">
+      {/* Imagem — clicável, leva para /produto/[slug] */}
+      <Link href={`/produto/${produto.slug}`} className="block cursor-pointer relative w-full aspect-square bg-zinc-100">
         {produto.imagemUrl ? (
           <Image
             src={produto.imagemUrl}
@@ -55,20 +56,20 @@ export function CardProdutoTipoB({ produto }: CardProdutoTipoBProps) {
         <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wider bg-green-600 text-white px-2 py-0.5 rounded-full">
           Lote
         </span>
-      </div>
+      </Link>
 
       {/* Conteúdo */}
       <div className="flex flex-col gap-3 p-4 flex-1">
 
-        {/* Nome + quantidade */}
-        <div className="flex flex-col gap-1.5">
+        {/* Nome + quantidade — clicável, leva para /produto/[slug] */}
+        <Link href={`/produto/${produto.slug}`} className="block cursor-pointer flex flex-col gap-1.5">
           <h2 className="text-sm font-semibold text-marrom-800 leading-snug line-clamp-2">
             {produto.nome}
           </h2>
           <p className="text-xs text-zinc-500 font-medium">
             {produto.quantidade} {unidade}
           </p>
-        </div>
+        </Link>
 
         {/* Tag público-alvo */}
         <span className="text-[11px] font-medium bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-full w-fit">

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
+import Link from "next/link"
 import { PopupCompraTipoA } from "./PopupCompraTipoA"
 
 export interface ProdutoTipoA {
@@ -36,7 +37,8 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
 
   return (
     <>
-      <article className="flex flex-col bg-white border border-marrom-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
+      <Link href={`/produto/${produto.slug}`} className="block">
+      <article className="flex flex-col bg-white border border-marrom-100 rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md cursor-pointer duration-200">
 
         {/* Imagem */}
         <div className="relative w-full aspect-square bg-zinc-100">
@@ -98,7 +100,11 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
           {/* Botão */}
           <button
             type="button"
-            onClick={() => setPopupAberto(true)}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setPopupAberto(true)
+            }}
             className="mt-auto w-full bg-ambar-500 hover:bg-ambar-600 active:bg-ambar-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
             aria-label={`Comprar ${produto.nome}`}
           >
@@ -106,6 +112,7 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
           </button>
         </div>
       </article>
+      </Link>
 
       {popupAberto && (
         <PopupCompraTipoA
