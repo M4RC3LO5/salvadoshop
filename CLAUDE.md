@@ -607,8 +607,8 @@ commitadas em `feature/bloco6-item26-stripe-checkout-session`:
 2. **`orderId` estável no checkout.** Antes gerado a cada clique em
    "Continuar", o que permitia pedido duplicado / duplo débito de estoque em
    retry. Agora gerado uma vez por montagem da página (`src/app/checkout/page.tsx`)
-   e reutilizado nas tentativas. Paliativo — a reversão completa de estoque
-   continua pendente (ver 18.1).
+   e reutilizado nas tentativas. Paliativo na época; a reversão completa de
+   estoque foi implementada depois (ver 18.4).
 
 3. **Opção Pix ocultada.** Não funcional neste bloco; Cartão de Crédito passa
    a ser a única forma de pagamento, pré-selecionada. Toggle removido de
