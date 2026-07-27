@@ -31,7 +31,7 @@ export function GaleriaProduto({ imagens, nomeProduto }: GaleriaProdutoProps) {
           src={imagens[ativa]}
           alt={`${nomeProduto} — foto ${ativa + 1}`}
           fill
-          className="object-cover"
+          className="object-contain"
           sizes="(max-width: 1024px) 100vw, 50vw"
           priority
         />
