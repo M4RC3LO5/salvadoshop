@@ -151,7 +151,7 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
                 </thead>
                 <tbody className="divide-y divide-stone-100">
                   {pedidos.map((p) => (
-                    <tr key={p.id} className="transition-colors hover:bg-stone-50/60">
+                    <tr key={p.id} className="transition-colors hover:bg-amber-50 hover:ring-2 hover:ring-inset hover:ring-amber-200">
 
                       {/* Pedido */}
                       <td className="px-4 py-3 whitespace-nowrap">
