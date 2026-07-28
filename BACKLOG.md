@@ -8,9 +8,9 @@ Legenda: [ ] pendente · [x] concluído
 
 ## 🔴 Prioridade alta — afeta a jornada de compra
 
-- [ ] **1. Página de produto não abre.** Não é possível clicar no card do
+- [x] **1. Página de produto não abre.** Não é possível clicar no card do
   produto para ver fotos e descrição — só o botão de compra funciona. A rota
-  `/produto/[slug]` existe; investigar se o card apenas não está linkando.
+  `/produto/[slug]` existe; investigar se o card apenas não está linkando.✅ Resolvido em ee093f4
 - [ ] **2. Botão "Comprar" ambíguo.** O botão diz "Comprar" mas adiciona ao
   carrinho. Definir o fluxo: renomear para "Adicionar ao carrinho" e/ou criar
   um "Comprar agora" que vá direto ao checkout.
@@ -27,9 +27,9 @@ Legenda: [ ] pendente · [x] concluído
   "alterações enviadas pelos Auxiliares". Investigar se é intencional
   (auditoria de todas as edições) ou inconsistência (Master deveria publicar
   direto).
-- [ ] **5. Imagens cortadas na vitrine.** Imagens em formato aceito no upload
+- [x] **5. Imagens cortadas na vitrine.** Imagens em formato aceito no upload
   são exibidas com corte/"zoom" na loja. Provável object-fit: cover onde
-  deveria ser contain, ou container com altura fixa que ignora a proporção.
+  deveria ser contain, ou container com altura fixa que ignora a proporção.✅ Resolvido na galeria (object-contain)
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
@@ -57,3 +57,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
+*Atualizado em: 2026-07-27*
