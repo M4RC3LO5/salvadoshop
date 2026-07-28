@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { AcoesPedido } from "./AcoesPedido"
+import { ProgressoPedido } from "./ProgressoPedido"
 
 interface PageProps {
   params: { id: string }
@@ -126,6 +127,11 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
           transportadora={pedido.transportadora}
           urlRastreamento={pedido.url_rastreamento}
         />
+      </div>
+
+      <div className="rounded-xl border border-stone-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-base font-bold text-stone-800">Progresso</h2>
+        <ProgressoPedido status={pedido.status} />
       </div>
 
       {/* Grid: Comprador + Entrega */}
