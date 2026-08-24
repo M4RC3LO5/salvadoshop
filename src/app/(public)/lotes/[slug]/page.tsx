@@ -82,7 +82,7 @@ export default async function PaginaLote(
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
   const mensagemWA = encodeURIComponent(
-    `Olá! Tenho interesse no lote: ${lote.nome}\nQuantidade: ${lote.quantidade_lote ?? "a definir"} unidades\nVi no site: salvadoshop.com.br/lotes/${lote.slug}`
+    `Olá! Tenho interesse no lote: ${lote.nome}\nQuantidade: ${lote.quantidade_lote ?? "a definir"} unidades\nVi no site: www.lojadossalvados.com.br/lotes/${lote.slug}`
   )
   const imagens = lote.produto_imagens.map((i) => i.url_cloudinary)
 

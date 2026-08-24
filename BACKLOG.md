@@ -50,10 +50,10 @@ Legenda: [ ] pendente · [x] concluído
   nome da loja, mas de forma mínima. Adicionar logo (imagem), paleta exata da
   marca e possivelmente imagem do produto. Revisar junto com a configuração do
   domínio próprio (ação 37).
-- [ ] **11. Tracking visual de status.** Barra de progresso visual do pedido
+- [x] **11. Tracking visual de status.** Barra de progresso visual do pedido
   (Criado → Despachado → Em trânsito → Saiu para entrega → Entregue), usando o
   status que já existe. Aplicável no detalhe do pedido (admin) e numa página
-  de acompanhamento para o cliente.
+  de acompanhamento para o cliente.✅ Resolvido (barra no detalhe do admin)
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*

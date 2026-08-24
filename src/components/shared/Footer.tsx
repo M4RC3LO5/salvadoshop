@@ -5,7 +5,7 @@ const EMPRESA = {
   cnpj: "00.000.000/0001-00",
   razaoSocial: "SalvadoShop Comércio Ltda.",
   endereco: "Rua das Mercadorias Recuperadas, 123 — São Paulo, SP — CEP 00000-000",
-  email: "contato@salvadoshop.com.br",
+  email: "contato@lojadossalvados.com.br",
   // TODO: substituir pela URL real da loja no Mercado Livre
   mercadoLivreUrl: "https://www.mercadolivre.com.br/",
 }

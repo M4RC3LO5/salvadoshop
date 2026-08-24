@@ -108,7 +108,7 @@ export default async function PaginaProduto(
   const imagens = produto.produto_imagens.map((i) => i.url_cloudinary)
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
   const mensagemWA = encodeURIComponent(
-    `Olá! Tenho interesse no produto: ${produto.nome}\nVi no site: salvadoshop.com.br/produto/${produto.slug}`
+    `Olá! Tenho interesse no produto: ${produto.nome}\nVi no site: www.lojadossalvados.com.br/produto/${produto.slug}`
   )
 
   return (

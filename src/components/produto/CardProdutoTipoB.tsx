@@ -19,7 +19,7 @@ interface CardProdutoTipoBProps {
 
 function montarMensagemWhatsApp(produto: ProdutoTipoB) {
   const unidade = produto.unidade ?? "unidades"
-  const mensagem = `Olá! Tenho interesse no lote: ${produto.nome}\nQuantidade: ${produto.quantidade} ${unidade}\nVi no site: salvadoshop.com.br`
+  const mensagem = `Olá! Tenho interesse no lote: ${produto.nome}\nQuantidade: ${produto.quantidade} ${unidade}\nVi no site: www.lojadossalvados.com.br`
   return encodeURIComponent(mensagem)
 }
 

@@ -183,7 +183,7 @@ export async function enviarNotificacaoAdmin(orderId: string): Promise<void> {
 
     const endereco = (pedido.endereco_entrega ?? {}) as EnderecoEntrega
     const numeroPedido = pedido.id.slice(0, 8).toUpperCase()
-    const urlPainel = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://salvadoshop.vercel.app'}/admin/pedidos/${pedido.id}`
+    const urlPainel = `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.lojadossalvados.com.br'}/admin/pedidos/${pedido.id}`
 
     const html = montarHtml({
       numeroPedido,
