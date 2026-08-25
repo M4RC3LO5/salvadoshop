@@ -20,6 +20,8 @@ import {
   Check,
   X,
   Trash2,
+  FolderInput,
+  CheckCircle2,
 } from "lucide-react"
 import {
   DndContext,
@@ -212,6 +214,68 @@ function ConfirmDialog({
   )
 }
 
+// ── Diálogo "mover para outra lista" ────────────────────────────────────────
+
+function MoverParaListaDialog({
+  listasDestino, quantidade, movendo, onMover, onCancelar,
+}: {
+  listasDestino: ListaRow[]
+  quantidade: number
+  movendo: boolean
+  onMover: (listaDestinoId: string) => void
+  onCancelar: () => void
+}) {
+  const [destino, setDestino] = useState(listasDestino[0]?.id ?? "")
+
+  return (
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancelar} aria-hidden="true" />
+      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100">
+            <FolderInput className="h-5 w-5 text-amber-700" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-stone-900">Mover para outra lista</h2>
+            <p className="mt-1 text-sm text-stone-500">
+              {quantidade} {quantidade === 1 ? "item será movido" : "itens serão movidos"} para a lista escolhida.
+            </p>
+          </div>
+        </div>
+
+        <label htmlFor="lista-destino" className="mb-1.5 block text-sm font-medium text-stone-700">
+          Lista de destino
+        </label>
+        <select
+          id="lista-destino"
+          value={destino}
+          onChange={(e) => setDestino(e.target.value)}
+          disabled={movendo}
+          className="w-full rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-700 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+        >
+          {listasDestino.map((l) => (
+            <option key={l.id} value={l.id}>{l.nome} ({l.qtd_itens})</option>
+          ))}
+        </select>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" onClick={onCancelar} disabled={movendo} className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={() => destino && onMover(destino)}
+            disabled={movendo || !destino}
+            className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {movendo ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Movendo...</> : "Mover"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Célula editável ──────────────────────────────────────────────────────────
 
 interface CelulaEditavelProps {
@@ -397,6 +461,7 @@ export function TriagemClientUI({ listasIniciais }: Props) {
   const [itens, setItens] = useState<ItemRow[]>([])
   const [carregandoItens, setCarregandoItens] = useState(false)
   const [erroAcao, setErroAcao] = useState("")
+  const [mensagemSucesso, setMensagemSucesso] = useState("")
 
   const [editandoNomeLista, setEditandoNomeLista] = useState(false)
   const [nomeListaRascunho, setNomeListaRascunho] = useState("")
@@ -420,6 +485,12 @@ export function TriagemClientUI({ listasIniciais }: Props) {
   const [excluindoLote, setExcluindoLote] = useState(false)
   const [exportando, setExportando] = useState<"pdf" | null>(null)
 
+  const [mostrarMoverDialog, setMostrarMoverDialog] = useState(false)
+  const [movendo, setMovendo] = useState(false)
+
+  const [confirmarExclusaoLista, setConfirmarExclusaoLista] = useState(false)
+  const [excluindoLista, setExcluindoLista] = useState(false)
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } })
@@ -436,6 +507,12 @@ export function TriagemClientUI({ listasIniciais }: Props) {
     document.addEventListener("mousedown", aoClicarFora)
     return () => document.removeEventListener("mousedown", aoClicarFora)
   }, [])
+
+  useEffect(() => {
+    if (!mensagemSucesso) return
+    const t = setTimeout(() => setMensagemSucesso(""), 4000)
+    return () => clearTimeout(t)
+  }, [mensagemSucesso])
 
   // ── Busca itens ao trocar de lista ──────────────────────────────────────────
   useEffect(() => {
@@ -466,6 +543,72 @@ export function TriagemClientUI({ listasIniciais }: Props) {
       setOrdemManualDefinida(false)
       setColunaOrdenacao(null)
       setSelecionados(new Set())
+    }
+  }
+
+  async function buscarListas() {
+    try {
+      const res = await fetch("/api/triagem/listas")
+      const json = await res.json()
+      if (res.ok && json.success) setListas(json.data)
+    } catch {
+      // silencioso — a próxima ação recarrega
+    }
+  }
+
+  // ── Mover itens para outra lista ────────────────────────────────────────────
+  async function moverSelecionados(listaDestinoId: string) {
+    setMovendo(true)
+    try {
+      const ids = Array.from(selecionados)
+      const res = await fetch("/api/triagem/itens/mover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, lista_destino_id: listaDestinoId }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErroAcao(json.error?.message ?? "Erro ao mover os itens.")
+        return
+      }
+
+      const nomeDestino = listas.find((l) => l.id === listaDestinoId)?.nome ?? "outra lista"
+      const movidos = json.data.movidos as number
+      setMensagemSucesso(`${movidos} ${movidos === 1 ? "item movido" : "itens movidos"} para "${nomeDestino}".`)
+      setMostrarMoverDialog(false)
+      setSelecionados(new Set())
+
+      await buscarListas()
+      if (listaSelecionadaId) await buscarItens(listaSelecionadaId)
+    } catch {
+      setErroAcao("Erro de conexão ao mover os itens.")
+    } finally {
+      setMovendo(false)
+    }
+  }
+
+  // ── Excluir lista vazia ──────────────────────────────────────────────────────
+  async function excluirListaAtual() {
+    if (!listaSelecionada) return
+    setExcluindoLista(true)
+    try {
+      const res = await fetch(`/api/triagem/listas/${listaSelecionada.id}`, { method: "DELETE" })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErroAcao(json.error?.message ?? "Erro ao excluir a lista.")
+        return
+      }
+
+      const idExcluida = listaSelecionada.id
+      const restantes = listas.filter((l) => l.id !== idExcluida)
+      setListas(restantes)
+      setListaSelecionadaId(restantes[0]?.id ?? null)
+      setMensagemSucesso("Lista excluída.")
+    } catch {
+      setErroAcao("Erro de conexão ao excluir a lista.")
+    } finally {
+      setExcluindoLista(false)
+      setConfirmarExclusaoLista(false)
     }
   }
 
@@ -785,6 +928,28 @@ export function TriagemClientUI({ listasIniciais }: Props) {
         />
       )}
 
+      {mostrarMoverDialog && listaSelecionada && (
+        <MoverParaListaDialog
+          listasDestino={listas.filter((l) => l.id !== listaSelecionada.id)}
+          quantidade={selecionados.size}
+          movendo={movendo}
+          onMover={moverSelecionados}
+          onCancelar={() => setMostrarMoverDialog(false)}
+        />
+      )}
+
+      {confirmarExclusaoLista && listaSelecionada && (
+        <ConfirmDialog
+          titulo="Excluir lista?"
+          mensagem={`A lista "${listaSelecionada.nome}" está vazia e será excluída permanentemente.`}
+          confirmarLabel="Excluir"
+          destrutivo
+          carregando={excluindoLista}
+          onConfirmar={excluirListaAtual}
+          onCancelar={() => setConfirmarExclusaoLista(false)}
+        />
+      )}
+
       {/* Cabeçalho */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -846,11 +1011,32 @@ export function TriagemClientUI({ listasIniciais }: Props) {
             )
           )}
 
+          {listaSelecionada && (
+            <button
+              type="button"
+              onClick={() => setConfirmarExclusaoLista(true)}
+              disabled={itens.length > 0}
+              title={itens.length > 0 ? "Só é possível excluir listas vazias" : "Excluir lista"}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-stone-600 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-stone-600"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+              Excluir lista
+            </button>
+          )}
+
           <span className="ml-auto text-sm text-stone-500">
             {itens.length} {itens.length === 1 ? "item" : "itens"}
           </span>
         </div>
       </div>
+
+      {/* Sucesso */}
+      {mensagemSucesso && (
+        <div role="status" className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {mensagemSucesso}
+        </div>
+      )}
 
       {/* Erro */}
       {erroAcao && (
@@ -932,6 +1118,15 @@ export function TriagemClientUI({ listasIniciais }: Props) {
                 {selecionados.size} {selecionados.size === 1 ? "selecionado" : "selecionados"}
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarMoverDialog(true)}
+                  disabled={listas.length < 2}
+                  title={listas.length < 2 ? "Não há outra lista para mover" : "Mover para outra lista"}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <FolderInput className="h-3.5 w-3.5" aria-hidden="true" /> Mover para outra lista
+                </button>
                 <button type="button" onClick={exportarCSV} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
                   <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Exportar CSV
                 </button>
