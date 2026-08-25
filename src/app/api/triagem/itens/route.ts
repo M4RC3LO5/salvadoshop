@@ -47,11 +47,13 @@ function campoNumero(formData: FormData, chave: string): number | null {
 }
 
 function nomeListaHoje(): string {
-  const hoje = new Date()
-  const dia = String(hoje.getDate()).padStart(2, "0")
-  const mes = String(hoje.getMonth() + 1).padStart(2, "0")
-  const ano = hoje.getFullYear()
-  return `Triagem ${dia}/${mes}/${ano}`
+  const hoje = new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date())
+  return `Triagem ${hoje}`
 }
 
 const SEGUNDOS_URL_ASSINADA = 60 * 60 // 1 hora

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import {
   Camera,
   RotateCcw,
@@ -431,6 +432,15 @@ export default function CapturarTriagemPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 pb-10">
 
+      <div className="border-b border-stone-200 pb-4">
+        <Link
+          href="/admin/triagem"
+          className="inline-flex w-fit items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
+        </Link>
+      </div>
+
       {/* Cabeçalho com progresso */}
       <div>
         <h1 className="text-2xl font-bold text-stone-800">Triagem de Estoque</h1>
@@ -505,9 +515,9 @@ export default function CapturarTriagemPage() {
           <button
             type="button"
             onClick={() => setEtapa(1)}
-            className="inline-flex min-h-[44px] w-fit items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-700"
+            className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Etapa anterior
           </button>
 
           <input
@@ -606,9 +616,9 @@ export default function CapturarTriagemPage() {
           <button
             type="button"
             onClick={() => setEtapa(2)}
-            className="inline-flex min-h-[44px] w-fit items-center gap-1.5 text-sm font-medium text-stone-500 hover:text-stone-700"
+            className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Etapa anterior
           </button>
 
           {origemIA.size > 0 && (
