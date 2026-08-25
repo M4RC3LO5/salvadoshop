@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Receipt,
+  ScanLine,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -34,6 +35,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard",     href: "/admin/dashboard",  icon: LayoutDashboard },
   { label: "Produtos",      href: "/admin/produtos",   icon: Package },
   { label: "Pedidos",       href: "/admin/pedidos",    icon: Receipt },
+  { label: "Triagem",       href: "/admin/triagem", icon: ScanLine },
   { label: "Novo Produto",  href: "/admin/produtos/novo", icon: PlusCircle },
   { label: "Aprovações",    href: "/admin/aprovacoes", icon: CheckSquare, masterOnly: true },
   { label: "Usuários",      href: "/admin/usuarios",   icon: Users,       masterOnly: true },
