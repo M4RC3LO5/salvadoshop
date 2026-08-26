@@ -15,7 +15,6 @@ import {
   Plus,
   PackageOpen,
   Columns3,
-  ImageOff,
   Pencil,
   Check,
   X,
@@ -71,7 +70,6 @@ interface ItemRow {
   id: string
   lista_id: string
   ordem: number
-  foto_url: string | null
   tipo_captura: "etiqueta" | "item_avulso"
   nome: string
   marca: string | null
@@ -93,11 +91,11 @@ interface ItemRow {
 }
 
 type ChaveColuna =
-  | "foto_url" | "produto_ativo" | "nome" | "marca" | "sku" | "ean" | "qtd_embalagem" | "num_caixas"
+  | "produto_ativo" | "nome" | "marca" | "sku" | "ean" | "qtd_embalagem" | "num_caixas"
   | "total_unidades" | "lote" | "validade" | "estado" | "custo_unitario" | "origem"
   | "fornecedor" | "observacoes" | "data_entrada"
 
-type TipoColuna = "foto" | "badge" | "texto" | "numero" | "moeda" | "data" | "select" | "textarea" | "readonly"
+type TipoColuna = "badge" | "texto" | "numero" | "moeda" | "data" | "select" | "textarea" | "readonly"
 
 interface OpcaoSelect { value: string; label: string }
 
@@ -137,8 +135,7 @@ const CATEGORIAS = [
 ]
 
 const COLUNAS: ColunaConfig[] = [
-  { chave: "foto_url", label: "Foto", tipo: "foto", editavel: false, ordenavel: false },
-  { chave: "produto_ativo", label: "Publicado", tipo: "badge", editavel: false, ordenavel: false },
+  { chave: "produto_ativo", label: "Publicado", tipo: "badge", editavel: false, ordenavel: true },
   { chave: "nome", label: "Nome", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "marca", label: "Marca", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "sku", label: "SKU", tipo: "texto", editavel: true, ordenavel: true },
@@ -152,7 +149,7 @@ const COLUNAS: ColunaConfig[] = [
   { chave: "custo_unitario", label: "Custo Unit.", tipo: "moeda", editavel: true, ordenavel: true },
   { chave: "origem", label: "Origem", tipo: "select", editavel: true, ordenavel: true, opcoes: OPCOES_ORIGEM },
   { chave: "fornecedor", label: "Fornecedor", tipo: "texto", editavel: true, ordenavel: true },
-  { chave: "observacoes", label: "Observações", tipo: "textarea", editavel: true, ordenavel: false },
+  { chave: "observacoes", label: "Observações", tipo: "textarea", editavel: true, ordenavel: true },
   { chave: "data_entrada", label: "Entrada", tipo: "data", editavel: false, ordenavel: true },
 ]
 
@@ -171,6 +168,16 @@ function formatarValorExibicao(coluna: ColunaConfig, valor: string | number | nu
   if (coluna.tipo === "moeda") return BRL.format(Number(valor))
   if (coluna.tipo === "data") return formatarDataBR(String(valor))
   return String(valor)
+}
+
+// "Publicado" guarda um objeto (produto_ativo), não um valor ordenável direto —
+// ordena por modo de publicação (Individual/Lote), com não publicados por último.
+function valorParaOrdenacao(item: ItemRow, chave: ChaveColuna): string | number | null {
+  if (chave === "produto_ativo") {
+    if (!item.produto_ativo) return null
+    return item.produto_ativo.tipo === "tipo_a" ? "Individual" : "Lote"
+  }
+  return item[chave as keyof ItemRow] as string | number | null
 }
 
 function escapeHtml(valor: string): string {
@@ -711,27 +718,21 @@ function LinhaItem({
       </td>
       {colunasExibidas.map((coluna) => (
         <td key={coluna.chave} className="px-3 py-2 align-top">
-          {coluna.tipo === "foto" ? (
-            <div className="h-10 w-10 overflow-hidden rounded-lg bg-stone-100">
-              {item.foto_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.foto_url} alt={item.nome} className="h-10 w-10 object-cover" />
-              ) : (
-                <div className="flex h-10 w-10 items-center justify-center text-stone-300">
-                  <ImageOff className="h-4 w-4" aria-hidden="true" />
-                </div>
-              )}
-            </div>
-          ) : coluna.tipo === "badge" ? (
+          {coluna.tipo === "badge" ? (
             item.produto_ativo ? (
-              <a
-                href={item.produto_ativo.tipo === "tipo_a" ? `/produto/${item.produto_ativo.slug}` : `/lotes/${item.produto_ativo.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
-              >
-                <PackageCheck className="h-3 w-3" aria-hidden="true" /> Publicado
-              </a>
+              <div className="flex flex-col items-start gap-1">
+                <a
+                  href={item.produto_ativo.tipo === "tipo_a" ? `/produto/${item.produto_ativo.slug}` : `/lotes/${item.produto_ativo.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
+                >
+                  <PackageCheck className="h-3 w-3" aria-hidden="true" /> Publicado
+                </a>
+                <span className="text-[11px] text-stone-400">
+                  {item.produto_ativo.tipo === "tipo_a" ? "Individual" : "Lote"}
+                </span>
+              </div>
             ) : (
               <span className="text-xs text-stone-300">—</span>
             )
@@ -963,8 +964,8 @@ export function TriagemClientUI({ listasIniciais }: Props) {
     if (!colunaOrdenacao) return itensFiltrados
     const copia = [...itensFiltrados]
     copia.sort((a, b) => {
-      const va = a[colunaOrdenacao as keyof ItemRow]
-      const vb = b[colunaOrdenacao as keyof ItemRow]
+      const va = valorParaOrdenacao(a, colunaOrdenacao)
+      const vb = valorParaOrdenacao(b, colunaOrdenacao)
       let resultado: number
       if (va === null || va === undefined) resultado = vb === null || vb === undefined ? 0 : -1
       else if (vb === null || vb === undefined) resultado = 1
@@ -1180,7 +1181,7 @@ export function TriagemClientUI({ listasIniciais }: Props) {
 
   // ── Exportação ───────────────────────────────────────────────────────────────
   function colunasParaExportar(): ColunaConfig[] {
-    return COLUNAS.filter((c) => colunasVisiveis.has(c.chave) && c.chave !== "foto_url")
+    return COLUNAS.filter((c) => colunasVisiveis.has(c.chave))
   }
 
   function linhasParaExportar(): ItemRow[] {

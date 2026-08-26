@@ -56,8 +56,6 @@ function nomeListaHoje(): string {
   return `Triagem ${hoje}`
 }
 
-const SEGUNDOS_URL_ASSINADA = 60 * 60 // 1 hora
-
 // ── GET — itens de uma lista, ordenados por "ordem" ─────────────────────────
 
 export async function GET(request: NextRequest) {
@@ -114,27 +112,13 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  // Gera URLs assinadas para as fotos — o bucket "triagem" é privado
-  const caminhos = (itens ?? []).map((item) => item.foto_url).filter(Boolean)
-  const urlsPorCaminho = new Map<string, string>()
-
-  if (caminhos.length > 0) {
-    const { data: assinadas } = await supabase.storage
-      .from("triagem")
-      .createSignedUrls(caminhos, SEGUNDOS_URL_ASSINADA)
-
-    assinadas?.forEach((item) => {
-      if (item.signedUrl) urlsPorCaminho.set(item.path ?? "", item.signedUrl)
-    })
-  }
-
   const itensFormatados = (itens ?? []).map((item) => {
-    const { publicacao, ...resto } = item as typeof item & {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { publicacao, foto_url, ...resto } = item as typeof item & {
       publicacao: { ativo: boolean; produto: { id: string; slug: string; tipo: string; status: string } | null }[]
     }
     return {
       ...resto,
-      foto_url: urlsPorCaminho.get(resto.foto_url) ?? null,
       produto_ativo: publicacao?.[0]?.produto ?? null,
     }
   })
