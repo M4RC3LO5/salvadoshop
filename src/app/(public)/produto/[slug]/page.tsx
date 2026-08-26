@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
@@ -104,6 +104,11 @@ export default async function PaginaProduto(
   const produto = await buscarProduto(params.slug)
   if (!produto) notFound()
 
+  // Lote (tipo_b) tem URL canônica em /lotes/[slug] — evita conteúdo duplicado
+  if (produto.tipo === "tipo_b") {
+    permanentRedirect(`/lotes/${produto.slug}`)
+  }
+
   const precoSite = produto.preco_ml ? produto.preco_ml * 0.82 : null
   const imagens = produto.produto_imagens.map((i) => i.url_cloudinary)
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
@@ -167,16 +172,6 @@ export default async function PaginaProduto(
                   <span className="text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">-18%</span>
                 </div>
                 <p className="text-xs text-zinc-400">no site · economize {formatarPreco(produto.preco_ml - precoSite)}</p>
-              </div>
-            )}
-
-            {/* Tipo B — sem preço fixo */}
-            {produto.tipo === "tipo_b" && (
-              <div className="flex flex-col gap-1">
-                <p className="text-lg font-semibold text-zinc-500 italic">Preço sob consulta</p>
-                <p className="text-sm text-zinc-400">
-                  Quantidade: <strong>{produto.quantidade_lote} unidades</strong>
-                </p>
               </div>
             )}
 

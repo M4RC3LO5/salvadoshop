@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
@@ -12,6 +12,7 @@ interface Lote {
   id: string
   slug: string
   nome: string
+  tipo: "tipo_a" | "tipo_b"
   descricao: string | null
   specs_tecnicas: Record<string, unknown> | null
   quantidade_lote: number | null
@@ -26,12 +27,11 @@ async function buscarLote(slug: string): Promise<Lote | null> {
   const { data, error } = await supabase
     .from("produtos")
     .select(`
-      id, slug, nome, descricao, specs_tecnicas,
+      id, slug, nome, tipo, descricao, specs_tecnicas,
       quantidade_lote, sinistro, categoria,
       produto_imagens (url_cloudinary, ordem)
     `)
     .eq("slug", slug)
-    .eq("tipo", "tipo_b")
     .eq("status", "publicado")
     .single()
 
@@ -79,6 +79,11 @@ export default async function PaginaLote(
 ) {
   const lote = await buscarLote(params.slug)
   if (!lote) notFound()
+
+  // Produto individual (tipo_a) tem URL canônica em /produto/[slug] — evita conteúdo duplicado
+  if (lote.tipo === "tipo_a") {
+    permanentRedirect(`/produto/${lote.slug}`)
+  }
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
   const mensagemWA = encodeURIComponent(

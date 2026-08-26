@@ -27,7 +27,7 @@ interface Aprovacao {
   created_at: string
   resolved_at: string | null
   admin_usuario: { nome: string; email: string } | null
-  produto: { nome: string; slug: string } | null
+  produto: { nome: string; slug: string; tipo: "tipo_a" | "tipo_b" } | null
 }
 
 type Aba = "pendente" | "aprovado" | "rejeitado"
@@ -299,6 +299,7 @@ function CardAprovacao({
 
   const nomeProduto = aprovacao.produto?.nome ?? aprovacao.dados_novos?.nome as string ?? "Produto"
   const slug = aprovacao.produto?.slug ?? ""
+  const rotaProduto = aprovacao.produto?.tipo === "tipo_b" ? "lotes" : "produto"
   const enviador = aprovacao.admin_usuario?.nome ?? aprovacao.admin_usuario?.email ?? "Desconhecido"
   const dataEnvio = new Date(aprovacao.created_at).toLocaleString("pt-BR", {
     day: "2-digit",
@@ -356,7 +357,7 @@ function CardAprovacao({
           {/* Botão visualizar */}
           {slug && (
             <a
-              href={`/produto/${slug}`}
+              href={`/${rotaProduto}/${slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex shrink-0 items-center gap-1.5 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
@@ -472,7 +473,7 @@ export default function AprovacoesPage() {
         id, produto_id, tipo_alteracao, dados_anteriores, dados_novos,
         status, motivo_rejeicao, created_at, resolved_at,
         admin_usuario:admin_usuarios!admin_id ( nome, email ),
-        produto:produtos!produto_id ( nome, slug )
+        produto:produtos!produto_id ( nome, slug, tipo )
       `)
       .order("created_at", { ascending: false })
 

@@ -18,6 +18,7 @@ interface ToastState {
   tipo: "sucesso" | "erro"
   mensagem: string
   slug?: string
+  produtoTipo?: "tipo_a" | "tipo_b"
 }
 
 export interface ProdutoParaEditar {
@@ -104,7 +105,7 @@ function Toast({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
         <p className="font-semibold">{toast.mensagem}</p>
         {isSucesso && toast.slug && (
           <a
-            href={`/produto/${toast.slug}`}
+            href={`/${toast.produtoTipo === "tipo_b" ? "lotes" : "produto"}/${toast.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-green-700 underline underline-offset-2 hover:text-green-800"
@@ -289,7 +290,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
         const msg = json.data.pendente_aprovacao
           ? "Alterações enviadas para aprovação!"
           : "Produto atualizado com sucesso!"
-        setToast({ tipo: "sucesso", mensagem: msg, slug: json.data.slug })
+        setToast({ tipo: "sucesso", mensagem: msg, slug: json.data.slug, produtoTipo: tipo ?? undefined })
       } else {
         const statusLabel: Record<string, string> = {
           rascunho: "salvo como rascunho",
@@ -300,6 +301,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
           tipo: "sucesso",
           mensagem: `Produto ${statusLabel[json.data.status] ?? "salvo"}!`,
           slug: json.data.slug,
+          produtoTipo: tipo ?? undefined,
         })
       }
 

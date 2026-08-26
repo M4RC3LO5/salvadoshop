@@ -32,8 +32,8 @@ export function CardProdutoTipoB({ produto }: CardProdutoTipoBProps) {
   return (
     <article className="flex flex-col bg-white border border-marrom-100 rounded-xl overflow-hidden shadow-sm transition-shadow hover:shadow-md duration-200">
 
-      {/* Imagem — clicável, leva para /produto/[slug] */}
-      <Link href={`/produto/${produto.slug}`} className="block cursor-pointer relative w-full aspect-square bg-zinc-100">
+      {/* Imagem — clicável, leva para /lotes/[slug] */}
+      <Link href={`/lotes/${produto.slug}`} className="block cursor-pointer relative w-full aspect-square bg-zinc-100">
         {produto.imagemUrl ? (
           <Image
             src={produto.imagemUrl}
@@ -61,8 +61,8 @@ export function CardProdutoTipoB({ produto }: CardProdutoTipoBProps) {
       {/* Conteúdo */}
       <div className="flex flex-col gap-3 p-4 flex-1">
 
-        {/* Nome + quantidade — clicável, leva para /produto/[slug] */}
-        <Link href={`/produto/${produto.slug}`} className="block cursor-pointer flex flex-col gap-1.5">
+        {/* Nome + quantidade — clicável, leva para /lotes/[slug] */}
+        <Link href={`/lotes/${produto.slug}`} className="block cursor-pointer flex flex-col gap-1.5">
           <h2 className="text-sm font-semibold text-marrom-800 leading-snug line-clamp-2">
             {produto.nome}
           </h2>
