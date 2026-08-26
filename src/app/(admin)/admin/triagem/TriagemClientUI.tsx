@@ -22,6 +22,11 @@ import {
   Trash2,
   FolderInput,
   CheckCircle2,
+  Rocket,
+  PackageCheck,
+  Package,
+  Layers,
+  Info,
 } from "lucide-react"
 import {
   DndContext,
@@ -55,6 +60,13 @@ export interface ListaRow {
   qtd_itens: number
 }
 
+interface ProdutoAtivo {
+  id: string
+  slug: string
+  tipo: "tipo_a" | "tipo_b"
+  status: string
+}
+
 interface ItemRow {
   id: string
   lista_id: string
@@ -77,14 +89,15 @@ interface ItemRow {
   origem: string | null
   fornecedor: string | null
   data_entrada: string
+  produto_ativo: ProdutoAtivo | null
 }
 
 type ChaveColuna =
-  | "foto_url" | "nome" | "marca" | "sku" | "ean" | "qtd_embalagem" | "num_caixas"
+  | "foto_url" | "produto_ativo" | "nome" | "marca" | "sku" | "ean" | "qtd_embalagem" | "num_caixas"
   | "total_unidades" | "lote" | "validade" | "estado" | "custo_unitario" | "origem"
   | "fornecedor" | "observacoes" | "data_entrada"
 
-type TipoColuna = "foto" | "texto" | "numero" | "moeda" | "data" | "select" | "textarea" | "readonly"
+type TipoColuna = "foto" | "badge" | "texto" | "numero" | "moeda" | "data" | "select" | "textarea" | "readonly"
 
 interface OpcaoSelect { value: string; label: string }
 
@@ -114,8 +127,18 @@ const OPCOES_ORIGEM: readonly OpcaoSelect[] = [
   { value: "avulso", label: "Avulso" },
 ]
 
+const CATEGORIAS = [
+  "Eletrônicos",
+  "Eletrodomésticos",
+  "Móveis",
+  "Veículos",
+  "Ferramentas",
+  "Outros",
+]
+
 const COLUNAS: ColunaConfig[] = [
   { chave: "foto_url", label: "Foto", tipo: "foto", editavel: false, ordenavel: false },
+  { chave: "produto_ativo", label: "Publicado", tipo: "badge", editavel: false, ordenavel: false },
   { chave: "nome", label: "Nome", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "marca", label: "Marca", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "sku", label: "SKU", tipo: "texto", editavel: true, ordenavel: true },
@@ -276,6 +299,274 @@ function MoverParaListaDialog({
   )
 }
 
+// ── Diálogo "publicar na vitrine" ───────────────────────────────────────────
+
+interface LinhaPublicacaoIndividual {
+  estoque_item_id: string
+  nome: string
+  preco_ml: string
+  categoria: string
+  descricao: string
+}
+
+type PublicarPayload =
+  | {
+      modo: "individual"
+      itens: { estoque_item_id: string; preco_ml: number; preco_site: number; categoria: string; descricao: string }[]
+    }
+  | {
+      modo: "lote"
+      estoque_item_ids: string[]
+      nome: string
+      descricao: string
+      categoria: string
+    }
+
+function PublicarDialog({
+  itensSelecionados, onPublicar, onCancelar, publicando, erro,
+}: {
+  itensSelecionados: ItemRow[]
+  onPublicar: (payload: PublicarPayload) => void
+  onCancelar: () => void
+  publicando: boolean
+  erro: string
+}) {
+  const [etapa, setEtapa] = useState<1 | 2>(1)
+  const [modo, setModo] = useState<"individual" | "lote" | null>(null)
+
+  const [linhas, setLinhas] = useState<LinhaPublicacaoIndividual[]>(() =>
+    itensSelecionados.map((i) => ({
+      estoque_item_id: i.id,
+      nome: i.nome,
+      preco_ml: "",
+      categoria: "",
+      descricao: [i.nome, i.observacoes].filter(Boolean).join("\n\n"),
+    }))
+  )
+
+  const [nomeLote, setNomeLote] = useState("")
+  const [descricaoLote, setDescricaoLote] = useState(itensSelecionados.map((i) => i.nome).join(", "))
+  const [categoriaLote, setCategoriaLote] = useState("")
+
+  const totalUnidadesLote = itensSelecionados.reduce((soma, i) => soma + i.total_unidades, 0)
+  const algumJaPublicado = itensSelecionados.some((i) => i.produto_ativo)
+
+  function atualizarLinha<K extends keyof LinhaPublicacaoIndividual>(id: string, campo: K, valor: string) {
+    setLinhas((prev) => prev.map((l) => (l.estoque_item_id === id ? { ...l, [campo]: valor } : l)))
+  }
+
+  const individualValido = linhas.every((l) => Number(l.preco_ml) > 0 && l.categoria !== "" && l.descricao.trim() !== "")
+  const loteValido = nomeLote.trim() !== "" && categoriaLote !== "" && descricaoLote.trim() !== ""
+
+  function confirmar() {
+    if (modo === "individual") {
+      onPublicar({
+        modo: "individual",
+        itens: linhas.map((l) => ({
+          estoque_item_id: l.estoque_item_id,
+          preco_ml: Number(l.preco_ml),
+          preco_site: Math.round(Number(l.preco_ml) * 0.82 * 100) / 100,
+          categoria: l.categoria,
+          descricao: l.descricao,
+        })),
+      })
+    } else if (modo === "lote") {
+      onPublicar({
+        modo: "lote",
+        estoque_item_ids: itensSelecionados.map((i) => i.id),
+        nome: nomeLote,
+        descricao: descricaoLote,
+        categoria: categoriaLote,
+      })
+    }
+  }
+
+  return (
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancelar} aria-hidden="true" />
+      <div className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-stone-200 px-6 py-4">
+          <h2 className="text-base font-semibold text-stone-900">Publicar na vitrine</h2>
+          <button type="button" onClick={onCancelar} aria-label="Fechar" className="rounded-md p-1 text-stone-400 hover:bg-stone-100">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {algumJaPublicado && (
+            <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              Um ou mais itens selecionados já têm publicação ativa. A publicação atual será ocultada.
+            </div>
+          )}
+
+          {etapa === 1 && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-stone-600">
+                Como estes {itensSelecionados.length} {itensSelecionados.length === 1 ? "item" : "itens"} serão publicados?
+              </p>
+
+              <button
+                type="button"
+                onClick={() => { setModo("individual"); setEtapa(2) }}
+                className="flex items-start gap-4 rounded-xl border-2 border-stone-200 p-4 text-left transition hover:border-amber-400 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-500">
+                  <Package className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="font-semibold text-stone-800">Produtos individuais</p>
+                  <p className="mt-0.5 text-xs text-stone-500">Cada item vira um produto — preço no ML, desconto de 18% no site.</p>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setModo("lote"); setEtapa(2) }}
+                className="flex items-start gap-4 rounded-xl border-2 border-stone-200 p-4 text-left transition hover:border-amber-400 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-500">
+                  <Layers className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="font-semibold text-stone-800">Lote único</p>
+                  <p className="mt-0.5 text-xs text-stone-500">Todos os itens viram uma oferta só — preço sob consulta.</p>
+                </div>
+              </button>
+            </div>
+          )}
+
+          {etapa === 2 && modo === "individual" && (
+            <div className="flex flex-col gap-5">
+              {linhas.map((linha) => (
+                <div key={linha.estoque_item_id} className="rounded-xl border border-stone-200 p-4">
+                  <p className="mb-3 text-sm font-semibold text-stone-800">{linha.nome}</p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label htmlFor={`preco-ml-${linha.estoque_item_id}`} className="mb-1 block text-xs font-medium text-stone-600">
+                        Preço no Mercado Livre
+                      </label>
+                      <input
+                        id={`preco-ml-${linha.estoque_item_id}`}
+                        type="number"
+                        step={0.01}
+                        min={0.01}
+                        value={linha.preco_ml}
+                        onChange={(e) => atualizarLinha(linha.estoque_item_id, "preco_ml", e.target.value)}
+                        className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                      />
+                    </div>
+                    <div>
+                      <span className="mb-1 block text-xs font-medium text-stone-600">Preço no Site (−18% automático)</span>
+                      <div className="flex h-[38px] items-center rounded-lg border border-green-200 bg-green-50 px-3 text-sm font-semibold text-green-700">
+                        {Number(linha.preco_ml) > 0 ? BRL.format(Number(linha.preco_ml) * 0.82) : "—"}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <label htmlFor={`categoria-${linha.estoque_item_id}`} className="mb-1 block text-xs font-medium text-stone-600">
+                      Categoria
+                    </label>
+                    <select
+                      id={`categoria-${linha.estoque_item_id}`}
+                      value={linha.categoria}
+                      onChange={(e) => atualizarLinha(linha.estoque_item_id, "categoria", e.target.value)}
+                      className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                    >
+                      <option value="">Selecione uma categoria</option>
+                      {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div className="mt-3">
+                    <label htmlFor={`descricao-${linha.estoque_item_id}`} className="mb-1 block text-xs font-medium text-stone-600">
+                      Descrição
+                    </label>
+                    <textarea
+                      id={`descricao-${linha.estoque_item_id}`}
+                      rows={3}
+                      value={linha.descricao}
+                      onChange={(e) => atualizarLinha(linha.estoque_item_id, "descricao", e.target.value)}
+                      className="w-full resize-y rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {etapa === 2 && modo === "lote" && (
+            <div className="flex flex-col gap-4">
+              <div>
+                <label htmlFor="nome-lote" className="mb-1 block text-sm font-medium text-stone-700">Nome do Lote</label>
+                <input
+                  id="nome-lote"
+                  type="text"
+                  value={nomeLote}
+                  onChange={(e) => setNomeLote(e.target.value)}
+                  className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                />
+              </div>
+              <div>
+                <label htmlFor="categoria-lote" className="mb-1 block text-sm font-medium text-stone-700">Categoria</label>
+                <select
+                  id="categoria-lote"
+                  value={categoriaLote}
+                  onChange={(e) => setCategoriaLote(e.target.value)}
+                  className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                >
+                  <option value="">Selecione uma categoria</option>
+                  {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="descricao-lote" className="mb-1 block text-sm font-medium text-stone-700">Descrição</label>
+                <textarea
+                  id="descricao-lote"
+                  rows={4}
+                  value={descricaoLote}
+                  onChange={(e) => setDescricaoLote(e.target.value)}
+                  className="w-full resize-y rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+                />
+              </div>
+              <div className="rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+                <span className="text-sm text-stone-600">Total de unidades no lote: </span>
+                <span className="text-sm font-bold text-stone-800">{totalUnidadesLote}</span>
+              </div>
+            </div>
+          )}
+
+          {erro && (
+            <div role="alert" className="mt-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" /> {erro}
+            </div>
+          )}
+        </div>
+
+        {etapa === 2 && (
+          <div className="flex justify-between border-t border-stone-200 px-6 py-4">
+            <button
+              type="button"
+              onClick={() => setEtapa(1)}
+              disabled={publicando}
+              className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={confirmar}
+              disabled={publicando || (modo === "individual" ? !individualValido : !loteValido)}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {publicando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Publicando...</> : "Publicar"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Célula editável ──────────────────────────────────────────────────────────
 
 interface CelulaEditavelProps {
@@ -431,6 +722,19 @@ function LinhaItem({
                 </div>
               )}
             </div>
+          ) : coluna.tipo === "badge" ? (
+            item.produto_ativo ? (
+              <a
+                href={item.produto_ativo.tipo === "tipo_a" ? `/produto/${item.produto_ativo.slug}` : `/lotes/${item.produto_ativo.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
+              >
+                <PackageCheck className="h-3 w-3" aria-hidden="true" /> Publicado
+              </a>
+            ) : (
+              <span className="text-xs text-stone-300">—</span>
+            )
           ) : (
             <CelulaEditavel
               coluna={coluna}
@@ -490,6 +794,10 @@ export function TriagemClientUI({ listasIniciais }: Props) {
 
   const [confirmarExclusaoLista, setConfirmarExclusaoLista] = useState(false)
   const [excluindoLista, setExcluindoLista] = useState(false)
+
+  const [mostrarPublicarDialog, setMostrarPublicarDialog] = useState(false)
+  const [publicando, setPublicando] = useState(false)
+  const [erroPublicar, setErroPublicar] = useState("")
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -818,6 +1126,58 @@ export function TriagemClientUI({ listasIniciais }: Props) {
     }
   }
 
+  // ── Publicar na vitrine ──────────────────────────────────────────────────────
+  const itensParaPublicar = itens.filter((i) => selecionados.has(i.id))
+
+  async function publicar(payload: PublicarPayload) {
+    setPublicando(true)
+    setErroPublicar("")
+    try {
+      const res = await fetch("/api/triagem/publicar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErroPublicar(json.error?.message ?? "Erro ao publicar. Tente novamente.")
+        return
+      }
+
+      const produtosResposta = json.data.produtos as { id: string; slug: string; tipo: "tipo_a" | "tipo_b"; status: string }[]
+      const ocultadosResposta = json.data.ocultados as { id: string; nome: string; slug: string }[]
+
+      setItens((prev) =>
+        prev.map((item) => {
+          if (payload.modo === "individual") {
+            const idx = payload.itens.findIndex((i) => i.estoque_item_id === item.id)
+            if (idx === -1) return item
+            const produto = produtosResposta[idx]
+            return produto ? { ...item, produto_ativo: produto } : item
+          }
+          if (!payload.estoque_item_ids.includes(item.id)) return item
+          const produto = produtosResposta[0]
+          return produto ? { ...item, produto_ativo: produto } : item
+        })
+      )
+
+      const qtdProdutos = produtosResposta.length
+      const qtdOcultados = ocultadosResposta.length
+      setMensagemSucesso(
+        `${qtdProdutos} ${qtdProdutos === 1 ? "produto publicado" : "produtos publicados"} na vitrine.` +
+        (qtdOcultados > 0
+          ? ` ${qtdOcultados} ${qtdOcultados === 1 ? "publicação anterior foi ocultada" : "publicações anteriores foram ocultadas"}.`
+          : "")
+      )
+      setMostrarPublicarDialog(false)
+      setSelecionados(new Set())
+    } catch {
+      setErroPublicar("Erro de conexão ao publicar.")
+    } finally {
+      setPublicando(false)
+    }
+  }
+
   // ── Exportação ───────────────────────────────────────────────────────────────
   function colunasParaExportar(): ColunaConfig[] {
     return COLUNAS.filter((c) => colunasVisiveis.has(c.chave) && c.chave !== "foto_url")
@@ -828,6 +1188,7 @@ export function TriagemClientUI({ listasIniciais }: Props) {
   }
 
   function valorExportavel(item: ItemRow, coluna: ColunaConfig): string {
+    if (coluna.chave === "produto_ativo") return item.produto_ativo?.slug ?? ""
     const valor = item[coluna.chave as keyof ItemRow] as string | number | null
     return formatarValorExibicao(coluna, valor)
   }
@@ -935,6 +1296,16 @@ export function TriagemClientUI({ listasIniciais }: Props) {
           movendo={movendo}
           onMover={moverSelecionados}
           onCancelar={() => setMostrarMoverDialog(false)}
+        />
+      )}
+
+      {mostrarPublicarDialog && (
+        <PublicarDialog
+          itensSelecionados={itensParaPublicar}
+          onPublicar={publicar}
+          onCancelar={() => { setMostrarPublicarDialog(false); setErroPublicar("") }}
+          publicando={publicando}
+          erro={erroPublicar}
         />
       )}
 
@@ -1118,6 +1489,13 @@ export function TriagemClientUI({ listasIniciais }: Props) {
                 {selecionados.size} {selecionados.size === 1 ? "selecionado" : "selecionados"}
               </span>
               <div className="ml-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMostrarPublicarDialog(true)}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-amber-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-800"
+                >
+                  <Rocket className="h-3.5 w-3.5" aria-hidden="true" /> Publicar na vitrine
+                </button>
                 <button
                   type="button"
                   onClick={() => setMostrarMoverDialog(true)}

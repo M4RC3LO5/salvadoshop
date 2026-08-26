@@ -3,6 +3,12 @@ import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/admin/Sidebar"
 
+// Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
+// Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
+// mesmo após o registro já estar correto no banco (aqui, a contagem de
+// aprovações pendentes exibida na sidebar).
+export const dynamic = "force-dynamic"
+
 export default async function AdminPanelLayout({
   children,
 }: {

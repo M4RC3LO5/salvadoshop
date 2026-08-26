@@ -2,6 +2,11 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { TriagemClientUI, type ListaRow } from "./TriagemClientUI"
 
+// Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
+// Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
+// mesmo após o registro já estar correto no banco.
+export const dynamic = "force-dynamic"
+
 export default async function TriagemPage() {
   const supabase = createClient()
 

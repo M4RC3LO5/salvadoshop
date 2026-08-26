@@ -5,6 +5,11 @@ import { createClient } from "@/lib/supabase/server"
 import { AcoesPedido } from "./AcoesPedido"
 import { ProgressoPedido } from "./ProgressoPedido"
 
+// Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
+// Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
+// mesmo após o registro já estar correto no banco.
+export const dynamic = "force-dynamic"
+
 interface PageProps {
   params: { id: string }
 }

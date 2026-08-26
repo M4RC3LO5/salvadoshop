@@ -4,6 +4,11 @@ import { Info } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { NovoProdutoForm, ProdutoParaEditar } from "../../novo/NovoProdutoForm"
 
+// Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
+// Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
+// mesmo após o registro já estar correto no banco.
+export const dynamic = "force-dynamic"
+
 interface PageProps {
   params: { id: string }
 }

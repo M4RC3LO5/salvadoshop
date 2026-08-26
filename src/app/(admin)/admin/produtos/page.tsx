@@ -2,6 +2,11 @@ import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { ProdutosClientUI, type ProdutoRow } from "./ProdutosClientUI"
 
+// Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
+// Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
+// mesmo após o registro já estar correto no banco.
+export const dynamic = "force-dynamic"
+
 const POR_PAGINA = 10
 
 interface PageProps {

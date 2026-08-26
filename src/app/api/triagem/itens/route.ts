@@ -95,8 +95,15 @@ export async function GET(request: NextRequest) {
 
   const { data: itens, error } = await supabase
     .from("estoque_itens")
-    .select("*")
+    .select(`
+      *,
+      publicacao:estoque_item_produtos(
+        ativo,
+        produto:produtos(id, slug, tipo, status)
+      )
+    `)
     .eq("lista_id", listaId)
+    .eq("publicacao.ativo", true)
     .order("ordem", { ascending: true })
 
   if (error) {
@@ -121,12 +128,18 @@ export async function GET(request: NextRequest) {
     })
   }
 
-  const itensComFoto = (itens ?? []).map((item) => ({
-    ...item,
-    foto_url: urlsPorCaminho.get(item.foto_url) ?? null,
-  }))
+  const itensFormatados = (itens ?? []).map((item) => {
+    const { publicacao, ...resto } = item as typeof item & {
+      publicacao: { ativo: boolean; produto: { id: string; slug: string; tipo: string; status: string } | null }[]
+    }
+    return {
+      ...resto,
+      foto_url: urlsPorCaminho.get(resto.foto_url) ?? null,
+      produto_ativo: publicacao?.[0]?.produto ?? null,
+    }
+  })
 
-  return Response.json({ success: true, data: itensComFoto })
+  return Response.json({ success: true, data: itensFormatados })
 }
 
 export async function POST(request: NextRequest) {
