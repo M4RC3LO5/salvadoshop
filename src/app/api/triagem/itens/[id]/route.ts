@@ -153,6 +153,8 @@ export async function DELETE(
     )
   }
 
+  // A foto deixou de ser armazenada para itens novos (foto_url é sempre null).
+  // Guarda mantida só para limpar o Storage de itens antigos que ainda têm foto_url preenchido.
   if (item?.foto_url) {
     try {
       await supabase.storage.from("triagem").remove([item.foto_url])

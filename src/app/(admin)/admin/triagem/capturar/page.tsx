@@ -368,7 +368,6 @@ export default function CapturarTriagemPage() {
     setSalvando(true)
     try {
       const formData = new FormData()
-      formData.append("foto", fotoConvertida)
       formData.append("nome", campos.nome)
       formData.append("marca", campos.marca)
       formData.append("sku", campos.sku)

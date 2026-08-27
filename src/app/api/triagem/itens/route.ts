@@ -1,10 +1,6 @@
-import { randomUUID } from "crypto"
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
-
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"]
-const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 
 const ESTADOS = ["lacrado", "avaria_leve", "avaria_grave", "sucata"] as const
 const ORIGENS = ["sinistro", "fabricante", "ecommerce", "atacado", "avulso"] as const
@@ -128,7 +124,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const supabase = createClient()
-  let caminhoFoto: string | null = null
 
   try {
     // 1) Autenticação
@@ -148,27 +143,6 @@ export async function POST(request: NextRequest) {
       return Response.json(
         { success: false, error: { code: "VALIDATION_ERROR", message: "Formato de requisição inválido." } },
         { status: 400 }
-      )
-    }
-
-    // 2) Validação — foto
-    const foto = formData.get("foto")
-    if (!(foto instanceof File)) {
-      return Response.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Foto é obrigatória." } },
-        { status: 422 }
-      )
-    }
-    if (!ALLOWED_TYPES.includes(foto.type)) {
-      return Response.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Formato de imagem inválido. Use JPG, PNG ou WEBP." } },
-        { status: 422 }
-      )
-    }
-    if (foto.size > MAX_BYTES) {
-      return Response.json(
-        { success: false, error: { code: "VALIDATION_ERROR", message: "Imagem muito grande. Máximo 10MB." } },
-        { status: 422 }
       )
     }
 
@@ -222,7 +196,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 4) admin_usuarios — criado_por referencia admin_usuarios.id, não auth.users
+    // 3) admin_usuarios — criado_por referencia admin_usuarios.id, não auth.users
     const { data: adminUser, error: adminError } = await supabase
       .from("admin_usuarios")
       .select("id")
@@ -237,24 +211,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 3) Upload da foto — bucket privado "triagem"
-    const bytes = await foto.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    caminhoFoto = `${user.id}/${randomUUID()}.jpg`
-
-    const { error: uploadError } = await supabase.storage
-      .from("triagem")
-      .upload(caminhoFoto, buffer, { contentType: "image/jpeg", upsert: false })
-
-    if (uploadError) {
-      caminhoFoto = null
-      return Response.json(
-        { success: false, error: { code: "UPLOAD_FAILED", message: "Falha ao enviar a foto. Tente novamente." } },
-        { status: 500 }
-      )
-    }
-
-    // 5) Resolve a lista — cria uma nova se lista_id não veio
+    // 4) Resolve a lista — cria uma nova se lista_id não veio
     let listaId = dados.lista_id
     if (!listaId) {
       const { data: novaLista, error: listaError } = await supabase
@@ -264,7 +221,6 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (listaError || !novaLista) {
-        await removerFotoOrfa(supabase, caminhoFoto)
         return Response.json(
           { success: false, error: { code: "INTERNAL_ERROR", message: "Não foi possível criar a lista de triagem." } },
           { status: 500 }
@@ -273,7 +229,7 @@ export async function POST(request: NextRequest) {
       listaId = novaLista.id
     }
 
-    // 6) Ordem — maior ordem da lista + 1
+    // 5) Ordem — maior ordem da lista + 1
     const { data: ultimoItem, error: ordemError } = await supabase
       .from("estoque_itens")
       .select("ordem")
@@ -283,7 +239,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (ordemError) {
-      await removerFotoOrfa(supabase, caminhoFoto)
       return Response.json(
         { success: false, error: { code: "INTERNAL_ERROR", message: "Não foi possível calcular a ordem do item." } },
         { status: 500 }
@@ -291,13 +246,14 @@ export async function POST(request: NextRequest) {
     }
     const ordem = (ultimoItem?.ordem ?? 0) + 1
 
-    // 7) Insert — total_unidades é coluna gerada, não é enviada
+    // 6) Insert — total_unidades é coluna gerada, não é enviada.
+    // A foto é insumo apenas para a extração via IA — não é armazenada.
     const { data: itemInserido, error: insertError } = await supabase
       .from("estoque_itens")
       .insert({
         lista_id: listaId,
         ordem,
-        foto_url: caminhoFoto,
+        foto_url: null,
         tipo_captura: dados.tipo_captura,
         nome: dados.nome,
         marca: dados.marca,
@@ -319,9 +275,7 @@ export async function POST(request: NextRequest) {
       .select("id, lista_id, total_unidades")
       .single()
 
-    // 9) Insert falhou — remove a foto já enviada para evitar arquivo órfão
     if (insertError || !itemInserido) {
-      await removerFotoOrfa(supabase, caminhoFoto)
       return Response.json(
         { success: false, error: { code: "INTERNAL_ERROR", message: "Não foi possível salvar o item. Tente novamente." } },
         { status: 500 }
@@ -337,20 +291,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch {
-    if (caminhoFoto) {
-      await removerFotoOrfa(supabase, caminhoFoto)
-    }
     return Response.json(
       { success: false, error: { code: "INTERNAL_ERROR", message: "Falha ao processar a requisição. Tente novamente." } },
       { status: 500 }
     )
-  }
-}
-
-async function removerFotoOrfa(supabase: ReturnType<typeof createClient>, caminho: string) {
-  try {
-    await supabase.storage.from("triagem").remove([caminho])
-  } catch {
-    // best-effort — arquivo órfão não deve impedir o retorno do erro original
   }
 }
