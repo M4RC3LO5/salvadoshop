@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { AlertTriangle, X } from "lucide-react"
+import { AlertTriangle, Loader2, X } from "lucide-react"
 
 interface Props {
   pedidoId: string
@@ -56,6 +56,7 @@ export function AcoesPedido({
 }: Props) {
   const router = useRouter()
   const [salvando, setSalvando] = useState(false)
+  const [statusEmAndamento, setStatusEmAndamento] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarFormEnvio, setMostrarFormEnvio] = useState(false)
 
@@ -67,6 +68,7 @@ export function AcoesPedido({
 
   async function atualizarStatus(novoStatus: string, camposRastreio?: Record<string, string>) {
     setSalvando(true)
+    setStatusEmAndamento(novoStatus)
     setErro(null)
     try {
       const res = await fetch(`/api/admin/pedidos/${pedidoId}`, {
@@ -86,6 +88,7 @@ export function AcoesPedido({
       return false
     } finally {
       setSalvando(false)
+      setStatusEmAndamento(null)
     }
   }
 
@@ -165,9 +168,9 @@ export function AcoesPedido({
               type="button"
               onClick={handleSubmitEnvio}
               disabled={salvando}
-              className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {salvando ? "Salvando..." : "Confirmar envio"}
+              {salvando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</> : "Confirmar envio"}
             </button>
             <button
               type="button"
@@ -193,11 +196,12 @@ export function AcoesPedido({
                 disabled={salvando}
                 className={
                   t.estilo === "primaria"
-                    ? "rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:opacity-50"
-                    : "rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+                    ? "inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    : "inline-flex items-center gap-2 rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                 }
               >
-                {t.label}
+                {statusEmAndamento === t.novoStatus && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {statusEmAndamento === t.novoStatus ? "Salvando..." : t.label}
               </button>
             ))}
           </div>

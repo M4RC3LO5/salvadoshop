@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { LoadingSpinner } from "@/components/admin/LoadingSpinner"
 import {
   Users,
   Plus,
@@ -434,9 +435,7 @@ export default function UsuariosPage() {
 
       {/* Conteúdo */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="animate-spin text-amber-700" size={32} aria-label="Carregando usuários" />
-        </div>
+        <LoadingSpinner label="Carregando usuários..." />
       ) : erro ? (
         <div className="rounded-xl bg-red-50 border border-red-200 px-6 py-5 text-center">
           <p className="text-sm text-red-700">{erro}</p>

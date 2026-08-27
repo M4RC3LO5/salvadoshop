@@ -13,6 +13,7 @@ import {
   AlertTriangle,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { LoadingSpinner } from "@/components/admin/LoadingSpinner"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -556,9 +557,7 @@ export default function AprovacoesPage() {
 
       {/* Conteúdo */}
       {carregando ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 size={32} className="animate-spin text-stone-400" />
-        </div>
+        <LoadingSpinner label="Carregando aprovações..." />
       ) : listaFiltrada.length === 0 ? (
         <div className="rounded-xl border border-dashed border-stone-300 bg-white py-20 text-center">
           <p className="text-stone-400">

@@ -29,6 +29,10 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function cn(...classes: (string | false | undefined)[]) {
+  return classes.filter(Boolean).join(" ")
+}
+
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
 function formatData(iso: string) {
@@ -148,7 +152,7 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   const isMaster = role === "master"
   const totalPaginas = Math.ceil(total / porPagina)
@@ -266,8 +270,9 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-stone-800">Produtos</h1>
-            <p className="mt-0.5 text-sm text-stone-500">
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-stone-500">
               {total} {total === 1 ? "produto encontrado" : "produtos encontrados"}
+              {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700" aria-hidden="true" />}
             </p>
           </div>
           <Link
@@ -333,7 +338,13 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
         </div>
 
         {/* Tabela */}
-        <div className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div
+          aria-busy={isPending}
+          className={cn(
+            "overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-opacity",
+            isPending && "opacity-50"
+          )}
+        >
           {produtos.length > 0 ? (
             <>
               <div className="overflow-x-auto">

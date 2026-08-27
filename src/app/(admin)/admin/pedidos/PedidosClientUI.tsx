@@ -3,7 +3,11 @@
 import { useCallback, useTransition } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import Link from "next/link"
-import { Receipt } from "lucide-react"
+import { Loader2, Receipt } from "lucide-react"
+
+function cn(...classes: (string | false | undefined)[]) {
+  return classes.filter(Boolean).join(" ")
+}
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -71,7 +75,7 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
 
   const totalPaginas = Math.ceil(total / porPagina)
 
@@ -107,8 +111,9 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">Pedidos</h1>
-          <p className="mt-0.5 text-sm text-stone-500">
+          <p className="mt-0.5 flex items-center gap-1.5 text-sm text-stone-500">
             {total} {total === 1 ? "pedido encontrado" : "pedidos encontrados"}
+            {isPending && <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-700" aria-hidden="true" />}
           </p>
         </div>
       </div>
@@ -133,7 +138,13 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
       </div>
 
       {/* Tabela */}
-      <div className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+      <div
+        aria-busy={isPending}
+        className={cn(
+          "overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm transition-opacity",
+          isPending && "opacity-50"
+        )}
+      >
         {pedidos.length > 0 ? (
           <>
             <div className="overflow-x-auto">

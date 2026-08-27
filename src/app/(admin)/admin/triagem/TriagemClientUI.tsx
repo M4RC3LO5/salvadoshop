@@ -580,12 +580,13 @@ interface CelulaEditavelProps {
   coluna: ColunaConfig
   valor: string | number | null
   emEdicao: boolean
+  clamp: boolean
   onIniciarEdicao: () => void
   onSalvar: (novoValor: string) => void
   onCancelar: () => void
 }
 
-function CelulaEditavel({ coluna, valor, emEdicao, onIniciarEdicao, onSalvar, onCancelar }: CelulaEditavelProps) {
+function CelulaEditavel({ coluna, valor, emEdicao, clamp, onIniciarEdicao, onSalvar, onCancelar }: CelulaEditavelProps) {
   const [rascunho, setRascunho] = useState("")
   const canceladoRef = useRef(false)
 
@@ -596,8 +597,17 @@ function CelulaEditavel({ coluna, valor, emEdicao, onIniciarEdicao, onSalvar, on
     }
   }, [emEdicao, valor])
 
+  const texto = formatarValorExibicao(coluna, valor)
+
   if (!coluna.editavel) {
-    return <span className="text-stone-500">{formatarValorExibicao(coluna, valor) || "—"}</span>
+    return (
+      <span
+        className={cn("text-stone-500", clamp && "line-clamp-2 break-words")}
+        title={clamp && texto ? texto : undefined}
+      >
+        {texto || "—"}
+      </span>
+    )
   }
 
   if (!emEdicao) {
@@ -605,9 +615,13 @@ function CelulaEditavel({ coluna, valor, emEdicao, onIniciarEdicao, onSalvar, on
       <button
         type="button"
         onClick={onIniciarEdicao}
-        className="block w-full min-w-[70px] rounded px-1.5 py-1 text-left text-stone-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-700"
+        title={clamp && texto ? texto : undefined}
+        className={cn(
+          "block w-full min-w-[70px] rounded px-1.5 py-1 text-left text-stone-700 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-700",
+          clamp && "line-clamp-2 break-words"
+        )}
       >
-        {formatarValorExibicao(coluna, valor) || <span className="text-stone-300">—</span>}
+        {texto || <span className="text-stone-300">—</span>}
       </button>
     )
   }
@@ -654,6 +668,9 @@ function CelulaEditavel({ coluna, valor, emEdicao, onIniciarEdicao, onSalvar, on
     />
   )
 }
+
+// Colunas de texto livre/longo — limitadas a 2 linhas na exibição (não na edição)
+const COLUNAS_TEXTO_LONGO = new Set<ChaveColuna>(["nome", "marca", "observacoes", "fornecedor"])
 
 // ── Linha da tabela (arrastável) ─────────────────────────────────────────────
 
@@ -717,7 +734,10 @@ function LinhaItem({
         />
       </td>
       {colunasExibidas.map((coluna) => (
-        <td key={coluna.chave} className="px-3 py-2 align-top">
+        <td
+          key={coluna.chave}
+          className={cn("px-3 py-2 align-top", COLUNAS_TEXTO_LONGO.has(coluna.chave) && "max-w-[220px]")}
+        >
           {coluna.tipo === "badge" ? (
             item.produto_ativo ? (
               <div className="flex flex-col items-start gap-1">
@@ -741,6 +761,7 @@ function LinhaItem({
               coluna={coluna}
               valor={item[coluna.chave as keyof ItemRow] as string | number | null}
               emEdicao={edicaoAtiva?.itemId === item.id && edicaoAtiva?.campo === coluna.chave}
+              clamp={COLUNAS_TEXTO_LONGO.has(coluna.chave)}
               onIniciarEdicao={() => coluna.editavel && onIniciarEdicao(item.id, coluna.chave)}
               onSalvar={(valor) => onSalvarCelula(item, coluna, valor)}
               onCancelar={onCancelarEdicao}
