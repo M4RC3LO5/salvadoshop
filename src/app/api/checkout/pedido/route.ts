@@ -133,11 +133,14 @@ export async function POST(request: NextRequest) {
       }))
     }
 
-    // Busca o número sequencial (gerado pelo banco na criação) e o total, para
-    // ajustar os centavos e identificar o pagamento pelo extrato.
+    // Busca o número sequencial (gerado pelo banco na criação) para devolver
+    // ao cliente. O total ainda não é definitivo aqui — o pedido nasce
+    // aguardando cotação de frete (o Master cota depois, no admin), e é só
+    // nesse momento que o valor final é ajustado para identificar o pedido
+    // pelo extrato (ver /api/admin/pedidos/[id]).
     const { data: pedidoCriado, error: erroBusca } = await supabaseAdmin
       .from('pedidos')
-      .select('numero_pedido, total')
+      .select('numero_pedido, subtotal')
       .eq('id', orderId)
       .single()
 
@@ -154,48 +157,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Ajusta o total para terminar nos dois últimos dígitos do número do
-    // pedido (em centavos) — permite identificar o pagamento pelo extrato,
-    // já que não há mais integração automática confirmando o pagamento.
-    // SEMPRE arredonda para cima (nunca para baixo): se os centavos-alvo
-    // forem menores ou iguais aos centavos atuais, soma 1 real antes de
-    // aplicá-los. Isso garante que o valor cobrado nunca fique menor que o
-    // total real — perder a diferença é aceitável, perder a venda não.
-    const totalOriginalCentavos = Math.round(pedidoCriado.total * 100)
-    const reaisOriginais = Math.floor(totalOriginalCentavos / 100)
-    const centavosAtuais = totalOriginalCentavos - reaisOriginais * 100
-    const centavosAlvo = pedidoCriado.numero_pedido % 100
-
-    const reaisAjustados = centavosAlvo <= centavosAtuais ? reaisOriginais + 1 : reaisOriginais
-    const totalAjustadoCentavos = reaisAjustados * 100 + centavosAlvo
-    const totalAjustado = totalAjustadoCentavos / 100
-
-    if (totalAjustado !== pedidoCriado.total) {
-      const { error: erroAjusteTotal } = await supabaseAdmin
-        .from('pedidos')
-        .update({ total: totalAjustado })
-        .eq('id', orderId)
-
-      if (erroAjusteTotal) {
-        console.error(JSON.stringify({
-          event: 'checkout.pedido.erro_ajustar_total',
-          orderId,
-          error: erroAjusteTotal.message,
-          timestamp: new Date().toISOString(),
-        }))
-        return NextResponse.json(
-          { success: false, error: { code: 'INTERNAL_ERROR', message: 'Não foi possível finalizar o pedido. Tente novamente.' } },
-          { status: 500 }
-        )
-      }
-    }
-
     console.log(JSON.stringify({
       event: 'checkout.pedido.criado',
       orderId,
       numeroPedido: pedidoCriado.numero_pedido,
       formaPagamento,
-      total: totalAjustado,
+      subtotal: pedidoCriado.subtotal,
       timestamp: new Date().toISOString(),
     }))
 
@@ -204,7 +171,7 @@ export async function POST(request: NextRequest) {
       data: {
         id: orderId,
         numero_pedido: pedidoCriado.numero_pedido,
-        total: totalAjustado,
+        subtotal: pedidoCriado.subtotal,
         forma_pagamento: formaPagamento,
       },
     })

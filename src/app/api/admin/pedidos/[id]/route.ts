@@ -13,7 +13,14 @@ const atualizarPedidoSchema = z.object({
   codigo_rastreio: z.string().trim().min(1).max(100).optional(),
   transportadora: z.string().trim().min(1).max(100).optional(),
   url_rastreamento: z.string().url().max(500).optional(),
-})
+  // Cotação de frete (aguardando_cotacao_frete -> aguardando_pagamento):
+  // os dois só fazem sentido juntos.
+  frete_valor: z.number().min(0).optional(),
+  frete_modalidade: z.string().trim().min(1).max(60).optional(),
+}).refine(
+  (dados) => (dados.frete_valor === undefined) === (dados.frete_modalidade === undefined),
+  { message: "Informe o valor e a modalidade do frete juntos." }
+)
 
 // ── PATCH — atualizar status e dados de rastreio ─────────────────────────────
 // A validação de qual transição é permitida para cada papel (Master/Auxiliar)
@@ -73,18 +80,29 @@ export async function PATCH(
     )
   }
 
-  const { status, codigo_rastreio, transportadora, url_rastreamento } = parsed.data
+  const { status, codigo_rastreio, transportadora, url_rastreamento, frete_valor, frete_modalidade } = parsed.data
 
   const objetoUpdate: Record<string, unknown> = { status }
   if (codigo_rastreio !== undefined) objetoUpdate.codigo_rastreio = codigo_rastreio
   if (transportadora !== undefined) objetoUpdate.transportadora = transportadora
   if (url_rastreamento !== undefined) objetoUpdate.url_rastreamento = url_rastreamento
 
+  // Cotação de frete: o valor informado pelo Master vai para o banco como
+  // digitado. O ajuste que faz o total terminar nos dois últimos dígitos do
+  // número do pedido (identificação pelo extrato) roda dentro do trigger
+  // `trg_ajustar_centavos_pedido` (migration 020) na entrada em
+  // aguardando_pagamento — não aqui, para não haver dois lugares ajustando o
+  // mesmo valor, e para cobrir também pedidos de retirada (sem cotação).
+  if (frete_valor !== undefined && frete_modalidade !== undefined) {
+    objetoUpdate.frete_valor = frete_valor
+    objetoUpdate.frete_modalidade = frete_modalidade
+  }
+
   const { data, error } = await supabase
     .from("pedidos")
     .update(objetoUpdate)
     .eq("id", params.id)
-    .select("id, status")
+    .select("id, status, frete_valor, frete_modalidade, total")
     .maybeSingle()
 
   if (error) {

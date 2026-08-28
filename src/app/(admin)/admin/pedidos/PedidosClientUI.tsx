@@ -44,9 +44,13 @@ function formatData(iso: string) {
 
 const VINTE_QUATRO_HORAS_MS = 24 * 60 * 60 * 1000
 
+// Pedidos parados nesses status por muito tempo precisam de ação do admin:
+// cotar o frete ou cancelar por falta de pagamento.
+const STATUS_QUE_PODEM_FICAR_PARADOS = ["aguardando_cotacao_frete", "aguardando_pagamento"]
+
 function aguardandoPagamentoHaMuitoTempo(pedido: PedidoRow) {
   return (
-    pedido.status === "aguardando_pagamento" &&
+    STATUS_QUE_PODEM_FICAR_PARADOS.includes(pedido.status) &&
     Date.now() - new Date(pedido.created_at).getTime() > VINTE_QUATRO_HORAS_MS
   )
 }
@@ -55,6 +59,7 @@ function aguardandoPagamentoHaMuitoTempo(pedido: PedidoRow) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
+    aguardando_cotacao_frete: "bg-orange-100 text-orange-800 ring-orange-200",
     aguardando_pagamento: "bg-amber-100 text-amber-800 ring-amber-200",
     pago:                 "bg-green-100 text-green-800 ring-green-200",
     em_separacao:         "bg-blue-100 text-blue-800 ring-blue-200",
@@ -64,6 +69,7 @@ function StatusBadge({ status }: { status: string }) {
     reembolsado:          "bg-stone-100 text-stone-600 ring-stone-200",
   }
   const labels: Record<string, string> = {
+    aguardando_cotacao_frete: "Aguardando cotação de frete",
     aguardando_pagamento: "Aguardando pagamento",
     pago:                 "Pago",
     em_separacao:         "Em separação",
@@ -137,6 +143,7 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
           className="rounded-lg border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-700 outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
         >
           <option value="">Todos os status</option>
+          <option value="aguardando_cotacao_frete">Aguardando cotação de frete</option>
           <option value="aguardando_pagamento">Aguardando pagamento</option>
           <option value="pago">Pago</option>
           <option value="em_separacao">Em separação</option>
@@ -188,7 +195,7 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
                           <span className="font-semibold text-stone-700">#{p.numero_pedido}</span>
                           {vencido && (
                             <span
-                              title="Aguardando pagamento há mais de 24h — considere cancelar"
+                              title="Parado há mais de 24h (frete ou pagamento) — precisa de ação"
                               className="inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-200"
                             >
                               +24h
