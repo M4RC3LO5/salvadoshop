@@ -26,8 +26,21 @@ const proximoOperacional: Record<string, { novoStatus: string; label: string }> 
   enviado:      { novoStatus: "entregue", label: "Marcar como entregue" },
 }
 
+// Confirmação manual de pagamento (Pix por chave fixa / cartão via link
+// enviado por WhatsApp) — sem integração automática, só o Master confirma,
+// depois de checar o extrato ou o comprovante recebido.
+const CONFIRMAR_PAGAMENTO: Transicao = {
+  novoStatus: "pago",
+  label: "Confirmar pagamento",
+  estilo: "primaria",
+}
+
 function getTransicoesDisponiveis(statusAtual: string, role: "master" | "auxiliar"): Transicao[] {
   const transicoes: Transicao[] = []
+
+  if (statusAtual === "aguardando_pagamento" && role === "master") {
+    transicoes.push(CONFIRMAR_PAGAMENTO)
+  }
 
   const operacional = proximoOperacional[statusAtual]
   if (operacional) {
@@ -59,6 +72,7 @@ export function AcoesPedido({
   const [statusEmAndamento, setStatusEmAndamento] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarFormEnvio, setMostrarFormEnvio] = useState(false)
+  const [mostrarConfirmarPagamento, setMostrarConfirmarPagamento] = useState(false)
 
   const [transportadoraInput, setTransportadoraInput] = useState(transportadora ?? "")
   const [codigoRastreioInput, setCodigoRastreioInput] = useState(codigoRastreio ?? "")
@@ -97,7 +111,16 @@ export function AcoesPedido({
       setMostrarFormEnvio(true)
       return
     }
+    if (transicao.novoStatus === "pago" && statusAtual === "aguardando_pagamento") {
+      setMostrarConfirmarPagamento(true)
+      return
+    }
     atualizarStatus(transicao.novoStatus)
+  }
+
+  async function handleConfirmarPagamento() {
+    const sucesso = await atualizarStatus("pago")
+    if (sucesso) setMostrarConfirmarPagamento(false)
   }
 
   async function handleSubmitEnvio() {
@@ -124,6 +147,33 @@ export function AcoesPedido({
           <button onClick={() => setErro(null)} className="ml-auto text-red-500 hover:text-red-700" aria-label="Fechar erro">
             <X className="h-4 w-4" />
           </button>
+        </div>
+      )}
+
+      {/* Confirmação inline de pagamento manual */}
+      {mostrarConfirmarPagamento && (
+        <div role="alertdialog" aria-label="Confirmar pagamento" className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <p className="text-sm text-stone-700">
+            Confirma que o pagamento deste pedido foi recebido (Pix no extrato ou cartão confirmado)? Essa ação não pode ser desfeita por aqui.
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleConfirmarPagamento}
+              disabled={salvando}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {salvando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Confirmando...</> : "Sim, confirmar pagamento"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarConfirmarPagamento(false)}
+              disabled={salvando}
+              className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
@@ -185,7 +235,7 @@ export function AcoesPedido({
       )}
 
       {/* Botões de transição */}
-      {!mostrarFormEnvio && (
+      {!mostrarFormEnvio && !mostrarConfirmarPagamento && (
         transicoes.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {transicoes.map((t) => (

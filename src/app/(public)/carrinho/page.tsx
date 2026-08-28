@@ -364,7 +364,7 @@ export default function PaginaCarrinho() {
             </button>
 
             <p className="text-center text-[11px] text-zinc-400">
-              🔒 Pagamento seguro via Stripe e Mercado Pago
+              🔒 Pagamento via Pix ou cartão de crédito
             </p>
           </div>
         </aside>

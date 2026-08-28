@@ -56,9 +56,11 @@ export default function PaginaCheckout() {
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
 
-  // Pagamento — Pix indisponível neste bloco; Cartão é a única opção,
-  // pré-selecionada. O setter removido para reintroduzir Pix no futuro.
-  const [metodoPagamento] = useState<"cartao">("cartao")
+  // Pagamento — Pix ou Cartão de crédito. O pagamento em si não é mais
+  // processado no site: o checkout só registra o pedido; a confirmação é
+  // manual (Pix por chave fixa + WhatsApp, cartão via link enviado por
+  // WhatsApp).
+  const [formaPagamento, setFormaPagamento] = useState<"pix" | "cartao_credito">("pix")
   const [cepEndereco, setCepEndereco] = useState("")
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState("")
@@ -128,44 +130,43 @@ export default function PaginaCheckout() {
   }
 
   async function handleContinuar() {
-    if (metodoPagamento === "cartao") {
-      setEnviando(true)
-      setErroPagamento("")
+    setEnviando(true)
+    setErroPagamento("")
 
-      try {
-        const res = await fetch("/api/checkout/stripe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderId,
-            itens: itens.map((item) => ({
-              produto_id: item.produto_id,
-              quantidade: item.quantidade,
-            })),
-            enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
-            customerEmail: email || undefined,
-            compradorNome: nome.trim(),
-            compradorTelefone: telefone.trim(),
-          }),
-        })
+    try {
+      const res = await fetch("/api/checkout/pedido", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          itens: itens.map((item) => ({
+            produto_id: item.produto_id,
+            quantidade: item.quantidade,
+          })),
+          enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
+          formaPagamento,
+          customerEmail: email || undefined,
+          compradorNome: nome.trim(),
+          compradorTelefone: telefone.trim(),
+        }),
+      })
 
-        const json = await res.json() as {
-          success: boolean
-          data?: { url: string }
-          error?: { message: string }
-        }
-
-        if (!json.success || !json.data) {
-          setErroPagamento(json.error?.message ?? "Não foi possível iniciar o pagamento. Tente novamente.")
-          setEnviando(false)
-          return
-        }
-
-        window.location.href = json.data.url
-      } catch {
-        setErroPagamento("Erro de conexão. Verifique sua internet e tente novamente.")
-        setEnviando(false)
+      const json = await res.json() as {
+        success: boolean
+        data?: { id: string }
+        error?: { message: string }
       }
+
+      if (!json.success || !json.data) {
+        setErroPagamento(json.error?.message ?? "Não foi possível registrar o pedido. Tente novamente.")
+        setEnviando(false)
+        return
+      }
+
+      window.location.href = `/checkout/sucesso?pedido=${json.data.id}`
+    } catch {
+      setErroPagamento("Erro de conexão. Verifique sua internet e tente novamente.")
+      setEnviando(false)
     }
   }
 
@@ -177,7 +178,7 @@ export default function PaginaCheckout() {
   const telefoneDigitos = telefone.replace(/\D/g, "")
   const dadosCompradorOk = nome.trim().length >= 2 && emailValido && telefoneDigitos.length >= 10
 
-  const podeContinuar = itens.length > 0 && metodoPagamento === "cartao" && enderecoCompleto && !enviando && dadosCompradorOk
+  const podeContinuar = itens.length > 0 && enderecoCompleto && !enviando && dadosCompradorOk
 
   return (
     <div className="container py-6 sm:py-8 px-4 sm:px-6 max-w-4xl mx-auto">
@@ -382,14 +383,57 @@ export default function PaginaCheckout() {
           <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
             <h2 className="text-base font-bold text-marrom-800">Forma de Pagamento</h2>
 
-            {/* Cartão de Crédito — pagamento concluído na página hospedada do Stripe */}
-            {metodoPagamento === "cartao" && (
-              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Forma de pagamento">
+              <button
+                type="button"
+                role="radio"
+                aria-checked={formaPagamento === "pix"}
+                onClick={() => setFormaPagamento("pix")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                  formaPagamento === "pix"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                }`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 2 2 12l10 10 10-10L12 2Z" /><circle cx="12" cy="12" r="3" />
+                </svg>
+                Pix
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={formaPagamento === "cartao_credito"}
+                onClick={() => setFormaPagamento("cartao_credito")}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                  formaPagamento === "cartao_credito"
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
+                }`}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
                 </svg>
+                Cartão de crédito
+              </button>
+            </div>
+
+            {formaPagamento === "pix" ? (
+              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                </svg>
                 <p className="text-sm text-marrom-800 font-medium">
-                  Você será redirecionado para a página de pagamento seguro do Stripe para inserir os dados do cartão.
+                  Na próxima tela você recebe o QR Code e o código Pix copia e cola para pagar.
+                </p>
+              </div>
+            ) : (
+              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <p className="text-sm text-marrom-800 font-medium">
+                  Enviaremos o link de pagamento pelo WhatsApp após a confirmação do pedido.
                 </p>
               </div>
             )}
@@ -446,7 +490,7 @@ export default function PaginaCheckout() {
               </div>
             )}
 
-            {metodoPagamento === "cartao" && !enderecoCompleto && (
+            {!enderecoCompleto && (
               <p className="text-xs text-zinc-400 text-center">Preencha o endereço de entrega para continuar.</p>
             )}
 
@@ -456,7 +500,7 @@ export default function PaginaCheckout() {
               disabled={!podeContinuar}
               className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-bold py-3.5 rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {enviando ? "Redirecionando para pagamento…" : "Continuar"}
+              {enviando ? "Registrando pedido…" : "Continuar"}
             </button>
           </div>
         </aside>

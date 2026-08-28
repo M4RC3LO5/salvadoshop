@@ -41,7 +41,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
   // Master e Auxiliar veem todos os pedidos (decisão de negócio; RLS já permite)
   let query = supabase
     .from("pedidos")
-    .select("id, status, total, created_at, comprador_nome, comprador_email, codigo_rastreio", { count: "exact" })
+    .select("id, numero_pedido, status, total, created_at, comprador_nome, comprador_email, codigo_rastreio", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + POR_PAGINA - 1)
 
@@ -57,6 +57,7 @@ export default async function PedidosPage({ searchParams }: PageProps) {
 
   const pedidos: PedidoRow[] = (rows ?? []).map((row) => ({
     id: row.id,
+    numero_pedido: row.numero_pedido,
     status: row.status,
     total: row.total,
     created_at: row.created_at,

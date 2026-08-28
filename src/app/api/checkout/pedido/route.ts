@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Stripe from 'stripe'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
 
 const itemSchema = z.object({
   produto_id: z.string().uuid(),
@@ -25,6 +22,7 @@ const checkoutSchema = z.object({
   orderId: z.string().uuid(),
   itens: z.array(itemSchema).min(1),
   enderecoEntrega: enderecoSchema,
+  formaPagamento: z.enum(['pix', 'cartao_credito']),
   customerEmail: z.string().email().optional(),
   compradorNome: z.string().trim().min(2).max(120),
   compradorTelefone: z.string().trim().min(10).max(20),
@@ -42,7 +40,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { orderId, itens, enderecoEntrega, customerEmail, compradorNome, compradorTelefone } = parsed.data
+    const { orderId, itens, enderecoEntrega, formaPagamento, customerEmail, compradorNome, compradorTelefone } = parsed.data
     const supabase = createClient()
 
     // Checkout de convidado: garante uma sessão (anônima, se preciso) para
@@ -52,7 +50,7 @@ export async function POST(request: NextRequest) {
       const { data: signInData, error: erroSignIn } = await supabase.auth.signInAnonymously()
       if (erroSignIn || !signInData.user) {
         console.error(JSON.stringify({
-          event: 'checkout.stripe.erro_sessao_anonima',
+          event: 'checkout.pedido.erro_sessao_anonima',
           error: erroSignIn?.message ?? 'Sessão não criada',
           timestamp: new Date().toISOString(),
         }))
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { error: erroPedido } = await supabase.rpc('criar_pedido_com_estoque', {
       p_pedido_id: orderId,
       p_cliente_id: user.id,
-      p_forma_pagamento: 'cartao_credito',
+      p_forma_pagamento: formaPagamento,
       p_endereco_entrega: enderecoEntrega,
       p_itens: itens,
     })
@@ -80,7 +78,7 @@ export async function POST(request: NextRequest) {
       const naoAutorizado = erroPedido.message?.includes('UNAUTHORIZED')
 
       console.error(JSON.stringify({
-        event: 'checkout.stripe.erro_criar_pedido',
+        event: 'checkout.pedido.erro_criar_pedido',
         orderId,
         error: erroPedido.message,
         timestamp: new Date().toISOString(),
@@ -104,18 +102,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Persiste os dados do comprador no pedido. Requer service role porque a
-    // RLS de UPDATE em `pedidos` só permite is_master() — a sessão aqui é a do
-    // cliente. O escopo é apertado de propósito: filtra por id E cliente_id
-    // (mesmo com service role, só toca o pedido do próprio usuário) e escreve
-    // apenas as três colunas de comprador — nunca status, total ou outras.
-    // Não altera `status`, então o trigger de transição não dispara.
     const supabaseAdmin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false } }
     )
 
+    // Persiste os dados do comprador no pedido. Requer service role porque a
+    // RLS de UPDATE em `pedidos` só permite is_master() — a sessão aqui é a do
+    // cliente. O escopo é apertado de propósito: filtra por id E cliente_id
+    // (mesmo com service role, só toca o pedido do próprio usuário).
     const { error: erroComprador } = await supabaseAdmin
       .from('pedidos')
       .update({
@@ -130,85 +126,97 @@ export async function POST(request: NextRequest) {
       // Não bloqueia o checkout: o pedido e o estoque já estão corretos. Apenas
       // registra, para não perder a venda por causa de dado de contato.
       console.error(JSON.stringify({
-        event: 'checkout.stripe.erro_persistir_comprador',
+        event: 'checkout.pedido.erro_persistir_comprador',
         orderId,
         error: erroComprador.message,
         timestamp: new Date().toISOString(),
       }))
     }
 
-    // Busca os itens gravados (preço autoritativo) para montar os line_items
-    // do Stripe — nunca a partir do que o cliente enviou
-    const { data: itensPedido, error: erroItens } = await supabase
-      .from('pedido_itens')
-      .select('produto_id, preco_unitario, quantidade')
-      .eq('pedido_id', orderId)
+    // Busca o número sequencial (gerado pelo banco na criação) e o total, para
+    // ajustar os centavos e identificar o pagamento pelo extrato.
+    const { data: pedidoCriado, error: erroBusca } = await supabaseAdmin
+      .from('pedidos')
+      .select('numero_pedido, total')
+      .eq('id', orderId)
+      .single()
 
-    if (erroItens || !itensPedido?.length) {
+    if (erroBusca || !pedidoCriado) {
       console.error(JSON.stringify({
-        event: 'checkout.stripe.erro_buscar_itens',
+        event: 'checkout.pedido.erro_buscar_numero',
         orderId,
-        error: erroItens?.message ?? 'Nenhum item encontrado',
+        error: erroBusca?.message ?? 'Pedido não encontrado',
         timestamp: new Date().toISOString(),
       }))
       return NextResponse.json(
-        { success: false, error: { code: 'INTERNAL_ERROR', message: 'Não foi possível processar o pedido. Tente novamente.' } },
+        { success: false, error: { code: 'INTERNAL_ERROR', message: 'Não foi possível finalizar o pedido. Tente novamente.' } },
         { status: 500 }
       )
     }
 
-    const { data: produtosNomes } = await supabase
-      .from('produtos')
-      .select('id, nome')
-      .in('id', itensPedido.map((item) => item.produto_id))
+    // Ajusta o total para terminar nos dois últimos dígitos do número do
+    // pedido (em centavos) — permite identificar o pagamento pelo extrato,
+    // já que não há mais integração automática confirmando o pagamento.
+    // SEMPRE arredonda para cima (nunca para baixo): se os centavos-alvo
+    // forem menores ou iguais aos centavos atuais, soma 1 real antes de
+    // aplicá-los. Isso garante que o valor cobrado nunca fique menor que o
+    // total real — perder a diferença é aceitável, perder a venda não.
+    const totalOriginalCentavos = Math.round(pedidoCriado.total * 100)
+    const reaisOriginais = Math.floor(totalOriginalCentavos / 100)
+    const centavosAtuais = totalOriginalCentavos - reaisOriginais * 100
+    const centavosAlvo = pedidoCriado.numero_pedido % 100
 
-    const nomePorProduto = new Map((produtosNomes ?? []).map((p) => [p.id, p.nome]))
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? request.nextUrl.origin
+    const reaisAjustados = centavosAlvo <= centavosAtuais ? reaisOriginais + 1 : reaisOriginais
+    const totalAjustadoCentavos = reaisAjustados * 100 + centavosAlvo
+    const totalAjustado = totalAjustadoCentavos / 100
 
-    const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = itensPedido.map((item) => ({
-      price_data: {
-        currency: 'brl',
-        product_data: { name: nomePorProduto.get(item.produto_id) ?? 'Produto' },
-        unit_amount: Math.round(item.preco_unitario * 100),
-      },
-      quantity: item.quantidade,
+    if (totalAjustado !== pedidoCriado.total) {
+      const { error: erroAjusteTotal } = await supabaseAdmin
+        .from('pedidos')
+        .update({ total: totalAjustado })
+        .eq('id', orderId)
+
+      if (erroAjusteTotal) {
+        console.error(JSON.stringify({
+          event: 'checkout.pedido.erro_ajustar_total',
+          orderId,
+          error: erroAjusteTotal.message,
+          timestamp: new Date().toISOString(),
+        }))
+        return NextResponse.json(
+          { success: false, error: { code: 'INTERNAL_ERROR', message: 'Não foi possível finalizar o pedido. Tente novamente.' } },
+          { status: 500 }
+        )
+      }
+    }
+
+    console.log(JSON.stringify({
+      event: 'checkout.pedido.criado',
+      orderId,
+      numeroPedido: pedidoCriado.numero_pedido,
+      formaPagamento,
+      total: totalAjustado,
+      timestamp: new Date().toISOString(),
     }))
-
-    const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      payment_method_types: ['card'],
-      line_items,
-      client_reference_id: orderId,
-      customer_email: customerEmail,
-      success_url: `${appUrl}/checkout/sucesso?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/checkout/falha`,
-      metadata: { orderId },
-      // Expira em 30 min (mínimo permitido pelo Stripe). Ao expirar, o Stripe
-      // emite checkout.session.expired e o webhook estorna o estoque do pedido
-      // não pago. Timestamp Unix em SEGUNDOS.
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    })
-
-    if (!session.url) {
-      return NextResponse.json(
-        { success: false, error: { code: 'PAYMENT_FAILED', message: 'Falha ao gerar sessão de pagamento' } },
-        { status: 500 }
-      )
-    }
 
     return NextResponse.json({
       success: true,
-      data: { url: session.url },
+      data: {
+        id: orderId,
+        numero_pedido: pedidoCriado.numero_pedido,
+        total: totalAjustado,
+        forma_pagamento: formaPagamento,
+      },
     })
   } catch (error) {
     console.error(JSON.stringify({
-      event: 'checkout.stripe.error',
+      event: 'checkout.pedido.error',
       error: error instanceof Error ? error.message : 'Erro desconhecido',
       timestamp: new Date().toISOString(),
     }))
 
     return NextResponse.json(
-      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Erro ao processar pagamento com cartão' } },
+      { success: false, error: { code: 'INTERNAL_ERROR', message: 'Erro ao processar o pedido' } },
       { status: 500 }
     )
   }

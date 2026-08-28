@@ -13,6 +13,7 @@ function cn(...classes: (string | false | undefined)[]) {
 
 export interface PedidoRow {
   id: string
+  numero_pedido: number
   status: string
   total: number
   created_at: string
@@ -39,6 +40,15 @@ function formatData(iso: string) {
     month: "2-digit",
     year: "2-digit",
   })
+}
+
+const VINTE_QUATRO_HORAS_MS = 24 * 60 * 60 * 1000
+
+function aguardandoPagamentoHaMuitoTempo(pedido: PedidoRow) {
+  return (
+    pedido.status === "aguardando_pagamento" &&
+    Date.now() - new Date(pedido.created_at).getTime() > VINTE_QUATRO_HORAS_MS
+  )
 }
 
 // ── Badge de status ───────────────────────────────────────────────────────────
@@ -161,12 +171,30 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {pedidos.map((p) => (
-                    <tr key={p.id} className="transition-colors hover:bg-amber-50 hover:ring-2 hover:ring-inset hover:ring-amber-200">
+                  {pedidos.map((p) => {
+                    const vencido = aguardandoPagamentoHaMuitoTempo(p)
+                    return (
+                    <tr
+                      key={p.id}
+                      className={cn(
+                        "transition-colors hover:bg-amber-50 hover:ring-2 hover:ring-inset hover:ring-amber-200",
+                        vencido && "bg-red-50/60"
+                      )}
+                    >
 
                       {/* Pedido */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="font-mono text-xs text-stone-500">{p.id.slice(0, 8)}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-semibold text-stone-700">#{p.numero_pedido}</span>
+                          {vencido && (
+                            <span
+                              title="Aguardando pagamento há mais de 24h — considere cancelar"
+                              className="inline-flex items-center rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700 ring-1 ring-inset ring-red-200"
+                            >
+                              +24h
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Comprador */}
@@ -211,7 +239,8 @@ export function PedidosClientUI({ pedidos, total, pagina, porPagina }: Props) {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

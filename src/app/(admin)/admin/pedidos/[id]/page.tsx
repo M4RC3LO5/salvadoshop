@@ -81,7 +81,7 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(`
-      id, status, total, forma_pagamento, created_at, updated_at,
+      id, numero_pedido, status, total, forma_pagamento, created_at, updated_at,
       comprador_nome, comprador_email, comprador_telefone,
       endereco_entrega, codigo_rastreio, transportadora, url_rastreamento,
       pedido_itens ( quantidade, preco_unitario, produtos ( nome ) )
@@ -116,7 +116,7 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
         </Link>
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-stone-800">
-            Pedido #<span className="font-mono">{pedido.id.slice(0, 8)}</span>
+            Pedido #{pedido.numero_pedido}
           </h1>
           <StatusBadge status={pedido.status} />
         </div>

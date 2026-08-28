@@ -159,7 +159,7 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
 
         {/* Aviso segurança */}
         <p className="text-center text-[11px] text-zinc-400 pb-4 px-5">
-          🔒 Pagamentos processados com segurança via Stripe e Mercado Pago
+          🔒 Pagamento via Pix ou cartão de crédito
         </p>
       </div>
 
