@@ -715,6 +715,30 @@ mesmo `public_id` — relaxar a constraint para `UNIQUE (produto_id, public_id)`
 não basta sozinho, pois as rotas de exclusão continuariam apagando o arquivo
 do Cloudinary ainda em uso por outro produto.
 
+### 18.8 PROCESSO — Testes que criam/removem dados usam branch de desenvolvimento
+
+Testes que criam usuários, escrevem em `auth` ou em `admin_usuarios`, ou
+inserem registros só para depois remover, rodam em branch de desenvolvimento
+do Supabase — nunca direto em produção. **Regra:** não perguntar sobre o
+custo da branch, apenas criar e destruir ao final. Banco de produção é
+somente leitura para teste, exceto `select` de verificação.
+
+### 18.9 LIÇÃO APRENDIDA — ordem entre migration e deploy do código dependente
+
+Migration que altera coluna usada em checkout, pagamento, pedidos ou vitrine
+só pode ser aplicada em produção depois que o código correspondente estiver
+deployado, ou no mesmo momento. Nunca antes.
+
+**Caso real:** a migration 019 trocou `pedidos.total` por coluna `GENERATED`
+em 28/08, mas o commit `591c123` com o código correspondente ficou local sem
+push por 11 dias. O checkout em produção continuou fazendo update direto em
+`total`, coluna que passou a rejeitar update. Qualquer tentativa de compra
+teria retornado 500. Zero pedidos no período, então não houve incidente —
+por falta de tráfego, não por desenho.
+
+**Regra:** antes de aplicar migration desse tipo, verificar se há commit
+local não pushado que dependa dela.
+
 ---
 
 *Última atualização: Julho 2026*
