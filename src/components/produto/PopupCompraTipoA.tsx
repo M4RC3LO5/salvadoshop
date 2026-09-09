@@ -17,7 +17,7 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
   const { adicionar } = useCarrinho()
   const [toastVisivel, setToastVisivel] = useState(false)
 
-  const precoSite = produto.precoML * 0.82
+  const precoSite = produto.precoSite
   const economia = produto.precoML - precoSite
 
   // Fechar com Esc

@@ -4,6 +4,8 @@ import { useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { PopupCompraTipoA } from "./PopupCompraTipoA"
+import { ToastAdicionado } from "./ToastAdicionado"
+import { useCompraDireta } from "./useCompraDireta"
 
 export interface ProdutoTipoA {
   id: string
@@ -11,6 +13,8 @@ export interface ProdutoTipoA {
   nome: string
   estado: "Novo" | "Bom" | "Regular" | "A restaurar"
   precoML: number
+  precoSite: number
+  exclusivo: boolean
   urlML?: string
   imagemUrl?: string
   imagemAlt?: string
@@ -33,7 +37,7 @@ const COR_ESTADO: Record<ProdutoTipoA["estado"], string> = {
 
 export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
   const [popupAberto, setPopupAberto] = useState(false)
-  const precoSite = produto.precoML * 0.82
+  const { adicionado, comprar } = useCompraDireta(produto)
 
   return (
     <>
@@ -80,22 +84,36 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
           </div>
 
           {/* Preços */}
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-zinc-400 line-through">
-                {formatarPreco(produto.precoML)} no ML
-              </span>
+          {produto.exclusivo ? (
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-green-700">
+                  {formatarPreco(produto.precoSite)}
+                </span>
+                <span className="text-[10px] font-bold bg-amber-600 text-white px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                  Exclusivo
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400">exclusivo do site</p>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-green-700">
-                {formatarPreco(precoSite)}
-              </span>
-              <span className="text-xs font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                -18%
-              </span>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 line-through">
+                  {formatarPreco(produto.precoML)} no ML
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-green-700">
+                  {formatarPreco(produto.precoSite)}
+                </span>
+                <span className="text-xs font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                  -18%
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400">no site</p>
             </div>
-            <p className="text-[11px] text-zinc-400">no site</p>
-          </div>
+          )}
 
           {/* Botão */}
           <button
@@ -103,7 +121,11 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              setPopupAberto(true)
+              if (produto.exclusivo) {
+                comprar()
+              } else {
+                setPopupAberto(true)
+              }
             }}
             className="mt-auto w-full bg-ambar-500 hover:bg-ambar-600 active:bg-ambar-700 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors"
             aria-label={`Comprar ${produto.nome}`}
@@ -114,12 +136,13 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
       </article>
       </Link>
 
-      {popupAberto && (
+      {!produto.exclusivo && popupAberto && (
         <PopupCompraTipoA
           produto={produto}
           onFechar={() => setPopupAberto(false)}
         />
       )}
+      {produto.exclusivo && <ToastAdicionado visivel={adicionado} />}
     </>
   )
 }

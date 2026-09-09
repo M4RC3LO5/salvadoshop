@@ -94,7 +94,7 @@ export async function POST(
   // status, estoque, aprovado_por, created_at, updated_at.
   const { data: produtoOriginal, error: erroBusca } = await supabase
     .from("produtos")
-    .select("nome, descricao, specs_tecnicas, tipo, preco_ml, categoria, sinistro, quantidade_lote")
+    .select("nome, descricao, specs_tecnicas, tipo, preco_ml, preco_venda, categoria, sinistro, quantidade_lote")
     .eq("id", params.id)
     .single()
 
@@ -117,8 +117,15 @@ export async function POST(
     categoria: produtoOriginal.categoria,
     sinistro: produtoOriginal.sinistro,
     // Tipo A: preço ML copiado, mas sem URL do ML (não pode apontar pro mesmo anúncio).
+    // O clone sempre nasce exclusivo do site — sem URL do ML não há como ele
+    // ser "anunciado no ML". Preço de venda é copiado (quando o original já
+    // tinha um definido) como ponto de partida; se o original não era
+    // exclusivo, preco_venda vem null e o clone cai no cálculo automático de
+    // 18% até o admin decidir um preço de venda antes de publicar.
     preco_ml: produtoOriginal.tipo === "tipo_a" ? produtoOriginal.preco_ml : null,
+    preco_venda: produtoOriginal.tipo === "tipo_a" ? produtoOriginal.preco_venda : null,
     url_ml: null,
+    exclusivo_site: true,
     quantidade_lote: produtoOriginal.tipo === "tipo_b" ? produtoOriginal.quantidade_lote : null,
     estoque: 0,
     status: "rascunho" as const,

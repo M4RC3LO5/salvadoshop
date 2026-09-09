@@ -35,7 +35,7 @@ export default async function EditarProdutoPage({ params }: PageProps) {
     .from("produtos")
     .select(`
       id, nome, slug, descricao, specs_tecnicas, tipo, categoria,
-      preco_ml, url_ml, estoque, quantidade_lote, status, criado_por,
+      preco_ml, url_ml, exclusivo_site, preco_venda, estoque, quantidade_lote, status, criado_por,
       produto_imagens (url_cloudinary, public_id, ordem)
     `)
     .eq("id", params.id)
@@ -62,6 +62,8 @@ export default async function EditarProdutoPage({ params }: PageProps) {
     categoria: produto.categoria ?? "",
     preco_ml: produto.preco_ml,
     url_ml: produto.url_ml,
+    exclusivo_site: produto.exclusivo_site,
+    preco_venda: produto.preco_venda,
     estoque: produto.estoque,
     quantidade_lote: produto.quantidade_lote,
     status: produto.status,
