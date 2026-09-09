@@ -725,19 +725,37 @@ somente leitura para teste, exceto `select` de verificação.
 
 ### 18.9 LIÇÃO APRENDIDA — ordem entre migration e deploy do código dependente
 
-Migration que altera coluna usada em checkout, pagamento, pedidos ou vitrine
-só pode ser aplicada em produção depois que o código correspondente estiver
-deployado, ou no mesmo momento. Nunca antes.
+Nem toda migration tem a mesma ordem correta em relação ao deploy. O critério
+é uma pergunta só: **o código hoje em produção continua funcionando com o
+schema novo, sem alteração nenhuma?**
 
-**Caso real:** a migration 019 trocou `pedidos.total` por coluna `GENERATED`
-em 28/08, mas o commit `591c123` com o código correspondente ficou local sem
-push por 11 dias. O checkout em produção continuou fazendo update direto em
-`total`, coluna que passou a rejeitar update. Qualquer tentativa de compra
-teria retornado 500. Zero pedidos no período, então não houve incidente —
-por falta de tráfego, não por desenho.
+- **Se não** — migration destrutiva: remove coluna, troca tipo, ou transforma
+  em `GENERATED` uma coluna que o código em produção ainda escreve
+  diretamente. Vai depois do deploy do código dependente, ou no mesmo
+  momento. Nunca antes.
+  **Caso real:** a migration 019 trocou `pedidos.total` por coluna
+  `GENERATED` em 28/08, mas o commit `591c123` com o código correspondente
+  ficou local sem push por 11 dias. O checkout em produção continuou fazendo
+  update direto em `total`, coluna que passou a rejeitar update. Qualquer
+  tentativa de compra teria retornado 500. Zero pedidos no período, então não
+  houve incidente — por falta de tráfego, não por desenho.
+- **Se sim** — migration aditiva e retrocompatível: só adiciona coluna
+  nullable ou com default, ou altera a expressão de uma coluna `GENERATED`
+  preservando o valor que o código em produção já lê. Vai **antes** do
+  deploy — o código antigo nem sabe que a coluna nova existe, e continua
+  lendo o mesmo valor de sempre.
+  **Caso real:** a migration 021 (exclusividade de canal) adicionou
+  `exclusivo_site` e `preco_venda`, e trocou a expressão de `preco_site`
+  (`GENERATED`) para `coalesce(preco_venda, round(preco_ml * 0.82, 2))` —
+  com `preco_venda` sempre nulo nos dados existentes, o valor final não muda.
+  Aplicada em produção antes do merge do PR correspondente; reconferido
+  que `preco_site` dos produtos publicados ficou byte a byte igual ao valor
+  anterior, e a home e a página de produto (ainda rodando o deploy antigo)
+  continuaram renderizando o preço certo.
 
-**Regra:** antes de aplicar migration desse tipo, verificar se há commit
-local não pushado que dependa dela.
+**Regra:** antes de aplicar qualquer migration desse tipo, verificar se há
+commit local não pushado que dependa dela — e, se for destrutiva, confirmar
+que o deploy do código dependente já está no ar ou vai junto.
 
 ---
 
