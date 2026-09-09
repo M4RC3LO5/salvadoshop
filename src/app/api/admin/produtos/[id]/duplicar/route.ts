@@ -18,15 +18,27 @@ function gerarSlugBase(nome: string): string {
     .slice(0, 80)
 }
 
-async function gerarSlugUnico(
+// Colisão de slug entre clones: a primeira cópia fica só com "-copia"; a
+// segunda cópia do MESMO produto original colidiria com essa e vira
+// "-copia-2", a terceira "-copia-3", e assim por diante (nunca "-copia-1" —
+// o "-copia" sem número já é a primeira).
+async function gerarSlugUnicoClone(
   supabase: ReturnType<typeof createClient>,
   nome: string
 ): Promise<string> {
   const base = gerarSlugBase(nome)
-  let slug = base
-  let tentativa = 0
 
+  const { data: semSufixo } = await supabase
+    .from("produtos")
+    .select("id")
+    .eq("slug", base)
+    .maybeSingle()
+
+  if (!semSufixo) return base
+
+  let tentativa = 2
   while (true) {
+    const slug = `${base}-${tentativa}`
     const { data } = await supabase
       .from("produtos")
       .select("id")
@@ -36,7 +48,6 @@ async function gerarSlugUnico(
     if (!data) return slug
 
     tentativa++
-    slug = `${base}-${tentativa}`
   }
 }
 
@@ -95,7 +106,7 @@ export async function POST(
   }
 
   const novoNome = `${produtoOriginal.nome} (Cópia)`
-  const novoSlug = await gerarSlugUnico(supabase, novoNome)
+  const novoSlug = await gerarSlugUnicoClone(supabase, novoNome)
 
   const produtoPayload = {
     nome: novoNome,
@@ -112,6 +123,7 @@ export async function POST(
     estoque: 0,
     status: "rascunho" as const,
     criado_por: adminUser.id,
+    aprovado_por: null,
   }
 
   const { data: produtoNovo, error: erroInsert } = await supabase

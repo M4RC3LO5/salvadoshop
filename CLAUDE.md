@@ -700,6 +700,21 @@ Vercel executa) trava nesse tipo de erro. **Regra:** antes de qualquer merge,
 rodar `npm run build` (não apenas `tsc --noEmit`) para reproduzir localmente o
 que a Vercel fará.
 
+### 18.7 LIÇÃO APRENDIDA — `produto_imagens.public_id` é UNIQUE global
+
+`produto_imagens.public_id` tem constraint `UNIQUE` em coluna única (não
+composta com `produto_id`) — duas linhas nunca podem apontar para o mesmo
+`public_id`. Além disso, três rotas apagam o arquivo do Cloudinary direto pelo
+`public_id`, sem checar se outro produto ainda referencia o mesmo arquivo:
+`PUT /api/admin/produtos/[id]` (remoção de imagem na edição),
+`DELETE /api/admin/produtos/[id]` (exclusão de produto) e
+`DELETE /api/admin/deletar-imagem`. **Regra:** qualquer feature que precise
+compartilhar uma imagem entre produtos (ex.: clonagem, kits, variações) tem
+que resolver os dois problemas antes de inserir uma segunda referência ao
+mesmo `public_id` — relaxar a constraint para `UNIQUE (produto_id, public_id)`
+não basta sozinho, pois as rotas de exclusão continuariam apagando o arquivo
+do Cloudinary ainda em uso por outro produto.
+
 ---
 
 *Última atualização: Julho 2026*
