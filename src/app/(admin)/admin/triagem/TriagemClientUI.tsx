@@ -135,7 +135,7 @@ const CATEGORIAS = [
 ]
 
 const COLUNAS: ColunaConfig[] = [
-  { chave: "produto_ativo", label: "Publicado", tipo: "badge", editavel: false, ordenavel: true },
+  { chave: "produto_ativo", label: "Status", tipo: "badge", editavel: false, ordenavel: true },
   { chave: "nome", label: "Nome", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "marca", label: "Marca", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "sku", label: "SKU", tipo: "texto", editavel: true, ordenavel: true },
@@ -741,14 +741,24 @@ function LinhaItem({
           {coluna.tipo === "badge" ? (
             item.produto_ativo ? (
               <div className="flex flex-col items-start gap-1">
-                <a
-                  href={item.produto_ativo.tipo === "tipo_a" ? `/produto/${item.produto_ativo.slug}` : `/lotes/${item.produto_ativo.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
-                >
-                  <PackageCheck className="h-3 w-3" aria-hidden="true" /> Publicado
-                </a>
+                {item.produto_ativo.status === "publicado" ? (
+                  <a
+                    href={item.produto_ativo.tipo === "tipo_a" ? `/produto/${item.produto_ativo.slug}` : `/lotes/${item.produto_ativo.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-200"
+                  >
+                    <PackageCheck className="h-3 w-3" aria-hidden="true" /> Publicado
+                  </a>
+                ) : item.produto_ativo.status === "pendente" ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    <PackageCheck className="h-3 w-3" aria-hidden="true" /> Pendente aprovação
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-stone-200 px-2 py-0.5 text-xs font-medium text-stone-600">
+                    <Pencil className="h-3 w-3" aria-hidden="true" /> Rascunho
+                  </span>
+                )}
                 <span className="text-[11px] text-stone-400">
                   {item.produto_ativo.tipo === "tipo_a" ? "Individual" : "Lote"}
                 </span>
@@ -1185,8 +1195,16 @@ export function TriagemClientUI({ listasIniciais }: Props) {
 
       const qtdProdutos = produtosResposta.length
       const qtdOcultados = ocultadosResposta.length
+      // Produto da triagem nasce em rascunho (Master) ou pendente (Auxiliar)
+      // — nunca publicado direto, porque a triagem não coleta preço de venda
+      // nem URL do Mercado Livre para decidir o canal (item 13).
+      const statusResultado = produtosResposta[0]?.status
+      const plural = qtdProdutos !== 1
+      const textoBase = statusResultado === "pendente"
+        ? `${qtdProdutos} ${plural ? "produtos enviados" : "produto enviado"} para aprovação.`
+        : `${qtdProdutos} ${plural ? "produtos criados" : "produto criado"} como rascunho — defina preço e canal (Mercado Livre ou exclusivo do site) na edição antes de publicar.`
       setMensagemSucesso(
-        `${qtdProdutos} ${qtdProdutos === 1 ? "produto publicado" : "produtos publicados"} na vitrine.` +
+        textoBase +
         (qtdOcultados > 0
           ? ` ${qtdOcultados} ${qtdOcultados === 1 ? "publicação anterior foi ocultada" : "publicações anteriores foram ocultadas"}.`
           : "")

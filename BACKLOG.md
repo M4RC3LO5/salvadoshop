@@ -48,6 +48,14 @@ Legenda: [ ] pendente · [x] concluído
   são exibidas com corte/"zoom" na loja. Provável object-fit: cover onde
   deveria ser contain, ou container com altura fixa que ignora a proporção.
   ✅ Resolvido na galeria (object-contain)
+- [x] **19. Produto da triagem nasce em rascunho.** Produto vindo da triagem
+  agora nasce sempre em rascunho e exige definição de canal (Mercado Livre ou
+  exclusivo do site) e preço antes de publicar. Antes publicava direto na
+  vitrine quando o usuário era Master — a triagem não coleta preço de venda
+  nem URL do anúncio, então não tinha informação suficiente para decidir o
+  canal (item 13) e podia publicar produto em estado inválido.
+  ✅ Resolvido — `status` sempre nasce `rascunho` para Master (Auxiliar
+  continua indo para a fila de aprovações, como sempre foi)
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
