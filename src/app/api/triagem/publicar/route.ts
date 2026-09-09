@@ -120,7 +120,12 @@ export async function POST(request: NextRequest) {
     }
 
     const isMaster = adminUser.role === "master"
-    const status: "publicado" | "pendente" = isMaster ? "publicado" : "pendente"
+    // Produto da triagem nasce sempre em rascunho, mesmo para Master: a
+    // triagem não coleta preço de venda nem URL do Mercado Livre, então não
+    // tem informação suficiente para decidir o canal (exclusividade de
+    // canal, item 13) e publicar diretamente — precisa passar pela edição.
+    // Auxiliar continua indo para a fila de aprovações, como sempre foi.
+    const status: "rascunho" | "pendente" = isMaster ? "rascunho" : "pendente"
 
     // Body
     let body: unknown
@@ -267,7 +272,6 @@ export async function POST(request: NextRequest) {
             estoque: itemEstoque.total_unidades,
             status,
             criado_por: adminUser.id,
-            ...(status === "publicado" ? { aprovado_por: adminUser.id } : {}),
           })
           .select("id, slug, status")
           .single()
@@ -320,7 +324,6 @@ export async function POST(request: NextRequest) {
           estoque: 0,
           status,
           criado_por: adminUser.id,
-          ...(status === "publicado" ? { aprovado_por: adminUser.id } : {}),
         })
         .select("id, slug, status")
         .single()
