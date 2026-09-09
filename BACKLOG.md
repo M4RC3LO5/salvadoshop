@@ -39,11 +39,17 @@ Legenda: [ ] pendente · [x] concluído
   o usuário recebe erro genérico. Validar no input antes do envio, com
   mensagem clara. (Cenários: com URL válida → botão aparece; sem URL →
   esconder botão, usar só o código; formato inválido → bloquear no front.)
-- [ ] **4. Master cai na fila de aprovações.** Ao editar um produto como
+- [x] **4. Master cai na fila de aprovações.** Ao editar um produto como
   Master, a alteração vai para a fila de aprovações — mas o texto da tela diz
   "alterações enviadas pelos Auxiliares". Investigar se é intencional
   (auditoria de todas as edições) ou inconsistência (Master deveria publicar
   direto).
+  ✅ Não reproduzível — `PUT /api/admin/produtos/[id]` já salva direto na
+  tabela `produtos` para Master (sem passar pela fila) e mantém o fluxo do
+  Auxiliar inalterado; confirmado com teste real em branch de
+  desenvolvimento (edição de Master não criou registro em `aprovacoes`,
+  edição de Auxiliar criou normalmente). Zero registros em `aprovacoes` em
+  produção, de qualquer papel.
 - [x] **5. Imagens cortadas na vitrine.** Imagens em formato aceito no upload
   são exibidas com corte/"zoom" na loja. Provável object-fit: cover onde
   deveria ser contain, ou container com altura fixa que ignora a proporção.
