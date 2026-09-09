@@ -43,14 +43,19 @@ const CAMPOS_LABEL: Record<string, string> = {
   categoria: "Categoria",
   preco_ml: "Preço ML",
   url_ml: "URL Mercado Livre",
+  exclusivo_site: "Canal de Venda",
+  preco_venda: "Preço de Venda",
   estoque: "Estoque",
   quantidade_lote: "Quantidade Lote",
 }
 
 function formatarValor(campo: string, valor: unknown): string {
   if (valor === null || valor === undefined) return "—"
-  if (campo === "preco_ml" && typeof valor === "number") {
+  if ((campo === "preco_ml" || campo === "preco_venda") && typeof valor === "number") {
     return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+  }
+  if (campo === "exclusivo_site") {
+    return valor ? "Exclusivo do site" : "Anunciado no Mercado Livre"
   }
   if (campo === "specs_tecnicas" && typeof valor === "object") {
     return (valor as { texto?: string }).texto ?? JSON.stringify(valor)

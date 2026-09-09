@@ -21,15 +21,10 @@ const baseSchema = z.object({
 
 const tipoASchema = baseSchema.extend({
   tipo: z.literal("tipo_a"),
+  exclusivo_site: z.boolean(),
   preco_ml: z.number().positive("Preço ML deve ser maior que zero."),
-  url_ml: z.string().refine((url) => {
-    try {
-      const host = new URL(url).hostname.replace("www.", "")
-      return host === "mercadolivre.com.br" || host === "produto.mercadolivre.com.br"
-    } catch {
-      return false
-    }
-  }, "URL deve ser do mercadolivre.com.br"),
+  url_ml: z.string().optional(),
+  preco_venda: z.number().positive("Preço de venda deve ser maior que zero.").optional(),
   estoque: z.number().int().min(0),
 })
 
@@ -38,7 +33,40 @@ const tipoBSchema = baseSchema.extend({
   quantidade: z.number().int().positive("Quantidade deve ser maior que zero."),
 })
 
-const produtoSchema = z.discriminatedUnion("tipo", [tipoASchema, tipoBSchema])
+// Regra de exclusividade de canal: produto anunciado no ML sempre precisa de
+// URL válida; produto exclusivo do site sempre precisa de preço de venda. Os
+// 18% de desconto ficam travados para produto com ML — preco_venda existe só
+// para o exclusivo (CLAUDE.md, decisão da Fase de exclusividade de canal).
+const produtoSchema = z.discriminatedUnion("tipo", [tipoASchema, tipoBSchema]).superRefine((dados, ctx) => {
+  if (dados.tipo !== "tipo_a") return
+
+  if (dados.exclusivo_site) {
+    if (dados.preco_venda === undefined || dados.preco_venda <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["preco_venda"],
+        message: "Produto exclusivo do site precisa de um preço de venda.",
+      })
+    }
+    return
+  }
+
+  const urlValida = (() => {
+    try {
+      const host = new URL(dados.url_ml ?? "").hostname.replace("www.", "")
+      return host === "mercadolivre.com.br" || host === "produto.mercadolivre.com.br"
+    } catch {
+      return false
+    }
+  })()
+  if (!urlValida) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["url_ml"],
+      message: "Informe uma URL válida do Mercado Livre (mercadolivre.com.br).",
+    })
+  }
+})
 
 // ── Slug ─────────────────────────────────────────────────────────────────────
 
@@ -168,8 +196,15 @@ export async function POST(request: NextRequest) {
 
   if (dados.tipo === "tipo_a") {
     produtoPayload.preco_ml = dados.preco_ml
-    produtoPayload.url_ml = dados.url_ml
     produtoPayload.estoque = dados.estoque
+    produtoPayload.exclusivo_site = dados.exclusivo_site
+    if (dados.exclusivo_site) {
+      produtoPayload.preco_venda = dados.preco_venda
+      produtoPayload.url_ml = null
+    } else {
+      produtoPayload.url_ml = dados.url_ml
+      produtoPayload.preco_venda = null
+    }
   } else {
     produtoPayload.quantidade_lote = dados.quantidade
     produtoPayload.estoque = 0

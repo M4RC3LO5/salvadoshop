@@ -24,15 +24,10 @@ const baseEditSchema = z.object({
 
 const tipoAEditSchema = baseEditSchema.extend({
   tipo: z.literal("tipo_a"),
+  exclusivo_site: z.boolean(),
   preco_ml: z.number().positive("Preço ML deve ser maior que zero."),
-  url_ml: z.string().refine((url) => {
-    try {
-      const host = new URL(url).hostname.replace("www.", "")
-      return host === "mercadolivre.com.br" || host === "produto.mercadolivre.com.br"
-    } catch {
-      return false
-    }
-  }, "URL deve ser do mercadolivre.com.br"),
+  url_ml: z.string().optional(),
+  preco_venda: z.number().positive("Preço de venda deve ser maior que zero.").optional(),
   estoque: z.number().int().min(0),
 })
 
@@ -41,7 +36,38 @@ const tipoBEditSchema = baseEditSchema.extend({
   quantidade: z.number().int().positive("Quantidade deve ser maior que zero."),
 })
 
-const produtoEditSchema = z.discriminatedUnion("tipo", [tipoAEditSchema, tipoBEditSchema])
+// Mesma regra de exclusividade de canal do POST /api/admin/produtos: ML
+// sempre exige URL válida, exclusivo do site sempre exige preço de venda.
+const produtoEditSchema = z.discriminatedUnion("tipo", [tipoAEditSchema, tipoBEditSchema]).superRefine((dados, ctx) => {
+  if (dados.tipo !== "tipo_a") return
+
+  if (dados.exclusivo_site) {
+    if (dados.preco_venda === undefined || dados.preco_venda <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["preco_venda"],
+        message: "Produto exclusivo do site precisa de um preço de venda.",
+      })
+    }
+    return
+  }
+
+  const urlValida = (() => {
+    try {
+      const host = new URL(dados.url_ml ?? "").hostname.replace("www.", "")
+      return host === "mercadolivre.com.br" || host === "produto.mercadolivre.com.br"
+    } catch {
+      return false
+    }
+  })()
+  if (!urlValida) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["url_ml"],
+      message: "Informe uma URL válida do Mercado Livre (mercadolivre.com.br).",
+    })
+  }
+})
 
 // ── PUT — editar produto completo ─────────────────────────────────────────────
 
@@ -78,7 +104,7 @@ export async function PUT(
   // Busca produto atual (para snapshot e verificação de existência)
   const { data: produtoAtual } = await supabase
     .from("produtos")
-    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria, preco_ml, url_ml, estoque, quantidade_lote, status, criado_por")
+    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria, preco_ml, url_ml, exclusivo_site, preco_venda, estoque, quantidade_lote, status, criado_por")
     .eq("id", params.id)
     .single()
 
@@ -166,13 +192,22 @@ export async function PUT(
 
     if (dados.tipo === "tipo_a") {
       produtoPayload.preco_ml = dados.preco_ml
-      produtoPayload.url_ml = dados.url_ml
       produtoPayload.estoque = dados.estoque
       produtoPayload.quantidade_lote = null
+      produtoPayload.exclusivo_site = dados.exclusivo_site
+      if (dados.exclusivo_site) {
+        produtoPayload.preco_venda = dados.preco_venda
+        produtoPayload.url_ml = null
+      } else {
+        produtoPayload.url_ml = dados.url_ml
+        produtoPayload.preco_venda = null
+      }
     } else {
       produtoPayload.quantidade_lote = dados.quantidade
       produtoPayload.preco_ml = null
       produtoPayload.url_ml = null
+      produtoPayload.exclusivo_site = false
+      produtoPayload.preco_venda = null
       produtoPayload.estoque = 0
     }
 
@@ -257,8 +292,10 @@ export async function PUT(
 
     if (dados.tipo === "tipo_a") {
       dadosNovos.preco_ml = dados.preco_ml
-      dadosNovos.url_ml = dados.url_ml
       dadosNovos.estoque = dados.estoque
+      dadosNovos.exclusivo_site = dados.exclusivo_site
+      dadosNovos.url_ml = dados.exclusivo_site ? null : dados.url_ml
+      dadosNovos.preco_venda = dados.exclusivo_site ? dados.preco_venda : null
     } else {
       dadosNovos.quantidade_lote = dados.quantidade
     }

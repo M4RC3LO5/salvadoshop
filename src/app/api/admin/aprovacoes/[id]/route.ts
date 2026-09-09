@@ -106,13 +106,17 @@ export async function PATCH(
 
     if (novos.tipo === "tipo_a") {
       produtoPayload.preco_ml = novos.preco_ml
-      produtoPayload.url_ml = novos.url_ml
       produtoPayload.estoque = novos.estoque
       produtoPayload.quantidade_lote = null
+      produtoPayload.exclusivo_site = !!novos.exclusivo_site
+      produtoPayload.url_ml = novos.exclusivo_site ? null : novos.url_ml
+      produtoPayload.preco_venda = novos.exclusivo_site ? novos.preco_venda : null
     } else {
       produtoPayload.quantidade_lote = novos.quantidade_lote
       produtoPayload.preco_ml = null
       produtoPayload.url_ml = null
+      produtoPayload.exclusivo_site = false
+      produtoPayload.preco_venda = null
       produtoPayload.estoque = 0
     }
 

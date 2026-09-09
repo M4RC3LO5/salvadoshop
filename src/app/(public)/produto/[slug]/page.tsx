@@ -23,6 +23,8 @@ interface Produto {
   descricao: string | null
   specs_tecnicas: SpecsTecnicas | null
   preco_ml: number | null
+  preco_site: number | null
+  exclusivo_site: boolean
   url_ml: string | null
   quantidade_lote: number | null
   sinistro: string | null
@@ -40,7 +42,7 @@ async function buscarProduto(slug: string): Promise<Produto | null> {
     .from("produtos")
     .select(`
       id, slug, nome, tipo, descricao, specs_tecnicas,
-      preco_ml, url_ml, quantidade_lote, sinistro, categoria, estoque,
+      preco_ml, preco_site, exclusivo_site, url_ml, quantidade_lote, sinistro, categoria, estoque,
       produto_imagens (url_cloudinary, ordem)
     `)
     .eq("slug", slug)
@@ -52,6 +54,7 @@ async function buscarProduto(slug: string): Promise<Produto | null> {
   return {
     ...data,
     preco_ml: data.preco_ml ? Number(data.preco_ml) : null,
+    preco_site: data.preco_site ? Number(data.preco_site) : null,
     produto_imagens: ((data.produto_imagens ?? []) as Imagem[])
       .sort((a, b) => a.ordem - b.ordem),
   }
@@ -109,7 +112,7 @@ export default async function PaginaProduto(
     permanentRedirect(`/lotes/${produto.slug}`)
   }
 
-  const precoSite = produto.preco_ml ? produto.preco_ml * 0.82 : null
+  const precoSite = produto.preco_site
   const imagens = produto.produto_imagens.map((i) => i.url_cloudinary)
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
   const mensagemWA = encodeURIComponent(
@@ -163,16 +166,26 @@ export default async function PaginaProduto(
 
             {/* Preço — Tipo A */}
             {produto.tipo === "tipo_a" && produto.preco_ml && precoSite && (
-              <div className="flex flex-col gap-1">
-                <p className="text-sm text-zinc-400 line-through">
-                  {formatarPreco(produto.preco_ml)} no Mercado Livre
-                </p>
-                <div className="flex items-baseline gap-3">
-                  <p className="text-3xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
-                  <span className="text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">-18%</span>
+              produto.exclusivo_site ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-baseline gap-3">
+                    <p className="text-3xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
+                    <span className="text-sm font-bold bg-amber-600 text-white px-2 py-0.5 rounded uppercase tracking-wide">Exclusivo</span>
+                  </div>
+                  <p className="text-xs text-zinc-400">exclusivo do site</p>
                 </div>
-                <p className="text-xs text-zinc-400">no site · economize {formatarPreco(produto.preco_ml - precoSite)}</p>
-              </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm text-zinc-400 line-through">
+                    {formatarPreco(produto.preco_ml)} no Mercado Livre
+                  </p>
+                  <div className="flex items-baseline gap-3">
+                    <p className="text-3xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
+                    <span className="text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">-18%</span>
+                  </div>
+                  <p className="text-xs text-zinc-400">no site · economize {formatarPreco(produto.preco_ml - precoSite)}</p>
+                </div>
+              )
             )}
 
             {/* Estoque */}
@@ -183,7 +196,7 @@ export default async function PaginaProduto(
             )}
 
             {/* CTA */}
-            {produto.tipo === "tipo_a" && produto.preco_ml ? (
+            {produto.tipo === "tipo_a" && produto.preco_ml && precoSite ? (
               <BotaoCompraTipoA
                 produto={{
                   id: produto.id,
@@ -191,6 +204,8 @@ export default async function PaginaProduto(
                   nome: produto.nome,
                   estado: "Bom",
                   precoML: produto.preco_ml,
+                  precoSite,
+                  exclusivo: produto.exclusivo_site,
                   urlML: produto.url_ml ?? undefined,
                   imagemUrl: imagens[0],
                 }}

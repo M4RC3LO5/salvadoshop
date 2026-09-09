@@ -30,6 +30,8 @@ export interface ProdutoParaEditar {
   categoria: string
   preco_ml: number | null
   url_ml: string | null
+  exclusivo_site: boolean
+  preco_venda: number | null
   estoque: number | null
   quantidade_lote: number | null
   status: string
@@ -192,6 +194,13 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     return ""
   })
   const [urlML, setUrlML] = useState(produto?.url_ml ?? "")
+  const [exclusivoSite, setExclusivoSite] = useState(produto?.exclusivo_site ?? false)
+  const [precoVendaFormatado, setPrecoVendaFormatado] = useState(() => {
+    if (produto?.preco_venda != null) {
+      return produto.preco_venda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    }
+    return ""
+  })
 
   // Tipo B
   const [quantidadeLote, setQuantidadeLote] = useState(
@@ -200,8 +209,11 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
 
   // ── Derivados ──
   const precoMLNum = parseMoeda(precoMLFormatado)
-  const precoSite = precoMLNum > 0 ? precoMLNum * 0.82 : null
-  const economia = precoMLNum > 0 ? precoMLNum - (precoMLNum * 0.82) : null
+  const precoVendaNum = parseMoeda(precoVendaFormatado)
+  const precoSite = exclusivoSite
+    ? (precoVendaNum > 0 ? precoVendaNum : null)
+    : (precoMLNum > 0 ? precoMLNum * 0.82 : null)
+  const economia = !exclusivoSite && precoMLNum > 0 ? precoMLNum - (precoMLNum * 0.82) : null
 
   // ── Erros ──
   const erros = {
@@ -217,11 +229,14 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     categoria: submetido && !categoria ? "Selecione uma categoria." : "",
     estoque: submetido && tipo === "tipo_a" && !estoque ? "Informe o estoque disponível." : "",
     precoML: submetido && tipo === "tipo_a" && precoMLNum <= 0 ? "Informe o preço no Mercado Livre." : "",
-    urlML: submetido && tipo === "tipo_a" && !urlMLValida(urlML)
+    urlML: submetido && tipo === "tipo_a" && !exclusivoSite && !urlMLValida(urlML)
       ? "Informe uma URL válida do Mercado Livre (mercadolivre.com.br)."
-      : urlML && !urlMLValida(urlML)
+      : urlML && !exclusivoSite && !urlMLValida(urlML)
         ? "A URL deve ser do mercadolivre.com.br"
         : "",
+    precoVenda: submetido && tipo === "tipo_a" && exclusivoSite && precoVendaNum <= 0
+      ? "Informe o preço de venda no site."
+      : "",
     quantidadeLote: submetido && tipo === "tipo_b" && !quantidadeLote
       ? "Informe a quantidade do lote."
       : "",
@@ -235,7 +250,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     imagens.length > 0 &&
     categoria !== "" &&
     (tipo === "tipo_a"
-      ? precoMLNum > 0 && urlMLValida(urlML) && estoque !== ""
+      ? precoMLNum > 0 && estoque !== "" && (exclusivoSite ? precoVendaNum > 0 : urlMLValida(urlML))
       : quantidadeLote !== "")
 
   // ── Salvar ──
@@ -259,7 +274,12 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
 
       if (tipo === "tipo_a") {
         body.preco_ml = precoMLNum
-        body.url_ml = urlML
+        body.exclusivo_site = exclusivoSite
+        if (exclusivoSite) {
+          body.preco_venda = precoVendaNum
+        } else {
+          body.url_ml = urlML
+        }
         body.estoque = parseInt(estoque, 10)
       } else if (tipo === "tipo_b") {
         body.quantidade = parseInt(quantidadeLote, 10)
@@ -458,6 +478,41 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
               Precificação — Produto Individual
             </h3>
 
+            {/* Canal de venda */}
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-stone-700">
+                Canal de Venda <span className="text-red-500" aria-hidden="true">*</span>
+              </span>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <label className={cn(
+                  "flex-1 flex items-center gap-2.5 rounded-lg border-2 px-3.5 py-3 cursor-pointer transition",
+                  !exclusivoSite ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-white hover:border-amber-400"
+                )}>
+                  <input
+                    type="radio"
+                    name="canal_venda"
+                    checked={!exclusivoSite}
+                    onChange={() => setExclusivoSite(false)}
+                    className="accent-amber-700"
+                  />
+                  <span className="text-sm text-stone-700">Anunciado no Mercado Livre</span>
+                </label>
+                <label className={cn(
+                  "flex-1 flex items-center gap-2.5 rounded-lg border-2 px-3.5 py-3 cursor-pointer transition",
+                  exclusivoSite ? "border-amber-700 bg-amber-50" : "border-stone-200 bg-white hover:border-amber-400"
+                )}>
+                  <input
+                    type="radio"
+                    name="canal_venda"
+                    checked={exclusivoSite}
+                    onChange={() => setExclusivoSite(true)}
+                    className="accent-amber-700"
+                  />
+                  <span className="text-sm text-stone-700">Exclusivo do site</span>
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
               {/* Preço ML */}
@@ -484,50 +539,79 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
                 </div>
               </Campo>
 
-              {/* Preço Site (readonly) */}
-              <div className="flex flex-col gap-1.5">
-                <span className="text-sm font-medium text-stone-700">Preço no Site (−18% automático)</span>
-                <div className={cn(
-                  "flex min-h-[42px] items-center gap-2 rounded-lg border px-3 py-2.5",
-                  precoSite !== null
-                    ? "border-green-200 bg-green-50"
-                    : "border-stone-200 bg-stone-50"
-                )}>
-                  {precoSite !== null ? (
-                    <span className="text-lg font-bold text-green-700">{BRL.format(precoSite)}</span>
-                  ) : (
-                    <span className="text-sm text-stone-400">Informe o preço ML para calcular</span>
+              {exclusivoSite ? (
+                /* Preço de Venda — exclusivo do site */
+                <Campo
+                  label="Preço de Venda no Site"
+                  htmlFor="preco_venda"
+                  obrigatorio
+                  erro={erros.precoVenda}
+                  dica="Preço definido manualmente — não segue o desconto automático de 18%."
+                >
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
+                      R$
+                    </span>
+                    <input
+                      id="preco_venda"
+                      name="preco_venda"
+                      type="text"
+                      inputMode="numeric"
+                      value={precoVendaFormatado}
+                      onChange={(e) => setPrecoVendaFormatado(formatarMoeda(e.target.value))}
+                      placeholder="0,00"
+                      className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoVenda))}
+                    />
+                  </div>
+                </Campo>
+              ) : (
+                /* Preço Site (readonly) — anunciado no ML */
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-sm font-medium text-stone-700">Preço no Site (−18% automático)</span>
+                  <div className={cn(
+                    "flex min-h-[42px] items-center gap-2 rounded-lg border px-3 py-2.5",
+                    precoSite !== null
+                      ? "border-green-200 bg-green-50"
+                      : "border-stone-200 bg-stone-50"
+                  )}>
+                    {precoSite !== null ? (
+                      <span className="text-lg font-bold text-green-700">{BRL.format(precoSite)}</span>
+                    ) : (
+                      <span className="text-sm text-stone-400">Informe o preço ML para calcular</span>
+                    )}
+                  </div>
+                  {economia !== null && (
+                    <p className="text-xs font-medium text-green-700">
+                      O cliente economiza {BRL.format(economia)} comprando pelo site
+                    </p>
+                  )}
+                  {!economia && (
+                    <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82</p>
                   )}
                 </div>
-                {economia !== null && (
-                  <p className="text-xs font-medium text-green-700">
-                    O cliente economiza {BRL.format(economia)} comprando pelo site
-                  </p>
-                )}
-                {!economia && (
-                  <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82</p>
-                )}
-              </div>
+              )}
             </div>
 
-            {/* URL do ML */}
-            <Campo
-              label="URL do produto no Mercado Livre"
-              htmlFor="url_ml"
-              obrigatorio
-              erro={erros.urlML}
-              dica="Cole o link direto do anúncio no Mercado Livre"
-            >
-              <input
-                id="url_ml"
-                name="url_ml"
-                type="url"
-                value={urlML}
-                onChange={(e) => setUrlML(e.target.value)}
-                placeholder="https://www.mercadolivre.com.br/..."
-                className={inputCls(!!erros.urlML)}
-              />
-            </Campo>
+            {/* URL do ML — só quando anunciado no Mercado Livre */}
+            {!exclusivoSite && (
+              <Campo
+                label="URL do produto no Mercado Livre"
+                htmlFor="url_ml"
+                obrigatorio
+                erro={erros.urlML}
+                dica="Cole o link direto do anúncio no Mercado Livre"
+              >
+                <input
+                  id="url_ml"
+                  name="url_ml"
+                  type="url"
+                  value={urlML}
+                  onChange={(e) => setUrlML(e.target.value)}
+                  placeholder="https://www.mercadolivre.com.br/..."
+                  className={inputCls(!!erros.urlML)}
+                />
+              </Campo>
+            )}
           </div>
         )}
 
