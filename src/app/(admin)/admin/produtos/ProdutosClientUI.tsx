@@ -4,7 +4,7 @@ import { useState, useCallback, useTransition } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, Plus, Pencil, EyeOff, Trash2, PackageOpen, Loader2, X, AlertTriangle } from "lucide-react"
+import { Search, Plus, Pencil, Copy, EyeOff, Trash2, PackageOpen, Loader2, X, AlertTriangle } from "lucide-react"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -165,6 +165,7 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
   const [produtoParaExcluir, setProdutoParaExcluir] = useState<ProdutoRow | null>(null)
   const [excluindo, setExcluindo] = useState(false)
   const [despublicando, setDespublicando] = useState<string | null>(null)
+  const [duplicando, setDuplicando] = useState<string | null>(null)
   const [erro, setErro] = useState<string | null>(null)
 
   // ── Atualizar URL ──────────────────────────────────────────────────────────
@@ -222,6 +223,28 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
       setErro("Erro de conexão. Tente novamente.")
     } finally {
       setDespublicando(null)
+    }
+  }
+
+  // ── Duplicar ──────────────────────────────────────────────────────────────
+
+  async function duplicar(produto: ProdutoRow) {
+    setDuplicando(produto.id)
+    setErro(null)
+    try {
+      const res = await fetch(`/api/admin/produtos/${produto.id}/duplicar`, {
+        method: "POST",
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErro(json.error?.message ?? "Erro ao duplicar produto.")
+        return
+      }
+      router.push(`/admin/produtos/${json.data.id}/editar`)
+    } catch {
+      setErro("Erro de conexão. Tente novamente.")
+    } finally {
+      setDuplicando(null)
     }
   }
 
@@ -441,6 +464,23 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
                               <Pencil className="h-4 w-4" aria-hidden="true" />
                               <span className="sr-only">Editar {p.nome}</span>
                             </Link>
+
+                            {/* Duplicar — apenas Master */}
+                            {isMaster && (
+                              <button
+                                type="button"
+                                title="Duplicar produto"
+                                disabled={duplicando === p.id}
+                                onClick={() => duplicar(p)}
+                                className="rounded-md p-1.5 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-700 disabled:opacity-40"
+                              >
+                                {duplicando === p.id
+                                  ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                                  : <Copy className="h-4 w-4" aria-hidden="true" />
+                                }
+                                <span className="sr-only">Duplicar {p.nome}</span>
+                              </button>
+                            )}
 
                             {/* Despublicar — apenas Master, apenas publicados */}
                             {isMaster && p.status === "publicado" && (
