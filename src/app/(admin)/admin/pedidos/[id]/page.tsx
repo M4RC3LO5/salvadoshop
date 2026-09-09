@@ -30,6 +30,7 @@ function formatDataHora(iso: string) {
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
+    aguardando_cotacao_frete: "bg-orange-100 text-orange-800 ring-orange-200",
     aguardando_pagamento: "bg-amber-100 text-amber-800 ring-amber-200",
     pago:                 "bg-green-100 text-green-800 ring-green-200",
     em_separacao:         "bg-blue-100 text-blue-800 ring-blue-200",
@@ -39,6 +40,7 @@ function StatusBadge({ status }: { status: string }) {
     reembolsado:          "bg-stone-100 text-stone-600 ring-stone-200",
   }
   const labels: Record<string, string> = {
+    aguardando_cotacao_frete: "Aguardando cotação de frete",
     aguardando_pagamento: "Aguardando pagamento",
     pago:                 "Pago",
     em_separacao:         "Em separação",
@@ -81,7 +83,7 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(`
-      id, numero_pedido, status, total, forma_pagamento, created_at, updated_at,
+      id, numero_pedido, status, subtotal, frete_valor, frete_modalidade, total, forma_pagamento, created_at, updated_at,
       comprador_nome, comprador_email, comprador_telefone,
       endereco_entrega, codigo_rastreio, transportadora, url_rastreamento,
       pedido_itens ( quantidade, preco_unitario, produtos ( nome ) )
@@ -131,6 +133,8 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
           codigoRastreio={pedido.codigo_rastreio}
           transportadora={pedido.transportadora}
           urlRastreamento={pedido.url_rastreamento}
+          cepEntrega={endereco.cep ?? null}
+          itensParaFrete={itens.map((item) => ({ quantidade: item.quantidade }))}
         />
       </div>
 
@@ -231,7 +235,12 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
             </tbody>
           </table>
         </div>
-        <div className="flex justify-end border-t border-stone-100 px-5 py-4">
+        <div className="flex flex-col items-end gap-1 border-t border-stone-100 px-5 py-4">
+          <p className="text-sm text-stone-500">Subtotal: {BRL.format(pedido.subtotal)}</p>
+          <p className="text-sm text-stone-500">
+            Frete{pedido.frete_modalidade ? ` (${pedido.frete_modalidade})` : ""}:{" "}
+            {pedido.status === "aguardando_cotacao_frete" ? "a calcular" : BRL.format(pedido.frete_valor)}
+          </p>
           <p className="text-base font-bold text-stone-800">
             Total: <span className="text-lg">{BRL.format(pedido.total)}</span>
           </p>

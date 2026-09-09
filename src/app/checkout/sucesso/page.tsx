@@ -39,7 +39,7 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
   const { data: pedido } = await supabase
     .from("pedidos")
     .select(`
-      id, numero_pedido, status, total, forma_pagamento, created_at,
+      id, numero_pedido, status, subtotal, frete_valor, frete_modalidade, total, forma_pagamento, created_at,
       pedido_itens ( quantidade, preco_unitario, produtos ( nome ) )
     `)
     .eq("id", pedidoId)
@@ -107,12 +107,6 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
   const totalFormatado = BRL.format(pedido.total)
   const centavos = String(pedido.numero_pedido % 100).padStart(2, "0")
 
-  // Os preços dos itens são o snapshot original (antes do ajuste de centavos
-  // que identifica o pedido) — mostramos a diferença como uma linha própria
-  // para o resumo sempre fechar com o total real cobrado.
-  const subtotalItens = itens.reduce((acc, item) => acc + item.precoUnitario * item.quantidade, 0)
-  const ajusteCentavos = Math.round((pedido.total - subtotalItens) * 100) / 100
-
   const mensagemWhatsApp = pedido.forma_pagamento === "pix"
     ? `Olá! Já paguei o Pix do pedido #${pedido.numero_pedido}, no valor de ${totalFormatado}.`
     : `Olá! Quero finalizar o pagamento do pedido #${pedido.numero_pedido} (${totalFormatado}) no cartão de crédito. Pode me enviar o link de pagamento?`
@@ -137,7 +131,11 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
 
       <div className="flex flex-col gap-4">
 
-        {pedido.status === "aguardando_pagamento" ? (
+        {pedido.status === "aguardando_cotacao_frete" && (
+          <SecaoAguardandoFrete />
+        )}
+
+        {pedido.status === "aguardando_pagamento" && (
           <>
             {/* ── Aviso de reserva ── */}
             <div className="flex items-center gap-3 bg-ambar-50 border border-ambar-200 rounded-xl px-4 py-3">
@@ -161,7 +159,9 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
               <SecaoCartao totalFormatado={totalFormatado} urlWhatsApp={urlWhatsApp} />
             )}
           </>
-        ) : (
+        )}
+
+        {pedido.status !== "aguardando_cotacao_frete" && pedido.status !== "aguardando_pagamento" && (
           <EstadoStatusAtualizado status={pedido.status} />
         )}
 
@@ -183,17 +183,19 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
           <div className="flex flex-col gap-1.5 text-sm">
             <div className="flex justify-between text-zinc-600">
               <span>Subtotal</span>
-              <span>{BRL.format(subtotalItens)}</span>
+              <span>{BRL.format(pedido.subtotal)}</span>
             </div>
             <div className="flex justify-between text-zinc-600">
-              <span>Ajuste (identifica seu pedido)</span>
-              <span>{BRL.format(ajusteCentavos)}</span>
+              <span>Frete{pedido.frete_modalidade ? ` (${pedido.frete_modalidade})` : ""}</span>
+              <span>{pedido.status === "aguardando_cotacao_frete" ? "A calcular" : BRL.format(pedido.frete_valor)}</span>
             </div>
           </div>
           <hr className="border-zinc-100" />
           <div className="flex justify-between items-center font-bold text-marrom-800">
             <span>Total</span>
-            <span className="text-lg">{totalFormatado}</span>
+            <span className="text-lg">
+              {pedido.status === "aguardando_cotacao_frete" ? `${BRL.format(pedido.subtotal)} + frete` : totalFormatado}
+            </span>
           </div>
         </section>
 
@@ -264,6 +266,21 @@ function SecaoPix({
         Já paguei, avisar no WhatsApp
       </a>
     </>
+  )
+}
+
+// ── Seção aguardando cotação de frete ────────────────────────────────────
+
+function SecaoAguardandoFrete() {
+  return (
+    <div className="flex items-start gap-3 bg-ambar-50 border border-ambar-200 rounded-xl px-4 py-3">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ambar-600 shrink-0 mt-0.5" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+      </svg>
+      <p className="text-sm text-ambar-800 font-medium">
+        Recebemos seu pedido! Estamos calculando o frete e em breve enviamos o valor final e as instruções de pagamento pelo WhatsApp.
+      </p>
+    </div>
   )
 }
 

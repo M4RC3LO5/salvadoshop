@@ -5,6 +5,7 @@ interface ProgressoPedidoProps {
 }
 
 const ETAPAS = [
+  { chave: "aguardando_cotacao_frete", label: "Aguardando cotação de frete" },
   { chave: "aguardando_pagamento", label: "Aguardando pagamento" },
   { chave: "pago",                 label: "Pago" },
   { chave: "em_separacao",         label: "Em separação" },

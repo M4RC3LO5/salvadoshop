@@ -11,6 +11,14 @@ interface Props {
   codigoRastreio: string | null
   transportadora: string | null
   urlRastreamento: string | null
+  cepEntrega: string | null
+  itensParaFrete: { quantidade: number }[]
+}
+
+interface OpcaoFreteSugerida {
+  servico: string
+  prazo: string
+  preco: number
 }
 
 interface Transicao {
@@ -35,8 +43,20 @@ const CONFIRMAR_PAGAMENTO: Transicao = {
   estilo: "primaria",
 }
 
+// O pedido nasce sem frete definido — só o Master cota (o total, gerado a
+// partir de subtotal + frete, só existe de verdade depois disso).
+const COTAR_FRETE: Transicao = {
+  novoStatus: "aguardando_pagamento",
+  label: "Cotar frete",
+  estilo: "primaria",
+}
+
 function getTransicoesDisponiveis(statusAtual: string, role: "master" | "auxiliar"): Transicao[] {
   const transicoes: Transicao[] = []
+
+  if (statusAtual === "aguardando_cotacao_frete" && role === "master") {
+    transicoes.push(COTAR_FRETE)
+  }
 
   if (statusAtual === "aguardando_pagamento" && role === "master") {
     transicoes.push(CONFIRMAR_PAGAMENTO)
@@ -66,6 +86,8 @@ export function AcoesPedido({
   codigoRastreio,
   transportadora,
   urlRastreamento,
+  cepEntrega,
+  itensParaFrete,
 }: Props) {
   const router = useRouter()
   const [salvando, setSalvando] = useState(false)
@@ -73,14 +95,21 @@ export function AcoesPedido({
   const [erro, setErro] = useState<string | null>(null)
   const [mostrarFormEnvio, setMostrarFormEnvio] = useState(false)
   const [mostrarConfirmarPagamento, setMostrarConfirmarPagamento] = useState(false)
+  const [mostrarFormFrete, setMostrarFormFrete] = useState(false)
 
   const [transportadoraInput, setTransportadoraInput] = useState(transportadora ?? "")
   const [codigoRastreioInput, setCodigoRastreioInput] = useState(codigoRastreio ?? "")
   const [urlRastreamentoInput, setUrlRastreamentoInput] = useState(urlRastreamento ?? "")
 
+  const [sugestoesFrete, setSugestoesFrete] = useState<OpcaoFreteSugerida[]>([])
+  const [carregandoSugestoes, setCarregandoSugestoes] = useState(false)
+  const [erroSugestoes, setErroSugestoes] = useState<string | null>(null)
+  const [modalidadeFreteInput, setModalidadeFreteInput] = useState("")
+  const [valorFreteInput, setValorFreteInput] = useState("")
+
   const transicoes = getTransicoesDisponiveis(statusAtual, role)
 
-  async function atualizarStatus(novoStatus: string, camposRastreio?: Record<string, string>) {
+  async function atualizarStatus(novoStatus: string, camposExtras?: Record<string, unknown>) {
     setSalvando(true)
     setStatusEmAndamento(novoStatus)
     setErro(null)
@@ -88,7 +117,7 @@ export function AcoesPedido({
       const res = await fetch(`/api/admin/pedidos/${pedidoId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: novoStatus, ...camposRastreio }),
+        body: JSON.stringify({ status: novoStatus, ...camposExtras }),
       })
       const json = await res.json()
       if (!res.ok || !json.success) {
@@ -106,6 +135,35 @@ export function AcoesPedido({
     }
   }
 
+  async function buscarSugestoesFrete() {
+    if (!cepEntrega) {
+      setErroSugestoes("Pedido sem CEP de entrega cadastrado — informe o frete manualmente.")
+      return
+    }
+    setCarregandoSugestoes(true)
+    setErroSugestoes(null)
+    try {
+      const res = await fetch("/api/frete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cep_destino: cepEntrega.replace(/\D/g, ""),
+          itens: itensParaFrete,
+        }),
+      })
+      const json = await res.json() as { success: boolean; data?: { opcoes: OpcaoFreteSugerida[] }; error?: { message: string } }
+      if (!json.success || !json.data) {
+        setErroSugestoes(json.error?.message ?? "Não foi possível sugerir o frete. Informe manualmente.")
+        return
+      }
+      setSugestoesFrete(json.data.opcoes)
+    } catch {
+      setErroSugestoes("Erro de conexão ao buscar sugestão de frete. Informe manualmente.")
+    } finally {
+      setCarregandoSugestoes(false)
+    }
+  }
+
   function handleClickTransicao(transicao: Transicao) {
     if (transicao.novoStatus === "enviado") {
       setMostrarFormEnvio(true)
@@ -115,12 +173,35 @@ export function AcoesPedido({
       setMostrarConfirmarPagamento(true)
       return
     }
+    if (transicao.novoStatus === "aguardando_pagamento" && statusAtual === "aguardando_cotacao_frete") {
+      setMostrarFormFrete(true)
+      buscarSugestoesFrete()
+      return
+    }
     atualizarStatus(transicao.novoStatus)
   }
 
   async function handleConfirmarPagamento() {
     const sucesso = await atualizarStatus("pago")
     if (sucesso) setMostrarConfirmarPagamento(false)
+  }
+
+  function handleEscolherSugestaoFrete(opcao: OpcaoFreteSugerida) {
+    setModalidadeFreteInput(opcao.servico)
+    setValorFreteInput(String(opcao.preco))
+  }
+
+  async function handleSubmitFrete() {
+    const valorNumerico = Number(valorFreteInput.replace(",", "."))
+    if (!modalidadeFreteInput.trim() || isNaN(valorNumerico) || valorNumerico < 0) {
+      setErro("Escolha uma modalidade e informe um valor de frete válido.")
+      return
+    }
+    const sucesso = await atualizarStatus("aguardando_pagamento", {
+      frete_valor: valorNumerico,
+      frete_modalidade: modalidadeFreteInput.trim(),
+    })
+    if (sucesso) setMostrarFormFrete(false)
   }
 
   async function handleSubmitEnvio() {
@@ -168,6 +249,92 @@ export function AcoesPedido({
             <button
               type="button"
               onClick={() => setMostrarConfirmarPagamento(false)}
+              disabled={salvando}
+              className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Formulário inline de cotação de frete */}
+      {mostrarFormFrete && (
+        <div className="flex flex-col gap-3 rounded-lg border border-stone-200 bg-stone-50 p-4">
+          {carregandoSugestoes && (
+            <p className="flex items-center gap-2 text-sm text-stone-500">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Buscando sugestão de frete...
+            </p>
+          )}
+
+          {erroSugestoes && (
+            <p className="text-sm text-amber-700">{erroSugestoes}</p>
+          )}
+
+          {sugestoesFrete.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs font-medium text-stone-600">Sugestões (clique para usar)</p>
+              <div className="flex flex-wrap gap-2">
+                {sugestoesFrete.map((opcao) => (
+                  <button
+                    key={opcao.servico}
+                    type="button"
+                    onClick={() => handleEscolherSugestaoFrete(opcao)}
+                    className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                      modalidadeFreteInput === opcao.servico
+                        ? "border-amber-700 bg-amber-100"
+                        : "border-stone-300 bg-white hover:bg-stone-100"
+                    }`}
+                  >
+                    <span className="block font-semibold text-stone-700">{opcao.servico}</span>
+                    <span className="block text-stone-500">{opcao.prazo}</span>
+                    <span className="block font-medium text-stone-800">
+                      {opcao.preco === 0 ? "Grátis" : opcao.preco.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="modalidade-frete" className="text-xs font-medium text-stone-600">Modalidade</label>
+            <input
+              id="modalidade-frete"
+              type="text"
+              value={modalidadeFreteInput}
+              onChange={(e) => setModalidadeFreteInput(e.target.value)}
+              placeholder="PAC, SEDEX, Retirar na loja..."
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="valor-frete" className="text-xs font-medium text-stone-600">Valor do frete (R$)</label>
+            <input
+              id="valor-frete"
+              type="text"
+              inputMode="decimal"
+              value={valorFreteInput}
+              onChange={(e) => setValorFreteInput(e.target.value)}
+              placeholder="0,00"
+              className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
+            />
+            <p className="text-[11px] text-stone-400">
+              O total final é arredondado para cima para terminar nos dois últimos dígitos do número do pedido — a diferença fica embutida no frete.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleSubmitFrete}
+              disabled={salvando}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {salvando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</> : "Confirmar cotação"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarFormFrete(false)}
               disabled={salvando}
               className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50"
             >
@@ -235,7 +402,7 @@ export function AcoesPedido({
       )}
 
       {/* Botões de transição */}
-      {!mostrarFormEnvio && !mostrarConfirmarPagamento && (
+      {!mostrarFormEnvio && !mostrarConfirmarPagamento && !mostrarFormFrete && (
         transicoes.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {transicoes.map((t) => (
