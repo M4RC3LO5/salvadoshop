@@ -15,6 +15,17 @@ Legenda: [ ] pendente · [x] concluído
 - [ ] **2. Botão "Comprar" ambíguo.** O botão diz "Comprar" mas adiciona ao
   carrinho. Definir o fluxo: renomear para "Adicionar ao carrinho" e/ou criar
   um "Comprar agora" que vá direto ao checkout.
+- [x] **17. Botão "Chamar no WhatsApp" do rodapé envia mensagem de lote.**
+  Na página inicial, sem nenhum produto selecionado, o botão do rodapé abre
+  o WhatsApp com mensagem pré-carregada de um lote Tipo B específico ("Olá!
+  Tenho interesse no lote: Lote 40 Smartphones Variados - Sinistro
+  Transportadora, Quantidade: 40 unidades, Vi no site: salvadoshop.com.br").
+  O rodapé é contato geral e deveria abrir mensagem neutra de negociação.
+  Investigar se o componente do rodapé reaproveita o gerador de link do
+  fluxo Tipo B, e se o lote citado vem de estado compartilhado ou de valor
+  fixo no código. Verificar também se o mesmo botão aparece em outras
+  páginas com o mesmo defeito.
+  ✅ Não reproduzível — rascunho salvo no app do WhatsApp, não do código.
 
 ## 🟡 Prioridade média — correção / validação
 
