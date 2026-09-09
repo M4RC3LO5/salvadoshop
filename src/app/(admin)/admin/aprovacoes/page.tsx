@@ -519,7 +519,8 @@ export default function AprovacoesPage() {
       <div>
         <h1 className="text-2xl font-bold text-stone-900">Fila de aprovações</h1>
         <p className="mt-1 text-sm text-stone-500">
-          Revise, aprove ou rejeite as alterações enviadas pelos Auxiliares.
+          Alterações enviadas por Auxiliares aparecem aqui para revisão. Edições
+          feitas como Master são aplicadas direto, sem passar por aprovação.
         </p>
       </div>
 
@@ -565,13 +566,22 @@ export default function AprovacoesPage() {
         <LoadingSpinner label="Carregando aprovações..." />
       ) : listaFiltrada.length === 0 ? (
         <div className="rounded-xl border border-dashed border-stone-300 bg-white py-20 text-center">
-          <p className="text-stone-400">
-            {abaAtiva === "pendente"
-              ? "Nenhuma aprovação pendente."
-              : abaAtiva === "aprovado"
-              ? "Nenhuma aprovação aprovada ainda."
-              : "Nenhuma aprovação rejeitada."}
-          </p>
+          {abaAtiva === "pendente" ? (
+            <>
+              <CheckCircle className="mx-auto mb-3 h-10 w-10 text-green-400" aria-hidden="true" />
+              <p className="font-medium text-stone-600">Nada pendente no momento.</p>
+              <p className="mx-auto mt-1 max-w-xs text-sm text-stone-400">
+                Só aparecem aqui alterações enviadas por Auxiliares. Edições feitas
+                como Master já foram aplicadas direto no produto.
+              </p>
+            </>
+          ) : (
+            <p className="text-stone-400">
+              {abaAtiva === "aprovado"
+                ? "Nenhuma aprovação aprovada ainda."
+                : "Nenhuma aprovação rejeitada."}
+            </p>
+          )}
         </div>
       ) : (
         <div className="space-y-4">
