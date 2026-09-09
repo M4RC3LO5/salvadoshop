@@ -48,6 +48,7 @@ export function VitrineCliente({ produtos }: VitrineClienteProps) {
       precoML: p.preco_ml ?? 0,
       precoSite: p.preco_site ?? 0,
       exclusivo: p.exclusivo_site,
+      urlML: p.url_ml ?? undefined,
       imagemUrl: p.imagem_url ?? undefined,
     }
   }
