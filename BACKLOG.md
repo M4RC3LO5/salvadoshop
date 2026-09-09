@@ -44,12 +44,17 @@ Legenda: [ ] pendente · [x] concluído
   "alterações enviadas pelos Auxiliares". Investigar se é intencional
   (auditoria de todas as edições) ou inconsistência (Master deveria publicar
   direto).
-  ✅ Não reproduzível — `PUT /api/admin/produtos/[id]` já salva direto na
-  tabela `produtos` para Master (sem passar pela fila) e mantém o fluxo do
-  Auxiliar inalterado; confirmado com teste real em branch de
-  desenvolvimento (edição de Master não criou registro em `aprovacoes`,
-  edição de Auxiliar criou normalmente). Zero registros em `aprovacoes` em
-  produção, de qualquer papel.
+  ✅ Resolvido — a causa real não era o fluxo, e sim a tela de aprovações.
+  `PUT /api/admin/produtos/[id]` já salva direto na tabela `produtos` para
+  Master (sem passar pela fila) desde o commit `6d70aa4`, anterior à criação
+  deste item; o fluxo do Auxiliar segue inalterado. O que induzia ao engano:
+  a tela da fila tinha um cabeçalho fixo dizendo "alterações enviadas pelos
+  Auxiliares" que aparecia mesmo com a lista vazia, e a aba "Pendentes" sem
+  nenhum registro não deixava isso claro — ao editar como Master e ver a
+  alteração já na vitrine, mas a fila com esse texto, dava a impressão de
+  que a própria edição tinha caído ali. Corrigido nesta branch: cabeçalho
+  reescrito para não sugerir que há algo pendente, e estado vazio explícito
+  na aba "Pendentes" explicando que edições de Master são aplicadas direto.
 - [x] **5. Imagens cortadas na vitrine.** Imagens em formato aceito no upload
   são exibidas com corte/"zoom" na loja. Provável object-fit: cover onde
   deveria ser contain, ou container com altura fixa que ignora a proporção.
