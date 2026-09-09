@@ -26,10 +26,11 @@ Legenda: [ ] pendente · [x] concluído
   fixo no código. Verificar também se o mesmo botão aparece em outras
   páginas com o mesmo defeito.
   ✅ Não reproduzível — rascunho salvo no app do WhatsApp, não do código.
-- [ ] **18. Home não seleciona url_ml.** A query da home não seleciona
+- [x] **18. Home não seleciona url_ml.** A query da home não seleciona
   `url_ml`, então produtos anunciados no ML aparecem na vitrine com a opção
   de compra no ML desabilitada. Na página do produto funciona normal. Bug
   pré-existente, anterior ao item 13.
+  ✅ Resolvido — query e card da home passam a trazer `url_ml`
 
 ## 🟡 Prioridade média — correção / validação
 

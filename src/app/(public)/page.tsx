@@ -13,6 +13,7 @@ export interface ProdutoPublico {
   preco_ml: number | null
   preco_site: number | null
   exclusivo_site: boolean
+  url_ml: string | null
   quantidade_lote: number | null
   sinistro: string | null
   imagem_url: string | null
@@ -34,6 +35,7 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
       preco_ml,
       preco_site,
       exclusivo_site,
+      url_ml,
       quantidade_lote,
       sinistro,
       produto_imagens!left (url_cloudinary, ordem)
@@ -55,6 +57,7 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
       preco_ml: p.preco_ml ? Number(p.preco_ml) : null,
       preco_site: p.preco_site ? Number(p.preco_site) : null,
       exclusivo_site: p.exclusivo_site,
+      url_ml: p.url_ml,
       quantidade_lote: p.quantidade_lote,
       sinistro: p.sinistro,
       imagem_url: principal?.url_cloudinary ?? null,
