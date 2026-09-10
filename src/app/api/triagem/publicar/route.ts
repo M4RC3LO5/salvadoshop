@@ -11,6 +11,7 @@ const itemIndividualSchema = z.object({
   // para o cliente conferir o valor exibido, nunca é usado na gravação.
   preco_site: z.number().positive().optional(),
   categoria: z.string().min(1, "Categoria é obrigatória."),
+  categoria_id: z.string().uuid("Categoria inválida."),
   descricao: z.string().min(1, "Descrição é obrigatória."),
 })
 
@@ -25,6 +26,7 @@ const modoLoteSchema = z.object({
   nome: z.string().min(1, "Nome do lote é obrigatório."),
   descricao: z.string().min(1, "Descrição é obrigatória."),
   categoria: z.string().min(1, "Categoria é obrigatória."),
+  categoria_id: z.string().uuid("Categoria inválida."),
 })
 
 const bodySchema = z.discriminatedUnion("modo", [modoIndividualSchema, modoLoteSchema])
@@ -268,6 +270,7 @@ export async function POST(request: NextRequest) {
             descricao: itemInput.descricao,
             tipo: "tipo_a",
             categoria: itemInput.categoria,
+            categoria_id: itemInput.categoria_id,
             preco_ml: itemInput.preco_ml,
             estoque: itemEstoque.total_unidades,
             status,
@@ -320,6 +323,7 @@ export async function POST(request: NextRequest) {
           descricao: dados.descricao,
           tipo: "tipo_b",
           categoria: dados.categoria,
+          categoria_id: dados.categoria_id,
           quantidade_lote: quantidadeLote,
           estoque: 0,
           status,
