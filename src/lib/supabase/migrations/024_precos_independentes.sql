@@ -18,6 +18,14 @@ ALTER TABLE produtos ALTER COLUMN preco_site DROP EXPRESSION;
 -- em 100% dos casos — a remoção não perde nenhum dado. preco_site passa a
 -- ser a única fonte de preço do site, tanto para produto exclusivo quanto
 -- não-exclusivo.
+-- NOTA: dropar esta coluna também dropa automaticamente
+-- chk_exclusividade_canal_publicado, que a referencia — Postgres remove
+-- constraints CHECK que dependem só de colunas da própria tabela junto com
+-- a coluna, sem precisar de CASCADE. Por isso não há (nem pode haver) um
+-- DROP CONSTRAINT explícito para essa constraint depois desta linha — na
+-- aplicação em produção, um DROP CONSTRAINT explícito nesse ponto falhou
+-- com "constraint does not exist" exatamente por já ter sido removida
+-- aqui.
 ALTER TABLE produtos DROP COLUMN preco_venda;
 
 -- chk_tipo_a_preco (da migration 001, anterior à exclusividade de canal)
@@ -30,11 +38,10 @@ ALTER TABLE produtos DROP COLUMN preco_venda;
 -- (dependeria de exclusivo_site, como chk_exclusividade_canal_publicado).
 ALTER TABLE produtos DROP CONSTRAINT chk_tipo_a_preco;
 
--- Constraint antiga assumia preco_venda como o preço do produto exclusivo.
--- Nova regra: produto tipo_a publicado sempre precisa de preco_site
--- preenchido; url_ml continua obrigatória apenas quando não exclusivo.
-ALTER TABLE produtos DROP CONSTRAINT chk_exclusividade_canal_publicado;
-
+-- Recria chk_exclusividade_canal_publicado (já removida automaticamente
+-- pelo DROP COLUMN preco_venda acima) com a nova regra: produto tipo_a
+-- publicado sempre precisa de preco_site preenchido; url_ml continua
+-- obrigatória apenas quando não exclusivo.
 ALTER TABLE produtos
   ADD CONSTRAINT chk_exclusividade_canal_publicado
   CHECK (
