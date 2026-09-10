@@ -10,12 +10,23 @@
 -- "exclusivo_site = true" — e a 022 exige preco_venda preenchido para todo
 -- tipo_a publicado exclusivo, que o seed nunca preenchia. Resultado: a
 -- sequência completa (001→025) não rodava em banco novo, quebrando na 022.
+--
 -- Corrigido preenchendo url_ml nos 3 produtos, para nascerem não-exclusivos
 -- (mesmo padrão dos produtos reais em produção hoje) — não precisam de
 -- preco_venda, e a 025 (preco_site < preco_ml) já é satisfeita pelo cálculo
--- automático de 18% da própria migration 001. Não afeta produção: nenhum
--- dos produtos deste seed (ids b1000000-...) existe em produção — os
--- produtos reais foram cadastrados depois, manualmente, pelo admin.
+-- automático de 18% da própria migration 001.
+--
+-- A coluna url_ml só é criada pela migration "add_rascunho_status_and_url_ml"
+-- (roda depois da 002 na sequência real, 2026-06-26) — nesta migration (002)
+-- ela ainda não existe. Por isso o ALTER TABLE ADD COLUMN IF NOT EXISTS
+-- abaixo, antes dos INSERTs: cria a coluna cedo, de forma idempotente — o
+-- ADD COLUMN IF NOT EXISTS daquela migration mais tarde vira no-op, sem
+-- conflito. Sem esse passo, o INSERT com url_ml quebraria com "column
+-- url_ml does not exist" antes mesmo de chegar na 021/022.
+--
+-- Não afeta produção: nenhum dos produtos deste seed (ids b1000000-...)
+-- existe em produção — os produtos reais foram cadastrados depois,
+-- manualmente, pelo admin.
 -- ============================================================
 
 -- ============================================================
@@ -38,6 +49,12 @@ VALUES (
 -- 2. PRODUTOS TIPO A — Individuais com preço ML + desconto 18%
 -- preco_site é GERADO automaticamente: ROUND(preco_ml * 0.82, 2)
 -- ============================================================
+
+-- url_ml normalmente só existe a partir da migration
+-- "add_rascunho_status_and_url_ml" (2026-06-26). Criada aqui cedo, de forma
+-- idempotente, só para os 3 INSERTs abaixo poderem preencher o campo —
+-- ver nota no cabeçalho do arquivo.
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS url_ml TEXT;
 
 -- Produto A-1: TV 55" 4K Samsung (sinistro de transportadora)
 INSERT INTO produtos (
