@@ -89,6 +89,19 @@ Legenda: [ ] pendente · [x] concluído
   próprio com valores fixos no código e também precisa passar a usar a
   tabela `categorias` antes da remoção. Fazer depois que o filtro por
   categoria na vitrine estiver pronto e ler de `categoria_id`.
+- [ ] **24. Tela de triagem com preview de preço na fórmula antiga (18%
+  fixo).** `TriagemClientUI.tsx` calcula um preview de "Preço no Site"
+  como `preco_ml * 0.82` (com o texto "−18% automático") — regra removida
+  no item do preço independente (`preco_site` deixou de ser `GENERATED`
+  e passou a ser digitado pelo admin, não mais derivado de `preco_ml`).
+  O preview nunca é gravado no banco (`api/triagem/publicar/route.ts` não
+  aceita `preco_site` na escrita), mas mostra ao usuário um valor
+  calculado por uma regra que não existe mais no sistema. Ajustar a tela
+  para refletir a modelagem nova: os dois preços (site e ML) digitados
+  separadamente, como no formulário de produto. Relacionado: a triagem
+  também tem select de categoria com valores fixos no código, já
+  apontado no item 21 e ainda pendente — os dois ajustes na tela de
+  triagem podem ser feitos juntos.
 - [x] **22. Arraste para reordenar imagens nunca funcionava.** No bloco de
   imagens do formulário de produto (`ImageUploadZone.tsx`), o texto "Arraste
   as imagens para reordenar" aparecia mas o arraste não respondia — desde o
@@ -208,4 +221,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-10 (item 23)*
+*Atualizado em: 2026-09-10 (item 24)*

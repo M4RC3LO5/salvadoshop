@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
 import { BotaoCompraTipoA } from "@/components/produto/BotaoCompraTipoA"
+import { calcularComparativoPreco } from "@/lib/utils/precos"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ export async function generateMetadata(
 
   const descricaoMeta = produto.descricao
     ? produto.descricao.replace(/<[^>]+>/g, "").slice(0, 160)
-    : `Compre ${produto.nome} com 18% de desconto no SalvadoShop.`
+    : `Compre ${produto.nome} com desconto no SalvadoShop.`
 
   return {
     title: `${produto.nome} — SalvadoShop`,
@@ -113,6 +114,7 @@ export default async function PaginaProduto(
   }
 
   const precoSite = produto.preco_site
+  const comparativo = calcularComparativoPreco(produto.preco_ml, precoSite)
   const imagens = produto.produto_imagens.map((i) => i.url_cloudinary)
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
   const mensagemWA = encodeURIComponent(
@@ -165,7 +167,7 @@ export default async function PaginaProduto(
             )}
 
             {/* Preço — Tipo A */}
-            {produto.tipo === "tipo_a" && produto.preco_ml && precoSite && (
+            {produto.tipo === "tipo_a" && precoSite && (
               produto.exclusivo_site ? (
                 <div className="flex flex-col gap-1">
                   <div className="flex items-baseline gap-3">
@@ -174,16 +176,23 @@ export default async function PaginaProduto(
                   </div>
                   <p className="text-xs text-zinc-400">exclusivo do site</p>
                 </div>
-              ) : (
+              ) : comparativo ? (
                 <div className="flex flex-col gap-1">
                   <p className="text-sm text-zinc-400 line-through">
-                    {formatarPreco(produto.preco_ml)} no Mercado Livre
+                    {formatarPreco(produto.preco_ml!)} no Mercado Livre
                   </p>
                   <div className="flex items-baseline gap-3">
                     <p className="text-3xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
-                    <span className="text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">-18%</span>
+                    <span className="text-sm font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded">
+                      -{comparativo.percentual.toFixed(0)}%
+                    </span>
                   </div>
-                  <p className="text-xs text-zinc-400">no site · economize {formatarPreco(produto.preco_ml - precoSite)}</p>
+                  <p className="text-xs text-zinc-400">no site · economize {formatarPreco(comparativo.economia)}</p>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  <p className="text-3xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
+                  <p className="text-xs text-zinc-400">no site</p>
                 </div>
               )
             )}
@@ -196,14 +205,14 @@ export default async function PaginaProduto(
             )}
 
             {/* CTA */}
-            {produto.tipo === "tipo_a" && produto.preco_ml && precoSite ? (
+            {produto.tipo === "tipo_a" && precoSite ? (
               <BotaoCompraTipoA
                 produto={{
                   id: produto.id,
                   slug: produto.slug,
                   nome: produto.nome,
                   estado: "Bom",
-                  precoML: produto.preco_ml,
+                  precoML: produto.preco_ml ?? 0,
                   precoSite,
                   exclusivo: produto.exclusivo_site,
                   urlML: produto.url_ml ?? undefined,

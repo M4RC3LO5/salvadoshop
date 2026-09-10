@@ -42,16 +42,16 @@ const CAMPOS_LABEL: Record<string, string> = {
   tipo: "Tipo",
   categoria: "Categoria",
   preco_ml: "Preço ML",
+  preco_site: "Preço no Site",
   url_ml: "URL Mercado Livre",
   exclusivo_site: "Canal de Venda",
-  preco_venda: "Preço de Venda",
   estoque: "Estoque",
   quantidade_lote: "Quantidade Lote",
 }
 
 function formatarValor(campo: string, valor: unknown): string {
   if (valor === null || valor === undefined) return "—"
-  if ((campo === "preco_ml" || campo === "preco_venda") && typeof valor === "number") {
+  if ((campo === "preco_ml" || campo === "preco_site") && typeof valor === "number") {
     return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
   }
   if (campo === "exclusivo_site") {

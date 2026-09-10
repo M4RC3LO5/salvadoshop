@@ -14,6 +14,7 @@ export interface ProdutoRow {
   slug: string
   tipo: "tipo_a" | "tipo_b"
   preco_ml: number | null
+  preco_site: number | null
   status: string
   created_at: string
   imagem_url: string | null
@@ -435,8 +436,8 @@ export function ProdutosClientUI({ produtos, total, pagina, porPagina, role }: P
                         <td className="px-4 py-3 whitespace-nowrap">
                           {p.tipo === "tipo_b"
                             ? <span className="text-xs text-stone-400 italic">—</span>
-                            : p.preco_ml !== null
-                              ? <span className="font-medium text-green-700">{BRL.format(p.preco_ml * 0.82)}</span>
+                            : p.preco_site !== null
+                              ? <span className="font-medium text-green-700">{BRL.format(p.preco_site)}</span>
                               : "—"
                           }
                         </td>

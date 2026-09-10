@@ -757,6 +757,34 @@ schema novo, sem alteração nenhuma?**
 commit local não pushado que dependa dela — e, se for destrutiva, confirmar
 que o deploy do código dependente já está no ar ou vai junto.
 
+### 18.10 LIÇÃO APRENDIDA — mapear constraints direto do banco, não só do card ou do código
+
+Uma migration que altera coluna ou constraint de uma tabela não pode confiar
+só no que o card da tarefa cita ou no que aparece lendo o código da
+aplicação — precisa listar as constraints reais da tabela direto do banco
+(`pg_constraint` / `pg_get_constraintdef`) antes de escrever a migration.
+
+**Caso real:** a migration 024 (inversão da modelagem de preço) removeu a
+coluna `preco_venda` e reescreveu `chk_exclusividade_canal_publicado`. A
+inspeção prévia do card mapeou os pontos do código que liam `preco_ml`,
+`preco_site` e `preco_venda`, mas não listou as constraints da tabela via
+SQL — só as que apareciam nos comentários das migrations já lidas
+(`021_exclusividade_canal.sql`, `022_invariante_exclusividade_publicado.sql`).
+A migration quebrou ao aplicar em branch de desenvolvimento:
+`chk_tipo_a_preco`, criada em `001_schema_inicial.sql` (antes de existir
+produto exclusivo do site) e nunca ajustada depois, exigia `preco_ml NOT
+NULL` para todo produto tipo_a — inclusive exclusivo, que não tem preço de
+ML no desenho novo. Só foi descoberta porque o teste rodou de verdade em
+branch de desenvolvimento; uma migration aplicada direto em produção sem
+esse teste teria quebrado a publicação de qualquer produto exclusivo.
+
+**Regra:** antes de qualquer migration que altere coluna ou constraint,
+rodar `select conname, pg_get_constraintdef(oid) from pg_constraint where
+conrelid = '<tabela>'::regclass and contype = 'c'` (ou equivalente) na
+tabela alvo e conferir cada constraint retornada contra a migration — não
+apenas as constraints citadas no card da tarefa ou encontradas lendo os
+arquivos de migration já existentes no repositório.
+
 ---
 
 *Última atualização: Julho 2026*

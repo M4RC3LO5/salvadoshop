@@ -106,18 +106,18 @@ export async function PATCH(
     }
 
     if (novos.tipo === "tipo_a") {
-      produtoPayload.preco_ml = novos.preco_ml
+      produtoPayload.preco_site = novos.preco_site
       produtoPayload.estoque = novos.estoque
       produtoPayload.quantidade_lote = null
       produtoPayload.exclusivo_site = !!novos.exclusivo_site
       produtoPayload.url_ml = novos.exclusivo_site ? null : novos.url_ml
-      produtoPayload.preco_venda = novos.exclusivo_site ? novos.preco_venda : null
+      produtoPayload.preco_ml = novos.exclusivo_site ? null : novos.preco_ml
     } else {
       produtoPayload.quantidade_lote = novos.quantidade_lote
       produtoPayload.preco_ml = null
+      produtoPayload.preco_site = null
       produtoPayload.url_ml = null
       produtoPayload.exclusivo_site = false
-      produtoPayload.preco_venda = null
       produtoPayload.estoque = 0
     }
 

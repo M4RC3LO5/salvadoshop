@@ -47,7 +47,7 @@ export default async function ProdutosPage({ searchParams }: PageProps) {
   let query = supabase
     .from("produtos")
     .select(
-      `id, nome, slug, tipo, preco_ml, status, created_at, criado_por,
+      `id, nome, slug, tipo, preco_ml, preco_site, status, created_at, criado_por,
        produto_imagens!left ( url_cloudinary, ordem )`,
       { count: "exact" }
     )
@@ -87,6 +87,7 @@ export default async function ProdutosPage({ searchParams }: PageProps) {
       slug: row.slug,
       tipo: row.tipo as "tipo_a" | "tipo_b",
       preco_ml: row.preco_ml,
+      preco_site: row.preco_site,
       status: row.status,
       created_at: row.created_at,
       imagem_url: primeira?.url_cloudinary ?? null,

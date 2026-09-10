@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import type { ProdutoTipoA } from "./CardProdutoTipoA"
 import { useCarrinho } from "@/contexts/CarrinhoContext"
+import { calcularComparativoPreco } from "@/lib/utils/precos"
 
 interface PopupCompraTipoAProps {
   produto: ProdutoTipoA
@@ -18,7 +19,7 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
   const [toastVisivel, setToastVisivel] = useState(false)
 
   const precoSite = produto.precoSite
-  const economia = produto.precoML - precoSite
+  const comparativo = calcularComparativoPreco(produto.precoML, precoSite)
 
   // Fechar com Esc
   useEffect(() => {
@@ -129,13 +130,19 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
             <div className="flex items-center gap-2">
               <span className="text-lg" aria-hidden="true">🏷️</span>
               <span className="text-sm font-semibold text-green-700">Nosso Site</span>
-              <span className="text-[10px] font-bold bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-auto">-18%</span>
+              {comparativo && (
+                <span className="text-[10px] font-bold bg-green-600 text-white px-1.5 py-0.5 rounded-full ml-auto">
+                  -{comparativo.percentual.toFixed(0)}%
+                </span>
+              )}
             </div>
             <div>
               <p className="text-xl font-bold text-green-700">{formatarPreco(precoSite)}</p>
-              <p className="text-xs text-green-600 mt-1 font-medium">
-                Economize {formatarPreco(economia)} comprando aqui
-              </p>
+              {comparativo && (
+                <p className="text-xs text-green-600 mt-1 font-medium">
+                  Economize {formatarPreco(comparativo.economia)} comprando aqui
+                </p>
+              )}
             </div>
             <button
               onClick={handleComprarAqui}

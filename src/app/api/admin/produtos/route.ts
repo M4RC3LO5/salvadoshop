@@ -23,9 +23,9 @@ const baseSchema = z.object({
 const tipoASchema = baseSchema.extend({
   tipo: z.literal("tipo_a"),
   exclusivo_site: z.boolean(),
-  preco_ml: z.number().positive("Preço ML deve ser maior que zero."),
+  preco_site: z.number().positive("Preço no site deve ser maior que zero."),
+  preco_ml: z.number().positive("Preço no Mercado Livre deve ser maior que zero.").optional(),
   url_ml: z.string().optional(),
-  preco_venda: z.number().positive("Preço de venda deve ser maior que zero.").optional(),
   estoque: z.number().int().min(0),
 })
 
@@ -35,21 +35,21 @@ const tipoBSchema = baseSchema.extend({
 })
 
 // Regra de exclusividade de canal: produto anunciado no ML sempre precisa de
-// URL válida; produto exclusivo do site sempre precisa de preço de venda. Os
-// 18% de desconto ficam travados para produto com ML — preco_venda existe só
-// para o exclusivo (CLAUDE.md, decisão da Fase de exclusividade de canal).
+// URL válida e preço no ML; produto exclusivo do site só precisa do preço no
+// site. O percentual de diferença entre os dois preços é calculado na
+// exibição — nunca é premissa, nunca é gravado (CLAUDE.md, decisão da Fase
+// de preços independentes).
 const produtoSchema = z.discriminatedUnion("tipo", [tipoASchema, tipoBSchema]).superRefine((dados, ctx) => {
   if (dados.tipo !== "tipo_a") return
 
-  if (dados.exclusivo_site) {
-    if (dados.preco_venda === undefined || dados.preco_venda <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["preco_venda"],
-        message: "Produto exclusivo do site precisa de um preço de venda.",
-      })
-    }
-    return
+  if (dados.exclusivo_site) return
+
+  if (dados.preco_ml === undefined || dados.preco_ml <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["preco_ml"],
+      message: "Informe o preço no Mercado Livre.",
+    })
   }
 
   const urlValida = (() => {
@@ -197,15 +197,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (dados.tipo === "tipo_a") {
-    produtoPayload.preco_ml = dados.preco_ml
+    produtoPayload.preco_site = dados.preco_site
     produtoPayload.estoque = dados.estoque
     produtoPayload.exclusivo_site = dados.exclusivo_site
     if (dados.exclusivo_site) {
-      produtoPayload.preco_venda = dados.preco_venda
+      produtoPayload.preco_ml = null
       produtoPayload.url_ml = null
     } else {
+      produtoPayload.preco_ml = dados.preco_ml
       produtoPayload.url_ml = dados.url_ml
-      produtoPayload.preco_venda = null
     }
   } else {
     produtoPayload.quantidade_lote = dados.quantidade
