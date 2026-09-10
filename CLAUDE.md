@@ -831,6 +831,21 @@ sem prefixo. Validado criando uma branch de desenvolvimento do zero e
 comparando colunas, constraints, índices, triggers, funções e policies
 contra produção — schema idêntico, sem diferença, sem reaplicação manual.
 
+Branch de desenvolvimento do Supabase repete o SQL registrado em
+`supabase_migrations.schema_migrations`, e nunca o conteúdo do arquivo no
+repositório. O arquivo é documentação, o registro é a fonte de verdade da
+replicação. Se um arquivo de migration for corrigido depois de aplicado, o
+registro correspondente precisa ser atualizado também, senão toda branch
+nova continua repetindo a versão antiga sem aviso.
+
+**Caso real:** em setembro de 2026 a correção do seed 002 no arquivo não
+teve efeito nenhum nas branches até o `statements` do registro ser
+atualizado.
+
+Atualizar `statements` de um registro já aplicado é alteração de metadado e
+nunca reexecuta SQL, mas exige confirmação explícita antes, porque escreve
+em tabela interna do Supabase.
+
 ---
 
 *Última atualização: Setembro 2026*
