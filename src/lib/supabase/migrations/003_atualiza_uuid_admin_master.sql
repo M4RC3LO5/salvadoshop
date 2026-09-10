@@ -5,6 +5,13 @@
 -- Contexto: substitui o user_id fictício do seed 002 pelo UUID
 --           real criado no Supabase Auth Dashboard.
 -- Email do usuário: admin@salvadoshop.com.br
+--
+-- NOTA (item 20 do BACKLOG.md): esta migration foi aplicada em produção
+-- via execute_sql, fora do histórico de migrations do Supabase, e
+-- registrada retroativamente em supabase_migrations.schema_migrations
+-- em 10/09/2026. O timestamp de version usado no registro é inferido a
+-- partir da data "Criado em" acima — o momento real da aplicação não
+-- foi preservado. Não tratar essa data sintética como registro confiável.
 -- ============================================================
 
 UPDATE admin_usuarios
