@@ -133,6 +133,12 @@ Legenda: [ ] pendente · [x] concluído
   status que já existe. Aplicável no detalhe do pedido (admin) e numa página
   de acompanhamento para o cliente.
   ✅ Resolvido (barra no detalhe do admin)
+- [ ] **23. Reordenar imagens de produto não funciona por teclado.** O
+  `@dnd-kit` do bloco de imagens (`ImageUploadZone.tsx`) está sem
+  `KeyboardSensor` configurado — a reordenação só é possível com mouse ou
+  toque. Achado durante a correção do item 22; nunca funcionou por teclado,
+  não é regressão. Corrigir junto de uma revisão de acessibilidade do
+  admin.
 
 ## 🔵 Funcionalidades novas — priorizadas (P0–P3)
 
@@ -202,4 +208,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-10 (item 22)*
+*Atualizado em: 2026-09-10 (item 23)*
