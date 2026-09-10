@@ -785,7 +785,53 @@ tabela alvo e conferir cada constraint retornada contra a migration — não
 apenas as constraints citadas no card da tarefa ou encontradas lendo os
 arquivos de migration já existentes no repositório.
 
+### 18.11 PROCESSO — toda alteração de schema em produção passa por apply_migration, com arquivo no mesmo trabalho
+
+Toda alteração de schema em produção usa exclusivamente `apply_migration`,
+nunca `execute_sql` — mesmo para um `ALTER TABLE` ou `ALTER TYPE ... ADD
+VALUE` aparentemente pequeno. `execute_sql` roda a SQL mas não grava nada em
+`supabase_migrations.schema_migrations`; o efeito fica em produção, mas
+nenhuma branch de desenvolvimento nova vai replicá-lo.
+
+Todo `apply_migration` precisa ter, no mesmo trabalho (mesmo commit ou
+mesma tarefa), o arquivo correspondente criado em
+`src/lib/supabase/migrations` com o conteúdo exato que foi aplicado —
+arquivo primeiro (ou junto), nunca depois "quando sobrar tempo".
+
+Antes de encerrar qualquer tarefa que altere schema, rodar `list_migrations`
+no projeto de produção e conferir que a última entrada bate com o último
+arquivo do repositório — mesmo nome (com o prefixo numérico), mesma posição
+na sequência.
+
+**Caso real:** investigação do item 20 do BACKLOG.md em setembro de 2026
+encontrou o histórico de migrations do Supabase e o repositório
+gravemente dessincronizados havia meses: 7 arquivos já aplicados em produção via
+`execute_sql` nunca tinham sido registrados (`003`, `005`–`010`); 3
+registros existiam no histórico do Supabase sob nomes sem o prefixo
+numérico do arquivo correspondente (`rpc_pedido_estoque`,
+`pedidos_frete_e_dados_loja`, `trigger_ajustar_centavos_identificacao`,
+equivalentes a `004`, `019` e `020`); e — o achado mais sério — 3 pedaços
+de schema real estavam aplicados e registrados em produção sem que
+**nenhum arquivo do repositório os descrevesse**, incluindo o valor
+`'rascunho'` do enum `status_produto` e a coluna `produtos.url_ml`,
+usados desde o início do sistema. Nenhuma dessas três migrations tinha
+sequer chegado a ser commitada — uma delas (o que seria o arquivo 018,
+`status_aguardando_cotacao_frete`) tinha até comentário interno se
+autodenominando `018_status_aguardando_cotacao_frete.sql`, confirmando que
+o arquivo existiu em algum momento e nunca foi salvo no repositório. Do
+repositório sozinho era impossível reconstruir o banco de produção.
+
+Ressincronizado registrando os 7 arquivos não registrados direto em
+`supabase_migrations.schema_migrations` (sem reexecutar SQL — vários não
+são idempotentes, ex.: `008` cria `CREATE POLICY` sem `IF NOT EXISTS` e
+quebraria se rodado de novo), documentando retroativamente os 3 pedaços
+sem arquivo como `026`, `027` e `028` (marcados para nunca serem
+aplicados — já estão em produção), e corrigindo o nome dos 3 registros
+sem prefixo. Validado criando uma branch de desenvolvimento do zero e
+comparando colunas, constraints, índices, triggers, funções e policies
+contra produção — schema idêntico, sem diferença, sem reaplicação manual.
+
 ---
 
-*Última atualização: Julho 2026*
-*Versão: 2.5*
+*Última atualização: Setembro 2026*
+*Versão: 2.6*

@@ -31,7 +31,7 @@ Legenda: [ ] pendente · [x] concluído
   de compra no ML desabilitada. Na página do produto funciona normal. Bug
   pré-existente, anterior ao item 13.
   ✅ Resolvido — query e card da home passam a trazer `url_ml`
-- [ ] **20. Histórico de migrations do Supabase fora de sincronia com o
+- [x] **20. Histórico de migrations do Supabase fora de sincronia com o
   repositório.** As migrations 003 a 022 existem em
   `src/lib/supabase/migrations` mas não estão registradas no histórico
   oficial do Supabase — foram aplicadas em produção via `apply_migration`
@@ -44,6 +44,24 @@ Legenda: [ ] pendente · [x] concluído
   021 e 022 na branch de teste só para conseguir validar o fluxo de
   edição de produto. Investigar e ressincronizar o histórico de migrations
   do Supabase com o repositório.
+  ✅ Resolvido — diagnóstico completo (arquivos não registrados,
+  registros sem arquivo, nomes sem prefixo) e ressincronização: 7 arquivos
+  já aplicados e nunca registrados (003, 005–010) inseridos diretamente em
+  `supabase_migrations.schema_migrations` sem reexecutar SQL; 3 pedaços de
+  schema aplicados em produção mas nunca commitados como arquivo
+  (`status_produto.rascunho` + `produtos.url_ml`, colunas `pix_*` +
+  `pedidos.numero_pedido`, `status_pedido.aguardando_cotacao_frete`)
+  documentados retroativamente como 026, 027 e 028, com SQL recuperado
+  literalmente do histórico do Supabase, marcados para nunca serem
+  aplicados; 3 registros sem prefixo numérico (`rpc_pedido_estoque`,
+  `pedidos_frete_e_dados_loja`, `trigger_ajustar_centavos_identificacao`)
+  renomeados para `004_`, `019_` e `020_`. Backup do histórico anterior em
+  [`docs/backup-supabase-migrations-20260910.json`](docs/backup-supabase-migrations-20260910.json).
+  Validado criando uma branch de desenvolvimento do zero e comparando
+  colunas, constraints, índices, triggers, funções e policies contra
+  produção — schema idêntico, sem diferença. Ver item 25 para um bug
+  real (não de registro) encontrado durante essa validação. Lição
+  registrada no CLAUDE.md, seção 18.11.
 
 ## 🟡 Prioridade média — correção / validação
 
@@ -102,6 +120,23 @@ Legenda: [ ] pendente · [x] concluído
   também tem select de categoria com valores fixos no código, já
   apontado no item 21 e ainda pendente — os dois ajustes na tela de
   triagem podem ser feitos juntos.
+- [ ] **25. Seed de desenvolvimento (002) incompatível com a constraint da
+  022.** Achado durante a validação do item 20 (branch de desenvolvimento
+  criada do zero, sequência 001→025 replayada por completo): a migration
+  002 insere produtos `tipo_a` cujo `url_ml` fica `NULL` (não preenchido
+  no seed), e a 021 faz backfill de `exclusivo_site = (url_ml IS NULL OR
+  url_ml = '')` — os 3 produtos do seed viram `exclusivo_site = true`.
+  A 022 adiciona a constraint `chk_exclusividade_canal_publicado`
+  exigindo `preco_venda NOT NULL` para todo `tipo_a` publicado e
+  exclusivo — mas o seed nunca preencheu `preco_venda` para esses
+  produtos, então a 022 quebra (`new row ... violates check constraint`)
+  ao replayar a sequência completa numa branch nova, exigindo correção
+  manual dos dados antes de continuar. Diferente do item 20 (que era só
+  falta de registro no histórico), este é um bug real de conteúdo: a
+  ordem 002→021→022 não é auto-consistente. Ajustar a 002 para preencher
+  `url_ml` nos produtos não-exclusivos do seed (ou a 021/022 para tratar
+  o caso), testando a sequência completa numa branch nova do zero antes
+  de considerar resolvido.
 - [x] **22. Arraste para reordenar imagens nunca funcionava.** No bloco de
   imagens do formulário de produto (`ImageUploadZone.tsx`), o texto "Arraste
   as imagens para reordenar" aparecia mas o arraste não respondia — desde o
