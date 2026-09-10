@@ -2,6 +2,13 @@
 -- Tabelas base da funcionalidade de Triagem de Estoque.
 -- Aplicada em producao via execute_sql (fora do historico de migrations do Supabase).
 -- Este arquivo existe para manter o repositorio reproduzivel.
+--
+-- NOTA (item 20 do BACKLOG.md): registrada retroativamente em
+-- supabase_migrations.schema_migrations em 10/09/2026. Este arquivo nunca
+-- teve uma data "Criado em" própria; o timestamp de version usado no
+-- registro foi posicionado logo após a migration 009 (2026-07-23) e antes
+-- da 011 (2026-08-24) — o momento real da aplicação não foi preservado.
+-- Não tratar essa data sintética como registro confiável.
 
 -- ENUMs
 create type tipo_captura as enum ('etiqueta', 'item_avulso');
