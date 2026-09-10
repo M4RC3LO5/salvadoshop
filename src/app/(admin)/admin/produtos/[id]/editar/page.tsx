@@ -34,7 +34,7 @@ export default async function EditarProdutoPage({ params }: PageProps) {
   const { data: produto } = await supabase
     .from("produtos")
     .select(`
-      id, nome, slug, descricao, specs_tecnicas, tipo, categoria,
+      id, nome, slug, descricao, specs_tecnicas, tipo, categoria, categoria_id,
       preco_ml, url_ml, exclusivo_site, preco_venda, estoque, quantidade_lote, status, criado_por,
       produto_imagens (url_cloudinary, public_id, ordem)
     `)
@@ -60,6 +60,7 @@ export default async function EditarProdutoPage({ params }: PageProps) {
     descricao: produto.descricao,
     tipo: produto.tipo as "tipo_a" | "tipo_b",
     categoria: produto.categoria ?? "",
+    categoria_id: produto.categoria_id,
     preco_ml: produto.preco_ml,
     url_ml: produto.url_ml,
     exclusivo_site: produto.exclusivo_site,

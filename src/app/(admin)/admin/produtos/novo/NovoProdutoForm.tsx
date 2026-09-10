@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Package, Layers, MessageCircle, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react"
 import { RichTextEditor } from "@/components/admin/RichTextEditor"
 import { ImageUploadZone } from "@/components/admin/ImageUploadZone"
+import { CategoriaCombobox, CategoriaOption } from "@/components/admin/CategoriaCombobox"
 
 type TipoProduto = "tipo_a" | "tipo_b" | null
 type Role = "master" | "auxiliar"
@@ -28,6 +29,7 @@ export interface ProdutoParaEditar {
   descricao: string | null
   tipo: "tipo_a" | "tipo_b"
   categoria: string
+  categoria_id: string | null
   preco_ml: number | null
   url_ml: string | null
   exclusivo_site: boolean
@@ -43,15 +45,6 @@ function cn(...classes: (string | false | undefined)[]) {
 }
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-
-const CATEGORIAS = [
-  "Eletrônicos",
-  "Eletrodomésticos",
-  "Móveis",
-  "Veículos",
-  "Ferramentas",
-  "Outros",
-]
 
 function formatarMoeda(raw: string): string {
   const digitos = raw.replace(/\D/g, "")
@@ -183,8 +176,22 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
   const [specs, setSpecs] = useState(produto?.specs_tecnicas?.texto ?? "")
   const [descricao, setDescricao] = useState(produto?.descricao ?? "")
   const [imagens, setImagens] = useState<ImagemSalva[]>(produto?.imagens ?? [])
-  const [categoria, setCategoria] = useState(produto?.categoria ?? "")
+  const [categoriaSelecionada, setCategoriaSelecionada] = useState<CategoriaOption | null>(
+    produto?.categoria_id ? { id: produto.categoria_id, nome: produto.categoria } : null
+  )
+  const [categorias, setCategorias] = useState<CategoriaOption[]>([])
   const [estoque, setEstoque] = useState(produto?.estoque != null ? String(produto.estoque) : "")
+
+  useEffect(() => {
+    let cancelado = false
+    fetch("/api/admin/categorias")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelado && json.success) setCategorias(json.data)
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [])
 
   // Tipo A
   const [precoMLFormatado, setPrecoMLFormatado] = useState(() => {
@@ -226,7 +233,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     descricao: submetido && !descricao.trim() ? "Descrição comercial é obrigatória." : "",
     tipo: submetido && !tipo ? "Selecione o tipo do produto." : "",
     imagens: submetido && imagens.length === 0 ? "Adicione ao menos uma imagem." : "",
-    categoria: submetido && !categoria ? "Selecione uma categoria." : "",
+    categoria: submetido && !categoriaSelecionada ? "Selecione uma categoria." : "",
     estoque: submetido && tipo === "tipo_a" && !estoque ? "Informe o estoque disponível." : "",
     precoML: submetido && tipo === "tipo_a" && precoMLNum <= 0 ? "Informe o preço no Mercado Livre." : "",
     urlML: submetido && tipo === "tipo_a" && !exclusivoSite && !urlMLValida(urlML)
@@ -248,7 +255,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     descricao.trim().length > 0 &&
     tipo !== null &&
     imagens.length > 0 &&
-    categoria !== "" &&
+    categoriaSelecionada !== null &&
     (tipo === "tipo_a"
       ? precoMLNum > 0 && estoque !== "" && (exclusivoSite ? precoVendaNum > 0 : urlMLValida(urlML))
       : quantidadeLote !== "")
@@ -267,7 +274,8 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
         specs,
         descricao,
         tipo,
-        categoria,
+        categoria: categoriaSelecionada?.nome,
+        categoria_id: categoriaSelecionada?.id,
         imagens,
         status_solicitado: statusSolicitado,
       }
@@ -676,19 +684,17 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
                 htmlFor="categoria"
                 obrigatorio
                 erro={erros.categoria}
+                dica={isMaster ? undefined : "Não encontrou a categoria? Peça a um Master para criá-la."}
               >
-                <select
+                <CategoriaCombobox
                   id="categoria"
-                  name="categoria"
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  className={inputCls(!!erros.categoria)}
-                >
-                  <option value="">Selecione uma categoria</option>
-                  {CATEGORIAS.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  categorias={categorias}
+                  value={categoriaSelecionada}
+                  onChange={setCategoriaSelecionada}
+                  onCategoriaCriada={(c) => setCategorias((prev) => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")))}
+                  podeCriar={isMaster}
+                  erro={!!erros.categoria}
+                />
               </Campo>
 
               {/* Estoque (só Tipo A) */}
