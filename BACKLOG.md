@@ -116,10 +116,32 @@ Legenda: [ ] pendente · [x] concluído
   aceita `preco_site` na escrita), mas mostra ao usuário um valor
   calculado por uma regra que não existe mais no sistema. Ajustar a tela
   para refletir a modelagem nova: os dois preços (site e ML) digitados
-  separadamente, como no formulário de produto. Relacionado: a triagem
-  também tem select de categoria com valores fixos no código, já
-  apontado no item 21 e ainda pendente — os dois ajustes na tela de
-  triagem podem ser feitos juntos.
+  separadamente, como no formulário de produto. (O select de categoria
+  com valores fixos, antes mencionado aqui como relacionado, foi
+  corrigido separadamente — ver item 26.)
+- [x] **26. Triagem tinha lista fixa de categorias no código, divergente
+  da tabela `categorias`.** `TriagemClientUI.tsx` tinha 6 categorias
+  hardcoded (`Eletrônicos, Eletrodomésticos, Móveis, Veículos,
+  Ferramentas, Outros`) num `<select>`, sem nenhuma relação com a tabela
+  `categorias` real — nomes nem batiam com o que existe em produção
+  (`Eletronicos` sem acento, `Fone de Ouvido`). `api/triagem/publicar`
+  gravava só a coluna de texto `categoria`, nunca `categoria_id`, então
+  todo produto publicado pela triagem nascia sem vínculo com a tabela.
+  ✅ Resolvido — o `<select>` fixo foi trocado pelo `CategoriaCombobox`
+  já usado no formulário de produto (`/admin/produtos/novo`), nos dois
+  modos (item individual e lote), buscando as categorias reais via
+  `GET /api/admin/categorias`. Criação de categoria nova continua
+  restrita a Master (reforçada no próprio `POST /api/admin/categorias`).
+  `api/triagem/publicar` passa a exigir e gravar `categoria_id` junto
+  com a coluna de texto nos dois modos. Validado em branch de
+  desenvolvimento: categoria existente grava `categoria_id` correto;
+  Master cria categoria nova e o produto fica vinculado a ela; Auxiliar
+  não vê a opção de criar categoria (só "Nenhuma categoria encontrada"),
+  consegue escolher existente, e o produto vai para a fila de aprovação
+  como sempre; modo lote com o mesmo comportamento do individual;
+  produto da triagem continua nascendo em rascunho (Master) ou pendente
+  (Auxiliar), comportamento do item 19 inalterado. A coluna de texto
+  `categoria` continua sendo gravada por enquanto — sai só no item 21.
 - [x] **25. Seed de desenvolvimento (002) incompatível com a constraint da
   022.** Achado durante a validação do item 20 (branch de desenvolvimento
   criada do zero, sequência 001→025 replayada por completo): a migration
