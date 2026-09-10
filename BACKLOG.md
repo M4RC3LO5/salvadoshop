@@ -120,7 +120,7 @@ Legenda: [ ] pendente · [x] concluído
   também tem select de categoria com valores fixos no código, já
   apontado no item 21 e ainda pendente — os dois ajustes na tela de
   triagem podem ser feitos juntos.
-- [ ] **25. Seed de desenvolvimento (002) incompatível com a constraint da
+- [x] **25. Seed de desenvolvimento (002) incompatível com a constraint da
   022.** Achado durante a validação do item 20 (branch de desenvolvimento
   criada do zero, sequência 001→025 replayada por completo): a migration
   002 insere produtos `tipo_a` cujo `url_ml` fica `NULL` (não preenchido
@@ -137,6 +137,26 @@ Legenda: [ ] pendente · [x] concluído
   `url_ml` nos produtos não-exclusivos do seed (ou a 021/022 para tratar
   o caso), testando a sequência completa numa branch nova do zero antes
   de considerar resolvido.
+  ✅ Resolvido — diagnóstico confirmou que só a 022 quebra por essa
+  causa (023, 024 e 025 passam normalmente uma vez corrigidos os dados).
+  A correção real exigiu dois ajustes na 002: (1) preencher `url_ml` nos
+  3 produtos `tipo_a` individuais, fazendo-os nascer `exclusivo_site =
+  false` — mesmo padrão dos produtos reais em produção hoje — e (2) criar
+  a própria coluna `url_ml` antecipadamente via `ADD COLUMN IF NOT
+  EXISTS` dentro da 002, já que essa coluna só existe a partir de uma
+  migration posterior (`add_rascunho_status_and_url_ml`, 2026-06-26,
+  um dia depois da 002) — sem isso a sequência quebrava na própria 002
+  com "column url_ml does not exist", antes mesmo de chegar na 021/022.
+  Migrations 021 a 025 não foram alteradas. Confirmado que nenhum
+  produto deste seed existe em produção, então a mudança no arquivo não
+  diverge do que rodou — o texto registrado da 002 em
+  `supabase_migrations.schema_migrations` também foi atualizado (só
+  metadado, sem reexecutar nada) para que branches futuras repliquem a
+  versão corrigida automaticamente. Validado criando uma branch nova do
+  zero: as 26 migrations (001→025) aplicaram sem nenhum erro e sem
+  nenhuma intervenção manual; schema comparado contra produção
+  (colunas, constraints, índices, triggers, funções, policies) —
+  idêntico, sem diferença.
 - [x] **22. Arraste para reordenar imagens nunca funcionava.** No bloco de
   imagens do formulário de produto (`ImageUploadZone.tsx`), o texto "Arraste
   as imagens para reordenar" aparecia mas o arraste não respondia — desde o
