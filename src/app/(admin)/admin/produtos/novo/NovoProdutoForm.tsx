@@ -224,7 +224,11 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
   const percentual = temComparativo && economia !== null && economia > 0
     ? (economia / precoMLNum) * 100
     : null
-  const mlMenorOuIgualSite = temComparativo && precoMLNum <= precoSiteNum
+  // Regra de negócio confirmada por Marcelo: o Mercado Livre é sempre mais
+  // caro que o site, porque cobra taxas que a venda direta não tem —
+  // preco_site >= preco_ml é sempre erro de digitação, nunca cenário real.
+  // Bloqueia publicar/enviar; rascunho pode ficar inconsistente.
+  const precoInvertido = temComparativo && precoMLNum <= precoSiteNum
 
   // ── Erros ──
   const erros = {
@@ -239,7 +243,11 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     imagens: submetido && imagens.length === 0 ? "Adicione ao menos uma imagem." : "",
     categoria: submetido && !categoriaSelecionada ? "Selecione uma categoria." : "",
     estoque: submetido && tipo === "tipo_a" && !estoque ? "Informe o estoque disponível." : "",
-    precoSite: submetido && tipo === "tipo_a" && precoSiteNum <= 0 ? "Informe o preço no site." : "",
+    precoSite: submetido && tipo === "tipo_a" && precoSiteNum <= 0
+      ? "Informe o preço no site."
+      : tipo === "tipo_a" && !exclusivoSite && precoInvertido
+        ? "O preço no Mercado Livre precisa ser maior que o preço no site."
+        : "",
     precoML: submetido && tipo === "tipo_a" && !exclusivoSite && precoMLNum <= 0
       ? "Informe o preço no Mercado Livre."
       : "",
@@ -261,7 +269,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     imagens.length > 0 &&
     categoriaSelecionada !== null &&
     (tipo === "tipo_a"
-      ? precoSiteNum > 0 && estoque !== "" && (exclusivoSite || (precoMLNum > 0 && urlMLValida(urlML)))
+      ? precoSiteNum > 0 && estoque !== "" && (exclusivoSite || (precoMLNum > 0 && urlMLValida(urlML) && !precoInvertido))
       : quantidadeLote !== "")
 
   // ── Salvar ──
@@ -577,23 +585,19 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
               )}
             </div>
 
-            {/* Percentual — sempre informativo, nunca gravado */}
-            {!exclusivoSite && (
+            {/* Percentual — sempre informativo, nunca gravado. O erro de preço
+                invertido é mostrado no campo Preço no Site (erros.precoSite),
+                não aqui — evita repetir a mesma mensagem duas vezes. */}
+            {!exclusivoSite && !precoInvertido && (
               <div className={cn(
                 "rounded-lg border px-3.5 py-2.5",
                 percentual !== null
                   ? "border-green-200 bg-green-50"
-                  : mlMenorOuIgualSite
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-stone-200 bg-stone-50"
+                  : "border-stone-200 bg-stone-50"
               )}>
                 {percentual !== null ? (
                   <p className="text-xs font-medium text-green-700">
                     Economia de {BRL.format(economia!)} em relação ao ML — {percentual.toFixed(0)}% de desconto no site
-                  </p>
-                ) : mlMenorOuIgualSite ? (
-                  <p className="text-xs font-medium text-amber-700">
-                    O preço no Mercado Livre é menor ou igual ao do site — a vitrine não vai mostrar economia nem preço riscado para este produto.
                   </p>
                 ) : (
                   <p className="text-xs text-stone-400">
