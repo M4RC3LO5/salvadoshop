@@ -3,6 +3,19 @@
 -- Migração: 002_seed_desenvolvimento.sql
 -- Criado em: 2026-06-25
 -- ATENÇÃO: apenas para ambiente de desenvolvimento/teste
+--
+-- NOTA (item 25 do BACKLOG.md, corrigido em 2026-09-10): os 3 produtos
+-- tipo_a individuais nasciam sem url_ml. A migration 021 faz backfill de
+-- exclusivo_site = (url_ml IS NULL) — sem url_ml eles viravam
+-- "exclusivo_site = true" — e a 022 exige preco_venda preenchido para todo
+-- tipo_a publicado exclusivo, que o seed nunca preenchia. Resultado: a
+-- sequência completa (001→025) não rodava em banco novo, quebrando na 022.
+-- Corrigido preenchendo url_ml nos 3 produtos, para nascerem não-exclusivos
+-- (mesmo padrão dos produtos reais em produção hoje) — não precisam de
+-- preco_venda, e a 025 (preco_site < preco_ml) já é satisfeita pelo cálculo
+-- automático de 18% da própria migration 001. Não afeta produção: nenhum
+-- dos produtos deste seed (ids b1000000-...) existe em produção — os
+-- produtos reais foram cadastrados depois, manualmente, pelo admin.
 -- ============================================================
 
 -- ============================================================
@@ -29,7 +42,7 @@ VALUES (
 -- Produto A-1: TV 55" 4K Samsung (sinistro de transportadora)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -44,6 +57,7 @@ VALUES (
   'Eletronicos',
   'Sinistro de transportadora — caixa com amassado lateral, produto sem danos',
   1,
+  'https://www.mercadolivre.com.br/smart-tv-samsung-55-4k-crystal-uhd/p/MLB1234561',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
@@ -51,7 +65,7 @@ VALUES (
 -- Produto A-2: Notebook Dell Inspiron (leilão Receita Federal)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -66,6 +80,7 @@ VALUES (
   'Informatica',
   'Leilão Receita Federal — apreensão de carga não declarada',
   2,
+  'https://www.mercadolivre.com.br/notebook-dell-inspiron-15-i5-8gb-256ssd/p/MLB1234562',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
@@ -73,7 +88,7 @@ VALUES (
 -- Produto A-3: Geladeira Brastemp Frost Free (sinistro de seguradora)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -88,6 +103,7 @@ VALUES (
   'Eletrodomesticos',
   'Sinistro de seguradora — incêndio em loja, produto sem danos físicos',
   1,
+  'https://www.mercadolivre.com.br/geladeira-brastemp-frost-free-375l-inox-brm44hk/p/MLB1234563',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
