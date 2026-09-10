@@ -68,6 +68,23 @@ const produtoEditSchema = z.discriminatedUnion("tipo", [tipoAEditSchema, tipoBEd
       message: "Informe uma URL válida do Mercado Livre (mercadolivre.com.br).",
     })
   }
+
+  // Regra de negócio confirmada por Marcelo: o Mercado Livre é sempre mais
+  // caro que o site, porque cobra taxas que a venda direta não tem —
+  // preco_site >= preco_ml é sempre erro de digitação, nunca cenário real.
+  // Rascunho pode ficar incompleto/inconsistente, então só bloqueia fora dele.
+  if (
+    dados.status_solicitado !== "rascunho" &&
+    dados.preco_ml !== undefined &&
+    dados.preco_ml > 0 &&
+    dados.preco_site >= dados.preco_ml
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["preco_site"],
+      message: "O preço no Mercado Livre precisa ser maior que o preço no site.",
+    })
+  }
 })
 
 // ── PUT — editar produto completo ─────────────────────────────────────────────
