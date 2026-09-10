@@ -31,6 +31,19 @@ Legenda: [ ] pendente · [x] concluído
   de compra no ML desabilitada. Na página do produto funciona normal. Bug
   pré-existente, anterior ao item 13.
   ✅ Resolvido — query e card da home passam a trazer `url_ml`
+- [ ] **20. Histórico de migrations do Supabase fora de sincronia com o
+  repositório.** As migrations 003 a 022 existem em
+  `src/lib/supabase/migrations` mas não estão registradas no histórico
+  oficial do Supabase — foram aplicadas em produção via `apply_migration`
+  sem passar pelo fluxo de migration versionada. Consequência: uma branch
+  de desenvolvimento nova (`create_branch`) só replica o subconjunto de
+  migrations que está de fato registrado no histórico, então nasce com
+  schema incompleto (faltam colunas como `exclusivo_site` e `preco_venda`,
+  entre outras) sem nenhum aviso de que algo está faltando. Descoberto
+  durante o item 14: foi necessário reaplicar manualmente as migrations
+  021 e 022 na branch de teste só para conseguir validar o fluxo de
+  edição de produto. Investigar e ressincronizar o histórico de migrations
+  do Supabase com o repositório.
 
 ## 🟡 Prioridade média — correção / validação
 
@@ -67,6 +80,15 @@ Legenda: [ ] pendente · [x] concluído
   canal (item 13) e podia publicar produto em estado inválido.
   ✅ Resolvido — `status` sempre nasce `rascunho` para Master (Auxiliar
   continua indo para a fila de aprovações, como sempre foi)
+- [ ] **21. Remover a coluna `categoria` de produtos.** Desde o item 14,
+  produto grava `categoria_id` (FK para a tabela `categorias`) e também
+  o nome na coluna `categoria` antiga, para não quebrar as telas que
+  ainda leem dela: vitrine (`VitrineCliente.tsx`, filtro por categoria),
+  página de produto e página de lote. A tela de triagem
+  (`TriagemClientUI.tsx` e `api/triagem/publicar/route.ts`) tem select
+  próprio com valores fixos no código e também precisa passar a usar a
+  tabela `categorias` antes da remoção. Fazer depois que o filtro por
+  categoria na vitrine estiver pronto e ler de `categoria_id`.
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
@@ -161,4 +183,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-08*
+*Atualizado em: 2026-09-10*
