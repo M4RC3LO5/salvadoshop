@@ -3,6 +3,30 @@
 -- Migração: 002_seed_desenvolvimento.sql
 -- Criado em: 2026-06-25
 -- ATENÇÃO: apenas para ambiente de desenvolvimento/teste
+--
+-- NOTA (item 25 do BACKLOG.md, corrigido em 2026-09-10): os 3 produtos
+-- tipo_a individuais nasciam sem url_ml. A migration 021 faz backfill de
+-- exclusivo_site = (url_ml IS NULL) — sem url_ml eles viravam
+-- "exclusivo_site = true" — e a 022 exige preco_venda preenchido para todo
+-- tipo_a publicado exclusivo, que o seed nunca preenchia. Resultado: a
+-- sequência completa (001→025) não rodava em banco novo, quebrando na 022.
+--
+-- Corrigido preenchendo url_ml nos 3 produtos, para nascerem não-exclusivos
+-- (mesmo padrão dos produtos reais em produção hoje) — não precisam de
+-- preco_venda, e a 025 (preco_site < preco_ml) já é satisfeita pelo cálculo
+-- automático de 18% da própria migration 001.
+--
+-- A coluna url_ml só é criada pela migration "add_rascunho_status_and_url_ml"
+-- (roda depois da 002 na sequência real, 2026-06-26) — nesta migration (002)
+-- ela ainda não existe. Por isso o ALTER TABLE ADD COLUMN IF NOT EXISTS
+-- abaixo, antes dos INSERTs: cria a coluna cedo, de forma idempotente — o
+-- ADD COLUMN IF NOT EXISTS daquela migration mais tarde vira no-op, sem
+-- conflito. Sem esse passo, o INSERT com url_ml quebraria com "column
+-- url_ml does not exist" antes mesmo de chegar na 021/022.
+--
+-- Não afeta produção: nenhum dos produtos deste seed (ids b1000000-...)
+-- existe em produção — os produtos reais foram cadastrados depois,
+-- manualmente, pelo admin.
 -- ============================================================
 
 -- ============================================================
@@ -26,10 +50,16 @@ VALUES (
 -- preco_site é GERADO automaticamente: ROUND(preco_ml * 0.82, 2)
 -- ============================================================
 
+-- url_ml normalmente só existe a partir da migration
+-- "add_rascunho_status_and_url_ml" (2026-06-26). Criada aqui cedo, de forma
+-- idempotente, só para os 3 INSERTs abaixo poderem preencher o campo —
+-- ver nota no cabeçalho do arquivo.
+ALTER TABLE produtos ADD COLUMN IF NOT EXISTS url_ml TEXT;
+
 -- Produto A-1: TV 55" 4K Samsung (sinistro de transportadora)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -44,6 +74,7 @@ VALUES (
   'Eletronicos',
   'Sinistro de transportadora — caixa com amassado lateral, produto sem danos',
   1,
+  'https://www.mercadolivre.com.br/smart-tv-samsung-55-4k-crystal-uhd/p/MLB1234561',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
@@ -51,7 +82,7 @@ VALUES (
 -- Produto A-2: Notebook Dell Inspiron (leilão Receita Federal)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -66,6 +97,7 @@ VALUES (
   'Informatica',
   'Leilão Receita Federal — apreensão de carga não declarada',
   2,
+  'https://www.mercadolivre.com.br/notebook-dell-inspiron-15-i5-8gb-256ssd/p/MLB1234562',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
@@ -73,7 +105,7 @@ VALUES (
 -- Produto A-3: Geladeira Brastemp Frost Free (sinistro de seguradora)
 INSERT INTO produtos (
   id, nome, slug, descricao, specs_tecnicas, tipo,
-  preco_ml, status, categoria, sinistro, estoque,
+  preco_ml, status, categoria, sinistro, estoque, url_ml,
   criado_por, aprovado_por
 )
 VALUES (
@@ -88,6 +120,7 @@ VALUES (
   'Eletrodomesticos',
   'Sinistro de seguradora — incêndio em loja, produto sem danos físicos',
   1,
+  'https://www.mercadolivre.com.br/geladeira-brastemp-frost-free-375l-inox-brm44hk/p/MLB1234563',
   'a1b2c3d4-0000-4000-8000-000000000001',
   'a1b2c3d4-0000-4000-8000-000000000001'
 );
