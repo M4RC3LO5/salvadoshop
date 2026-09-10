@@ -72,7 +72,7 @@ export function VitrineCliente({ produtos }: VitrineClienteProps) {
           <div className="flex flex-col gap-2 mb-6">
             <h2 className="text-2xl font-bold text-marrom-800">Produtos em Destaque</h2>
             <p className="text-marrom-500 text-sm">
-              Compre pelo site e economize 18% em relação ao Mercado Livre.
+              Compre pelo site e economize em relação ao Mercado Livre.
             </p>
           </div>
 

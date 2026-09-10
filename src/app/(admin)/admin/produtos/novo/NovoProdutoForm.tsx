@@ -31,9 +31,9 @@ export interface ProdutoParaEditar {
   categoria: string
   categoria_id: string | null
   preco_ml: number | null
+  preco_site: number | null
   url_ml: string | null
   exclusivo_site: boolean
-  preco_venda: number | null
   estoque: number | null
   quantidade_lote: number | null
   status: string
@@ -202,9 +202,9 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
   })
   const [urlML, setUrlML] = useState(produto?.url_ml ?? "")
   const [exclusivoSite, setExclusivoSite] = useState(produto?.exclusivo_site ?? false)
-  const [precoVendaFormatado, setPrecoVendaFormatado] = useState(() => {
-    if (produto?.preco_venda != null) {
-      return produto.preco_venda.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const [precoSiteFormatado, setPrecoSiteFormatado] = useState(() => {
+    if (produto?.preco_site != null) {
+      return produto.preco_site.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
     }
     return ""
   })
@@ -215,12 +215,16 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
   )
 
   // ── Derivados ──
+  // O percentual de diferença é sempre calculado a partir dos dois preços
+  // reais digitados pelo admin — nunca é premissa, nunca é gravado.
   const precoMLNum = parseMoeda(precoMLFormatado)
-  const precoVendaNum = parseMoeda(precoVendaFormatado)
-  const precoSite = exclusivoSite
-    ? (precoVendaNum > 0 ? precoVendaNum : null)
-    : (precoMLNum > 0 ? precoMLNum * 0.82 : null)
-  const economia = !exclusivoSite && precoMLNum > 0 ? precoMLNum - (precoMLNum * 0.82) : null
+  const precoSiteNum = parseMoeda(precoSiteFormatado)
+  const temComparativo = !exclusivoSite && precoMLNum > 0 && precoSiteNum > 0
+  const economia = temComparativo ? precoMLNum - precoSiteNum : null
+  const percentual = temComparativo && economia !== null && economia > 0
+    ? (economia / precoMLNum) * 100
+    : null
+  const mlMenorOuIgualSite = temComparativo && precoMLNum <= precoSiteNum
 
   // ── Erros ──
   const erros = {
@@ -235,15 +239,15 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     imagens: submetido && imagens.length === 0 ? "Adicione ao menos uma imagem." : "",
     categoria: submetido && !categoriaSelecionada ? "Selecione uma categoria." : "",
     estoque: submetido && tipo === "tipo_a" && !estoque ? "Informe o estoque disponível." : "",
-    precoML: submetido && tipo === "tipo_a" && precoMLNum <= 0 ? "Informe o preço no Mercado Livre." : "",
+    precoSite: submetido && tipo === "tipo_a" && precoSiteNum <= 0 ? "Informe o preço no site." : "",
+    precoML: submetido && tipo === "tipo_a" && !exclusivoSite && precoMLNum <= 0
+      ? "Informe o preço no Mercado Livre."
+      : "",
     urlML: submetido && tipo === "tipo_a" && !exclusivoSite && !urlMLValida(urlML)
       ? "Informe uma URL válida do Mercado Livre (mercadolivre.com.br)."
       : urlML && !exclusivoSite && !urlMLValida(urlML)
         ? "A URL deve ser do mercadolivre.com.br"
         : "",
-    precoVenda: submetido && tipo === "tipo_a" && exclusivoSite && precoVendaNum <= 0
-      ? "Informe o preço de venda no site."
-      : "",
     quantidadeLote: submetido && tipo === "tipo_b" && !quantidadeLote
       ? "Informe a quantidade do lote."
       : "",
@@ -257,7 +261,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
     imagens.length > 0 &&
     categoriaSelecionada !== null &&
     (tipo === "tipo_a"
-      ? precoMLNum > 0 && estoque !== "" && (exclusivoSite ? precoVendaNum > 0 : urlMLValida(urlML))
+      ? precoSiteNum > 0 && estoque !== "" && (exclusivoSite || (precoMLNum > 0 && urlMLValida(urlML)))
       : quantidadeLote !== "")
 
   // ── Salvar ──
@@ -281,11 +285,10 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
       }
 
       if (tipo === "tipo_a") {
-        body.preco_ml = precoMLNum
+        body.preco_site = precoSiteNum
         body.exclusivo_site = exclusivoSite
-        if (exclusivoSite) {
-          body.preco_venda = precoVendaNum
-        } else {
+        if (!exclusivoSite) {
+          body.preco_ml = precoMLNum
           body.url_ml = urlML
         }
         body.estoque = parseInt(estoque, 10)
@@ -443,7 +446,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
                   Produto Individual
                 </p>
                 <p className="mt-0.5 text-xs text-stone-500">
-                  Preço fixo no ML · desconto de 18% no site · compra unitária pelo cliente
+                  Preço no site e no ML digitados separadamente · compra unitária pelo cliente
                 </p>
               </div>
             </button>
@@ -523,82 +526,82 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-              {/* Preço ML */}
+              {/* Preço no Site — sempre digitado, exclusivo ou não */}
               <Campo
-                label="Preço no Mercado Livre"
-                htmlFor="preco_ml"
+                label="Preço no Site"
+                htmlFor="preco_site"
                 obrigatorio
-                erro={erros.precoML}
+                erro={erros.precoSite}
               >
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
                     R$
                   </span>
                   <input
-                    id="preco_ml"
-                    name="preco_ml"
+                    id="preco_site"
+                    name="preco_site"
                     type="text"
                     inputMode="numeric"
-                    value={precoMLFormatado}
-                    onChange={(e) => setPrecoMLFormatado(formatarMoeda(e.target.value))}
+                    value={precoSiteFormatado}
+                    onChange={(e) => setPrecoSiteFormatado(formatarMoeda(e.target.value))}
                     placeholder="0,00"
-                    className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoML))}
+                    className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoSite))}
                   />
                 </div>
               </Campo>
 
-              {exclusivoSite ? (
-                /* Preço de Venda — exclusivo do site */
+              {/* Preço no Mercado Livre — só quando não exclusivo */}
+              {!exclusivoSite && (
                 <Campo
-                  label="Preço de Venda no Site"
-                  htmlFor="preco_venda"
+                  label="Preço no Mercado Livre"
+                  htmlFor="preco_ml"
                   obrigatorio
-                  erro={erros.precoVenda}
-                  dica="Preço definido manualmente — não segue o desconto automático de 18%."
+                  erro={erros.precoML}
                 >
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
                       R$
                     </span>
                     <input
-                      id="preco_venda"
-                      name="preco_venda"
+                      id="preco_ml"
+                      name="preco_ml"
                       type="text"
                       inputMode="numeric"
-                      value={precoVendaFormatado}
-                      onChange={(e) => setPrecoVendaFormatado(formatarMoeda(e.target.value))}
+                      value={precoMLFormatado}
+                      onChange={(e) => setPrecoMLFormatado(formatarMoeda(e.target.value))}
                       placeholder="0,00"
-                      className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoVenda))}
+                      className={cn("w-full pl-9 pr-3", inputCls(!!erros.precoML))}
                     />
                   </div>
                 </Campo>
-              ) : (
-                /* Preço Site (readonly) — anunciado no ML */
-                <div className="flex flex-col gap-1.5">
-                  <span className="text-sm font-medium text-stone-700">Preço no Site (−18% automático)</span>
-                  <div className={cn(
-                    "flex min-h-[42px] items-center gap-2 rounded-lg border px-3 py-2.5",
-                    precoSite !== null
-                      ? "border-green-200 bg-green-50"
-                      : "border-stone-200 bg-stone-50"
-                  )}>
-                    {precoSite !== null ? (
-                      <span className="text-lg font-bold text-green-700">{BRL.format(precoSite)}</span>
-                    ) : (
-                      <span className="text-sm text-stone-400">Informe o preço ML para calcular</span>
-                    )}
-                  </div>
-                  {economia !== null && (
-                    <p className="text-xs font-medium text-green-700">
-                      O cliente economiza {BRL.format(economia)} comprando pelo site
-                    </p>
-                  )}
-                  {!economia && (
-                    <p className="text-xs text-stone-400">Fórmula: Preço ML × 0,82</p>
-                  )}
-                </div>
               )}
             </div>
+
+            {/* Percentual — sempre informativo, nunca gravado */}
+            {!exclusivoSite && (
+              <div className={cn(
+                "rounded-lg border px-3.5 py-2.5",
+                percentual !== null
+                  ? "border-green-200 bg-green-50"
+                  : mlMenorOuIgualSite
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-stone-200 bg-stone-50"
+              )}>
+                {percentual !== null ? (
+                  <p className="text-xs font-medium text-green-700">
+                    Economia de {BRL.format(economia!)} em relação ao ML — {percentual.toFixed(0)}% de desconto no site
+                  </p>
+                ) : mlMenorOuIgualSite ? (
+                  <p className="text-xs font-medium text-amber-700">
+                    O preço no Mercado Livre é menor ou igual ao do site — a vitrine não vai mostrar economia nem preço riscado para este produto.
+                  </p>
+                ) : (
+                  <p className="text-xs text-stone-400">
+                    Informe os dois preços para ver o percentual de diferença.
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* URL do ML — só quando anunciado no Mercado Livre */}
             {!exclusivoSite && (

@@ -6,6 +6,7 @@ import Link from "next/link"
 import { PopupCompraTipoA } from "./PopupCompraTipoA"
 import { ToastAdicionado } from "./ToastAdicionado"
 import { useCompraDireta } from "./useCompraDireta"
+import { calcularComparativoPreco } from "@/lib/utils/precos"
 
 export interface ProdutoTipoA {
   id: string
@@ -38,6 +39,7 @@ const COR_ESTADO: Record<ProdutoTipoA["estado"], string> = {
 export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
   const [popupAberto, setPopupAberto] = useState(false)
   const { adicionado, comprar } = useCompraDireta(produto)
+  const comparativo = !produto.exclusivo ? calcularComparativoPreco(produto.precoML, produto.precoSite) : null
 
   return (
     <>
@@ -96,7 +98,7 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
               </div>
               <p className="text-[11px] text-zinc-400">exclusivo do site</p>
             </div>
-          ) : (
+          ) : comparativo ? (
             <div className="flex flex-col gap-0.5">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-zinc-400 line-through">
@@ -108,9 +110,16 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
                   {formatarPreco(produto.precoSite)}
                 </span>
                 <span className="text-xs font-semibold bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                  -18%
+                  -{comparativo.percentual.toFixed(0)}%
                 </span>
               </div>
+              <p className="text-[11px] text-zinc-400">no site</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-0.5">
+              <span className="text-lg font-bold text-green-700">
+                {formatarPreco(produto.precoSite)}
+              </span>
               <p className="text-[11px] text-zinc-400">no site</p>
             </div>
           )}

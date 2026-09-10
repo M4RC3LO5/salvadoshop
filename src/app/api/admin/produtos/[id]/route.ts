@@ -26,9 +26,9 @@ const baseEditSchema = z.object({
 const tipoAEditSchema = baseEditSchema.extend({
   tipo: z.literal("tipo_a"),
   exclusivo_site: z.boolean(),
-  preco_ml: z.number().positive("Preço ML deve ser maior que zero."),
+  preco_site: z.number().positive("Preço no site deve ser maior que zero."),
+  preco_ml: z.number().positive("Preço no Mercado Livre deve ser maior que zero.").optional(),
   url_ml: z.string().optional(),
-  preco_venda: z.number().positive("Preço de venda deve ser maior que zero.").optional(),
   estoque: z.number().int().min(0),
 })
 
@@ -38,19 +38,19 @@ const tipoBEditSchema = baseEditSchema.extend({
 })
 
 // Mesma regra de exclusividade de canal do POST /api/admin/produtos: ML
-// sempre exige URL válida, exclusivo do site sempre exige preço de venda.
+// sempre exige URL válida e preço no ML; exclusivo do site só exige preço no
+// site.
 const produtoEditSchema = z.discriminatedUnion("tipo", [tipoAEditSchema, tipoBEditSchema]).superRefine((dados, ctx) => {
   if (dados.tipo !== "tipo_a") return
 
-  if (dados.exclusivo_site) {
-    if (dados.preco_venda === undefined || dados.preco_venda <= 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["preco_venda"],
-        message: "Produto exclusivo do site precisa de um preço de venda.",
-      })
-    }
-    return
+  if (dados.exclusivo_site) return
+
+  if (dados.preco_ml === undefined || dados.preco_ml <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["preco_ml"],
+      message: "Informe o preço no Mercado Livre.",
+    })
   }
 
   const urlValida = (() => {
@@ -105,7 +105,7 @@ export async function PUT(
   // Busca produto atual (para snapshot e verificação de existência)
   const { data: produtoAtual } = await supabase
     .from("produtos")
-    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria, categoria_id, preco_ml, url_ml, exclusivo_site, preco_venda, estoque, quantidade_lote, status, criado_por")
+    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria, categoria_id, preco_ml, preco_site, url_ml, exclusivo_site, estoque, quantidade_lote, status, criado_por")
     .eq("id", params.id)
     .single()
 
@@ -193,23 +193,23 @@ export async function PUT(
     }
 
     if (dados.tipo === "tipo_a") {
-      produtoPayload.preco_ml = dados.preco_ml
+      produtoPayload.preco_site = dados.preco_site
       produtoPayload.estoque = dados.estoque
       produtoPayload.quantidade_lote = null
       produtoPayload.exclusivo_site = dados.exclusivo_site
       if (dados.exclusivo_site) {
-        produtoPayload.preco_venda = dados.preco_venda
+        produtoPayload.preco_ml = null
         produtoPayload.url_ml = null
       } else {
+        produtoPayload.preco_ml = dados.preco_ml
         produtoPayload.url_ml = dados.url_ml
-        produtoPayload.preco_venda = null
       }
     } else {
       produtoPayload.quantidade_lote = dados.quantidade
       produtoPayload.preco_ml = null
+      produtoPayload.preco_site = null
       produtoPayload.url_ml = null
       produtoPayload.exclusivo_site = false
-      produtoPayload.preco_venda = null
       produtoPayload.estoque = 0
     }
 
@@ -294,11 +294,11 @@ export async function PUT(
     }
 
     if (dados.tipo === "tipo_a") {
-      dadosNovos.preco_ml = dados.preco_ml
+      dadosNovos.preco_site = dados.preco_site
       dadosNovos.estoque = dados.estoque
       dadosNovos.exclusivo_site = dados.exclusivo_site
       dadosNovos.url_ml = dados.exclusivo_site ? null : dados.url_ml
-      dadosNovos.preco_venda = dados.exclusivo_site ? dados.preco_venda : null
+      dadosNovos.preco_ml = dados.exclusivo_site ? null : dados.preco_ml
     } else {
       dadosNovos.quantidade_lote = dados.quantidade
     }
