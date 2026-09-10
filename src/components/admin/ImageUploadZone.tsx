@@ -71,62 +71,69 @@ function Miniatura({ item, isPrincipal, onEditar, onRemover }: MiniaturaProps) {
     zIndex: isDragging ? 50 : undefined,
   }
 
-  return (
+  // Card inteiro é a área de arraste (attributes/listeners do useSortable vão
+  // no nó raiz) — a alça GripVertical isolada de 24x24px nunca ficava visível
+  // (group-hover mirava uma classe `group/card` que estava num elemento
+  // irmão, não num ancestral comum) e era o único ponto de ativação do drag,
+  // então o arraste nunca respondia na prática. Editar e remover viram
+  // botões explícitos com hit-area própria (com stopPropagation no
+  // pointerdown) para não competir com o gesto de arrastar.
+  return item.status === "ok" ? (
     <div
       ref={setNodeRef}
       style={style}
-      className="relative aspect-square"
+      {...attributes}
+      {...listeners}
+      aria-label={`Imagem do produto${isPrincipal ? " — imagem principal" : ""}. Arraste para reordenar.`}
+      className="group/card relative aspect-square touch-none select-none cursor-grab rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-amber-500 active:cursor-grabbing"
     >
-      {item.status === "ok" ? (
-        <>
-          {/* Badge Principal */}
-          {isPrincipal && (
-            <span className="absolute left-1 top-1 z-10 rounded-sm bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow">
-              Principal
-            </span>
-          )}
+      {/* Badge Principal */}
+      {isPrincipal && (
+        <span className="pointer-events-none absolute left-1 top-1 z-10 rounded-sm bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow">
+          Principal
+        </span>
+      )}
 
-          {/* Drag handle */}
-          <button
-            type="button"
-            aria-label="Arrastar para reordenar"
-            {...attributes}
-            {...listeners}
-            className="absolute bottom-1 left-1 z-10 flex h-6 w-6 cursor-grab items-center justify-center rounded bg-black/40 text-white opacity-0 transition group-hover/card:opacity-100 active:cursor-grabbing"
-          >
-            <GripVertical size={14} aria-hidden="true" />
-          </button>
+      <div className="relative h-full w-full overflow-hidden rounded-lg border border-stone-200">
+        <Image
+          src={item.url}
+          alt="Preview da imagem do produto"
+          fill
+          className="pointer-events-none object-cover"
+          sizes="(max-width: 640px) 33vw, 25vw"
+        />
 
-          {/* Miniatura clicável */}
-          <button
-            type="button"
-            onClick={() => onEditar(item as ImagemUpload)}
-            aria-label="Editar imagem"
-            className="group/card relative h-full w-full overflow-hidden rounded-lg border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-500"
-          >
-            <Image
-              src={(item as ImagemUpload).url}
-              alt="Preview da imagem do produto"
-              fill
-              className="object-cover transition group-hover/card:brightness-75"
-              sizes="(max-width: 640px) 33vw, 25vw"
-            />
-            <span className="absolute inset-0 flex items-center justify-center opacity-0 transition group-hover/card:opacity-100">
-              <Pencil size={18} className="text-white drop-shadow" aria-hidden="true" />
-            </span>
-          </button>
+        {/* Indicação visual de que o card é arrastável — decorativa, sem listeners próprios */}
+        <span className="pointer-events-none absolute bottom-1 left-1 z-10 flex h-6 w-6 items-center justify-center rounded bg-black/40 text-white opacity-0 transition group-hover/card:opacity-100">
+          <GripVertical size={14} aria-hidden="true" />
+        </span>
+      </div>
 
-          {/* Botão remover */}
-          <button
-            type="button"
-            onClick={() => onRemover(item)}
-            aria-label="Remover imagem"
-            className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600"
-          >
-            <X size={10} aria-hidden="true" />
-          </button>
-        </>
-      ) : item.status === "enviando" ? (
+      {/* Botão editar — alvo próprio e explícito, não compete com o arraste */}
+      <button
+        type="button"
+        onClick={() => onEditar(item)}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label="Editar imagem"
+        className="absolute -bottom-1.5 -right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-stone-700 text-white shadow-sm transition hover:bg-stone-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+      >
+        <Pencil size={11} aria-hidden="true" />
+      </button>
+
+      {/* Botão remover */}
+      <button
+        type="button"
+        onClick={() => onRemover(item)}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label="Remover imagem"
+        className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white shadow-sm transition hover:bg-red-600"
+      >
+        <X size={10} aria-hidden="true" />
+      </button>
+    </div>
+  ) : (
+    <div ref={setNodeRef} style={style} className="relative aspect-square">
+      {item.status === "enviando" ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-stone-200 bg-stone-100">
           <Loader2 size={20} className="animate-spin text-amber-600" />
           <span className="text-center text-xs text-stone-400 leading-tight px-1">

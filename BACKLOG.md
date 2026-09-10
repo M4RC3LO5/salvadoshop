@@ -89,6 +89,25 @@ Legenda: [ ] pendente · [x] concluído
   próprio com valores fixos no código e também precisa passar a usar a
   tabela `categorias` antes da remoção. Fazer depois que o filtro por
   categoria na vitrine estiver pronto e ler de `categoria_id`.
+- [x] **22. Arraste para reordenar imagens nunca funcionava.** No bloco de
+  imagens do formulário de produto (`ImageUploadZone.tsx`), o texto "Arraste
+  as imagens para reordenar" aparecia mas o arraste não respondia — desde o
+  commit `bb07679` (introdução do drag and drop), nunca funcionou de fato.
+  Causa: a alça `GripVertical` era o único elemento com os listeners do
+  `useSortable` (único ponto de ativação do arraste), mas ficava
+  permanentemente invisível — `group-hover/card:opacity-100` mirava a
+  classe `group/card`, que estava num elemento irmão posterior, não num
+  ancestral comum, então a regra do Tailwind nunca ativava. O motor de
+  drag (`@dnd-kit`) sempre funcionou; faltava um alvo alcançável.
+  ✅ Resolvido — o card inteiro da miniatura passa a ser a área de arraste
+  (listeners do `useSortable` no nó raiz). Editar e remover viram botões
+  explícitos com hit-area própria (`stopPropagation` no `pointerdown`, para
+  não competir com o gesto de arrastar); a alça `GripVertical` vira só
+  indicação visual decorativa (`pointer-events-none`), sem ativar nada
+  sozinha. `activationConstraint` do `PointerSensor`/`TouchSensor` mantido
+  como já estava, agora exercido de fato. Adicionado `touch-action: none`
+  (`touch-none`) no card, recomendação do dnd-kit para arraste em touch não
+  competir com o scroll da página.
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
@@ -183,4 +202,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-10*
+*Atualizado em: 2026-09-10 (item 22)*
