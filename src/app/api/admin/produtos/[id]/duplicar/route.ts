@@ -94,7 +94,7 @@ export async function POST(
   // aprovado_por, created_at, updated_at.
   const { data: produtoOriginal, error: erroBusca } = await supabase
     .from("produtos")
-    .select("nome, descricao, specs_tecnicas, tipo, preco_ml, preco_site, categoria, categoria_id, sinistro, quantidade_lote")
+    .select("nome, descricao, specs_tecnicas, tipo, preco_ml, preco_site, categoria_id, sinistro, quantidade_lote")
     .eq("id", params.id)
     .single()
 
@@ -114,7 +114,6 @@ export async function POST(
     descricao: produtoOriginal.descricao,
     specs_tecnicas: produtoOriginal.specs_tecnicas,
     tipo: produtoOriginal.tipo,
-    categoria: produtoOriginal.categoria,
     categoria_id: produtoOriginal.categoria_id,
     sinistro: produtoOriginal.sinistro,
     // Tipo A: preço no site copiado como ponto de partida, mas sem URL do ML

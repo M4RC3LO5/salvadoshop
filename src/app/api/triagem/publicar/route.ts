@@ -10,7 +10,6 @@ const itemIndividualSchema = z.object({
   // preco_site é coluna gerada no banco (preco_ml * 0,82) — aceito aqui apenas
   // para o cliente conferir o valor exibido, nunca é usado na gravação.
   preco_site: z.number().positive().optional(),
-  categoria: z.string().min(1, "Categoria é obrigatória."),
   categoria_id: z.string().uuid("Categoria inválida."),
   descricao: z.string().min(1, "Descrição é obrigatória."),
 })
@@ -25,7 +24,6 @@ const modoLoteSchema = z.object({
   estoque_item_ids: z.array(z.string().uuid()).min(1, "Selecione ao menos um item."),
   nome: z.string().min(1, "Nome do lote é obrigatório."),
   descricao: z.string().min(1, "Descrição é obrigatória."),
-  categoria: z.string().min(1, "Categoria é obrigatória."),
   categoria_id: z.string().uuid("Categoria inválida."),
 })
 
@@ -269,7 +267,6 @@ export async function POST(request: NextRequest) {
             slug,
             descricao: itemInput.descricao,
             tipo: "tipo_a",
-            categoria: itemInput.categoria,
             categoria_id: itemInput.categoria_id,
             preco_ml: itemInput.preco_ml,
             estoque: itemEstoque.total_unidades,
@@ -322,7 +319,6 @@ export async function POST(request: NextRequest) {
           slug,
           descricao: dados.descricao,
           tipo: "tipo_b",
-          categoria: dados.categoria,
           categoria_id: dados.categoria_id,
           quantidade_lote: quantidadeLote,
           estoque: 0,

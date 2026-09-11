@@ -17,7 +17,6 @@ const baseEditSchema = z.object({
   specs: z.string().min(1, "Especificações são obrigatórias."),
   descricao: z.string().min(1, "Descrição comercial é obrigatória."),
   tipo: z.enum(["tipo_a", "tipo_b"]),
-  categoria: z.string().min(1, "Categoria é obrigatória."),
   categoria_id: z.string().uuid("Categoria inválida."),
   imagens: z.array(imagemSchema).min(1, "Adicione ao menos uma imagem."),
   status_solicitado: z.enum(["rascunho", "pendente", "publicado"]).optional(),
@@ -122,7 +121,7 @@ export async function PUT(
   // Busca produto atual (para snapshot e verificação de existência)
   const { data: produtoAtual } = await supabase
     .from("produtos")
-    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria, categoria_id, preco_ml, preco_site, url_ml, exclusivo_site, estoque, quantidade_lote, status, criado_por")
+    .select("id, nome, slug, descricao, specs_tecnicas, tipo, categoria_id, preco_ml, preco_site, url_ml, exclusivo_site, estoque, quantidade_lote, status, criado_por")
     .eq("id", params.id)
     .single()
 
@@ -202,7 +201,6 @@ export async function PUT(
       descricao: dados.descricao,
       specs_tecnicas: { texto: dados.specs },
       tipo: dados.tipo,
-      categoria: dados.categoria,
       categoria_id: dados.categoria_id,
       status,
       updated_at: new Date().toISOString(),
@@ -305,7 +303,6 @@ export async function PUT(
       descricao: dados.descricao,
       specs_tecnicas: { texto: dados.specs },
       tipo: dados.tipo,
-      categoria: dados.categoria,
       categoria_id: dados.categoria_id,
       imagens: dados.imagens,
     }
