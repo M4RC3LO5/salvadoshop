@@ -43,6 +43,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { CategoriaCombobox, CategoriaOption } from "@/components/admin/CategoriaCombobox"
 
 function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -123,15 +124,6 @@ const OPCOES_ORIGEM: readonly OpcaoSelect[] = [
   { value: "ecommerce", label: "E-commerce" },
   { value: "atacado", label: "Atacado" },
   { value: "avulso", label: "Avulso" },
-]
-
-const CATEGORIAS = [
-  "Eletrônicos",
-  "Eletrodomésticos",
-  "Móveis",
-  "Veículos",
-  "Ferramentas",
-  "Outros",
 ]
 
 const COLUNAS: ColunaConfig[] = [
@@ -312,14 +304,14 @@ interface LinhaPublicacaoIndividual {
   estoque_item_id: string
   nome: string
   preco_ml: string
-  categoria: string
+  categoriaSelecionada: CategoriaOption | null
   descricao: string
 }
 
 type PublicarPayload =
   | {
       modo: "individual"
-      itens: { estoque_item_id: string; preco_ml: number; preco_site: number; categoria: string; descricao: string }[]
+      itens: { estoque_item_id: string; preco_ml: number; preco_site: number; categoria: string; categoria_id: string; descricao: string }[]
     }
   | {
       modo: "lote"
@@ -327,16 +319,21 @@ type PublicarPayload =
       nome: string
       descricao: string
       categoria: string
+      categoria_id: string
     }
 
 function PublicarDialog({
   itensSelecionados, onPublicar, onCancelar, publicando, erro,
+  categorias, podeCriarCategoria, onCategoriaCriada,
 }: {
   itensSelecionados: ItemRow[]
   onPublicar: (payload: PublicarPayload) => void
   onCancelar: () => void
   publicando: boolean
   erro: string
+  categorias: CategoriaOption[]
+  podeCriarCategoria: boolean
+  onCategoriaCriada: (categoria: CategoriaOption) => void
 }) {
   const [etapa, setEtapa] = useState<1 | 2>(1)
   const [modo, setModo] = useState<"individual" | "lote" | null>(null)
@@ -346,24 +343,28 @@ function PublicarDialog({
       estoque_item_id: i.id,
       nome: i.nome,
       preco_ml: "",
-      categoria: "",
+      categoriaSelecionada: null,
       descricao: [i.nome, i.observacoes].filter(Boolean).join("\n\n"),
     }))
   )
 
   const [nomeLote, setNomeLote] = useState("")
   const [descricaoLote, setDescricaoLote] = useState(itensSelecionados.map((i) => i.nome).join(", "))
-  const [categoriaLote, setCategoriaLote] = useState("")
+  const [categoriaLoteSelecionada, setCategoriaLoteSelecionada] = useState<CategoriaOption | null>(null)
 
   const totalUnidadesLote = itensSelecionados.reduce((soma, i) => soma + i.total_unidades, 0)
   const algumJaPublicado = itensSelecionados.some((i) => i.produto_ativo)
 
-  function atualizarLinha<K extends keyof LinhaPublicacaoIndividual>(id: string, campo: K, valor: string) {
+  function atualizarLinha<K extends keyof Omit<LinhaPublicacaoIndividual, "categoriaSelecionada">>(id: string, campo: K, valor: string) {
     setLinhas((prev) => prev.map((l) => (l.estoque_item_id === id ? { ...l, [campo]: valor } : l)))
   }
 
-  const individualValido = linhas.every((l) => Number(l.preco_ml) > 0 && l.categoria !== "" && l.descricao.trim() !== "")
-  const loteValido = nomeLote.trim() !== "" && categoriaLote !== "" && descricaoLote.trim() !== ""
+  function atualizarCategoriaLinha(id: string, categoria: CategoriaOption) {
+    setLinhas((prev) => prev.map((l) => (l.estoque_item_id === id ? { ...l, categoriaSelecionada: categoria } : l)))
+  }
+
+  const individualValido = linhas.every((l) => Number(l.preco_ml) > 0 && l.categoriaSelecionada !== null && l.descricao.trim() !== "")
+  const loteValido = nomeLote.trim() !== "" && categoriaLoteSelecionada !== null && descricaoLote.trim() !== ""
 
   function confirmar() {
     if (modo === "individual") {
@@ -373,7 +374,8 @@ function PublicarDialog({
           estoque_item_id: l.estoque_item_id,
           preco_ml: Number(l.preco_ml),
           preco_site: Math.round(Number(l.preco_ml) * 0.82 * 100) / 100,
-          categoria: l.categoria,
+          categoria: l.categoriaSelecionada!.nome,
+          categoria_id: l.categoriaSelecionada!.id,
           descricao: l.descricao,
         })),
       })
@@ -383,7 +385,8 @@ function PublicarDialog({
         estoque_item_ids: itensSelecionados.map((i) => i.id),
         nome: nomeLote,
         descricao: descricaoLote,
-        categoria: categoriaLote,
+        categoria: categoriaLoteSelecionada!.nome,
+        categoria_id: categoriaLoteSelecionada!.id,
       })
     }
   }
@@ -474,15 +477,14 @@ function PublicarDialog({
                     <label htmlFor={`categoria-${linha.estoque_item_id}`} className="mb-1 block text-xs font-medium text-stone-600">
                       Categoria
                     </label>
-                    <select
+                    <CategoriaCombobox
                       id={`categoria-${linha.estoque_item_id}`}
-                      value={linha.categoria}
-                      onChange={(e) => atualizarLinha(linha.estoque_item_id, "categoria", e.target.value)}
-                      className="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
-                    >
-                      <option value="">Selecione uma categoria</option>
-                      {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-                    </select>
+                      categorias={categorias}
+                      value={linha.categoriaSelecionada}
+                      onChange={(c) => atualizarCategoriaLinha(linha.estoque_item_id, c)}
+                      onCategoriaCriada={onCategoriaCriada}
+                      podeCriar={podeCriarCategoria}
+                    />
                   </div>
                   <div className="mt-3">
                     <label htmlFor={`descricao-${linha.estoque_item_id}`} className="mb-1 block text-xs font-medium text-stone-600">
@@ -515,15 +517,14 @@ function PublicarDialog({
               </div>
               <div>
                 <label htmlFor="categoria-lote" className="mb-1 block text-sm font-medium text-stone-700">Categoria</label>
-                <select
+                <CategoriaCombobox
                   id="categoria-lote"
-                  value={categoriaLote}
-                  onChange={(e) => setCategoriaLote(e.target.value)}
-                  className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
-                >
-                  <option value="">Selecione uma categoria</option>
-                  {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                  categorias={categorias}
+                  value={categoriaLoteSelecionada}
+                  onChange={setCategoriaLoteSelecionada}
+                  onCategoriaCriada={onCategoriaCriada}
+                  podeCriar={podeCriarCategoria}
+                />
               </div>
               <div>
                 <label htmlFor="descricao-lote" className="mb-1 block text-sm font-medium text-stone-700">Descrição</label>
@@ -790,8 +791,10 @@ interface Props {
   role: "master" | "auxiliar"
 }
 
-export function TriagemClientUI({ listasIniciais }: Props) {
+export function TriagemClientUI({ listasIniciais, role }: Props) {
+  const isMaster = role === "master"
   const [listas, setListas] = useState<ListaRow[]>(listasIniciais)
+  const [categorias, setCategorias] = useState<CategoriaOption[]>([])
   const [listaSelecionadaId, setListaSelecionadaId] = useState<string | null>(listasIniciais[0]?.id ?? null)
 
   const [itens, setItens] = useState<ItemRow[]>([])
@@ -838,6 +841,18 @@ export function TriagemClientUI({ listasIniciais }: Props) {
 
   const listaSelecionada = listas.find((l) => l.id === listaSelecionadaId) ?? null
   const colunasExibidas = COLUNAS.filter((c) => colunasVisiveis.has(c.chave))
+
+  // ── Carrega categorias (tabela categorias) para o combobox de publicação ───
+  useEffect(() => {
+    let cancelado = false
+    fetch("/api/admin/categorias")
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelado && json.success) setCategorias(json.data)
+      })
+      .catch(() => {})
+    return () => { cancelado = true }
+  }, [])
 
   // ── Fecha o seletor de colunas ao clicar fora ───────────────────────────────
   useEffect(() => {
@@ -1346,6 +1361,9 @@ export function TriagemClientUI({ listasIniciais }: Props) {
           onCancelar={() => { setMostrarPublicarDialog(false); setErroPublicar("") }}
           publicando={publicando}
           erro={erroPublicar}
+          categorias={categorias}
+          podeCriarCategoria={isMaster}
+          onCategoriaCriada={(c) => setCategorias((prev) => [...prev, c].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")))}
         />
       )}
 
