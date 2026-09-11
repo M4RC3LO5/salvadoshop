@@ -28,7 +28,7 @@ export interface ProdutoParaEditar {
   specs_tecnicas: { texto: string } | null
   descricao: string | null
   tipo: "tipo_a" | "tipo_b"
-  categoria: string
+  categoria_nome: string | null
   categoria_id: string | null
   preco_ml: number | null
   preco_site: number | null
@@ -177,7 +177,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
   const [descricao, setDescricao] = useState(produto?.descricao ?? "")
   const [imagens, setImagens] = useState<ImagemSalva[]>(produto?.imagens ?? [])
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<CategoriaOption | null>(
-    produto?.categoria_id ? { id: produto.categoria_id, nome: produto.categoria } : null
+    produto?.categoria_id ? { id: produto.categoria_id, nome: produto.categoria_nome ?? "" } : null
   )
   const [categorias, setCategorias] = useState<CategoriaOption[]>([])
   const [estoque, setEstoque] = useState(produto?.estoque != null ? String(produto.estoque) : "")
@@ -286,7 +286,6 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
         specs,
         descricao,
         tipo,
-        categoria: categoriaSelecionada?.nome,
         categoria_id: categoriaSelecionada?.id,
         imagens,
         status_solicitado: statusSolicitado,

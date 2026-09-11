@@ -98,7 +98,6 @@ export async function PATCH(
       descricao: novos.descricao,
       specs_tecnicas: novos.specs_tecnicas,
       tipo: novos.tipo,
-      categoria: novos.categoria,
       categoria_id: novos.categoria_id,
       status: "publicado",
       aprovado_por: adminUser.id,

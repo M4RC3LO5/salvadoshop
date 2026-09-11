@@ -34,7 +34,8 @@ export default async function EditarProdutoPage({ params }: PageProps) {
   const { data: produto } = await supabase
     .from("produtos")
     .select(`
-      id, nome, slug, descricao, specs_tecnicas, tipo, categoria, categoria_id,
+      id, nome, slug, descricao, specs_tecnicas, tipo, categoria_id,
+      categorias (nome),
       preco_ml, preco_site, url_ml, exclusivo_site, estoque, quantidade_lote, status, criado_por,
       produto_imagens (url_cloudinary, public_id, ordem)
     `)
@@ -42,6 +43,8 @@ export default async function EditarProdutoPage({ params }: PageProps) {
     .single()
 
   if (!produto) notFound()
+
+  const categoria = produto.categorias as unknown as { nome: string } | null
 
   // Auxiliar só pode editar seus próprios produtos
   if (!isMaster && produto.criado_por !== adminUser.id) {
@@ -59,7 +62,7 @@ export default async function EditarProdutoPage({ params }: PageProps) {
     specs_tecnicas: produto.specs_tecnicas as { texto: string } | null,
     descricao: produto.descricao,
     tipo: produto.tipo as "tipo_a" | "tipo_b",
-    categoria: produto.categoria ?? "",
+    categoria_nome: categoria?.nome ?? null,
     categoria_id: produto.categoria_id,
     preco_ml: produto.preco_ml,
     preco_site: produto.preco_site,

@@ -98,7 +98,7 @@ Legenda: [ ] pendente · [x] concluído
   canal (item 13) e podia publicar produto em estado inválido.
   ✅ Resolvido — `status` sempre nasce `rascunho` para Master (Auxiliar
   continua indo para a fila de aprovações, como sempre foi)
-- [ ] **21. Remover a coluna `categoria` de produtos.** Desde o item 14,
+- [x] **21. Remover a coluna `categoria` de produtos.** Desde o item 14,
   produto grava `categoria_id` (FK para a tabela `categorias`) e também
   o nome na coluna `categoria` antiga, para não quebrar as telas que
   ainda leem dela: vitrine (`VitrineCliente.tsx`, filtro por categoria),
@@ -107,6 +107,15 @@ Legenda: [ ] pendente · [x] concluído
   próprio com valores fixos no código e também precisa passar a usar a
   tabela `categorias` antes da remoção. Fazer depois que o filtro por
   categoria na vitrine estiver pronto e ler de `categoria_id`.
+  ✅ Resolvido — removida a escrita da coluna de texto de todos os
+  caminhos (POST/PUT de produto, duplicar, aprovações, triagem) e a
+  única leitura de estado atual restante, a tela de edição do admin
+  (`categoria` → join com `categorias` via `categoria_id`). Migration
+  030 remove a coluna e o índice `idx_produtos_categoria` — aplicada e
+  testada apenas em branch de desenvolvimento; a aplicação em produção
+  fica para a tarefa de merge, seguindo a lição 18.9 (`categoria_id` já
+  é a única fonte lida em produção desde o PR #40, então o DROP é seguro
+  assim que o código desta tarefa estiver no ar).
 - [ ] **24. Tela de triagem com preview de preço na fórmula antiga (18%
   fixo).** `TriagemClientUI.tsx` calcula um preview de "Preço no Site"
   como `preco_ml * 0.82` (com o texto "−18% automático") — regra removida

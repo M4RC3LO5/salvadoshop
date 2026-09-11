@@ -311,14 +311,13 @@ interface LinhaPublicacaoIndividual {
 type PublicarPayload =
   | {
       modo: "individual"
-      itens: { estoque_item_id: string; preco_ml: number; preco_site: number; categoria: string; categoria_id: string; descricao: string }[]
+      itens: { estoque_item_id: string; preco_ml: number; preco_site: number; categoria_id: string; descricao: string }[]
     }
   | {
       modo: "lote"
       estoque_item_ids: string[]
       nome: string
       descricao: string
-      categoria: string
       categoria_id: string
     }
 
@@ -374,7 +373,6 @@ function PublicarDialog({
           estoque_item_id: l.estoque_item_id,
           preco_ml: Number(l.preco_ml),
           preco_site: Math.round(Number(l.preco_ml) * 0.82 * 100) / 100,
-          categoria: l.categoriaSelecionada!.nome,
           categoria_id: l.categoriaSelecionada!.id,
           descricao: l.descricao,
         })),
@@ -385,7 +383,6 @@ function PublicarDialog({
         estoque_item_ids: itensSelecionados.map((i) => i.id),
         nome: nomeLote,
         descricao: descricaoLote,
-        categoria: categoriaLoteSelecionada!.nome,
         categoria_id: categoriaLoteSelecionada!.id,
       })
     }
