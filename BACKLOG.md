@@ -207,6 +207,21 @@ Legenda: [ ] pendente · [x] concluído
   como já estava, agora exercido de fato. Adicionado `touch-action: none`
   (`touch-none`) no card, recomendação do dnd-kit para arraste em touch não
   competir com o scroll da página.
+- [ ] **27. Seed de desenvolvimento (002) grava `specs_tecnicas` e imagens
+  em formato que a tela de edição não entende.** O seed grava
+  `specs_tecnicas` como objeto estruturado livre (ex.: `{"marca": "...",
+  "modelo": "...", ...}`), mas a tela de edição do admin
+  (`NovoProdutoForm.tsx`) só sabe ler o formato `{"texto": "..."}` —
+  produto do seed abre a tela de edição com o campo de especificações
+  vazio. Nenhum produto do seed tem linha em `produto_imagens`, e o
+  formulário exige ao menos uma imagem para salvar fora do modo rascunho
+  — abre com "Adicione ao menos uma imagem." Bloqueou teste de edição em
+  branch de desenvolvimento duas vezes (item 26 e item 21), exigindo
+  ajuste manual dos dados na branch de teste para conseguir validar o
+  fluxo. Corrigir a 002 para nascer com `specs_tecnicas` no formato
+  `{"texto": "..."}` e com ao menos uma linha em `produto_imagens` por
+  produto, testando a sequência completa numa branch nova antes de
+  considerar resolvido.
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
