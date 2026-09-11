@@ -1,0 +1,51 @@
+{
+  "contexto": "Backup pré-migration 030 (remoção da coluna produtos.categoria) — item 21 do BACKLOG.md, PR #41. Produção em 76e5c6c antes do merge. Exportado via execute_sql no projeto ysplockmwdygpggzoqih.",
+  "query": "select p.id, p.nome, p.categoria as categoria_texto, p.categoria_id, c.nome as categoria_via_id from produtos p left join categorias c on c.id = p.categoria_id order by p.nome;",
+  "exportado_em": "2026-09-11T00:00:00Z",
+  "produtos": [
+    {
+      "id": "9e2e2c05-5b7f-4844-94bb-2b68ecfe0a9a",
+      "nome": "Baseus Bowie EZ10 TWS",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    },
+    {
+      "id": "439173cf-3a68-47e7-a078-be8ce3e21a50",
+      "nome": "MONSTER xkt16 - Bege",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    },
+    {
+      "id": "2341f19e-38b6-43b6-96c7-c200a12e0380",
+      "nome": "MONSTER xkt16 - Branco",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    },
+    {
+      "id": "9b704e4d-0384-4633-9803-898b50eebcae",
+      "nome": "MONSTER xkt16 - Verde",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    },
+    {
+      "id": "4a3237f9-1e32-499b-b42d-65992cc78e64",
+      "nome": "UGREEN Hitune H5 True",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    },
+    {
+      "id": "9dd7600a-393e-4c98-a133-7ed1a53e72b0",
+      "nome": "UGREEN Hitune H6 Pro",
+      "categoria_texto": "Fone de Ouvido",
+      "categoria_id": "8066b5b2-e2a7-45d8-adbb-e4d50542a230",
+      "categoria_via_id": "Fone de Ouvido"
+    }
+  ],
+  "total_produtos": 6,
+  "divergencias_encontradas": 0
+}
