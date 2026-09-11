@@ -9,7 +9,8 @@ export interface ProdutoPublico {
   slug: string
   nome: string
   tipo: "tipo_a" | "tipo_b"
-  categoria: string | null
+  categoria_id: string | null
+  categoria_nome: string | null
   preco_ml: number | null
   preco_site: number | null
   exclusivo_site: boolean
@@ -31,7 +32,8 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
       slug,
       nome,
       tipo,
-      categoria,
+      categoria_id,
+      categorias (nome),
       preco_ml,
       preco_site,
       exclusivo_site,
@@ -48,12 +50,14 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
   return data.map((p) => {
     const imagens = (p.produto_imagens ?? []) as { url_cloudinary: string; ordem: number }[]
     const principal = imagens.sort((a, b) => a.ordem - b.ordem)[0]
+    const categoria = p.categorias as unknown as { nome: string } | null
     return {
       id: p.id,
       slug: p.slug,
       nome: p.nome,
       tipo: p.tipo,
-      categoria: p.categoria,
+      categoria_id: p.categoria_id,
+      categoria_nome: categoria?.nome ?? null,
       preco_ml: p.preco_ml ? Number(p.preco_ml) : null,
       preco_site: p.preco_site ? Number(p.preco_site) : null,
       exclusivo_site: p.exclusivo_site,
