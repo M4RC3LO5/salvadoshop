@@ -17,7 +17,7 @@ interface Lote {
   specs_tecnicas: Record<string, unknown> | null
   quantidade_lote: number | null
   sinistro: string | null
-  categoria: string | null
+  categoria_nome: string | null
   produto_imagens: Imagem[]
 }
 
@@ -28,7 +28,8 @@ async function buscarLote(slug: string): Promise<Lote | null> {
     .from("produtos")
     .select(`
       id, slug, nome, tipo, descricao, specs_tecnicas,
-      quantidade_lote, sinistro, categoria,
+      quantidade_lote, sinistro,
+      categorias (nome),
       produto_imagens (url_cloudinary, ordem)
     `)
     .eq("slug", slug)
@@ -37,8 +38,11 @@ async function buscarLote(slug: string): Promise<Lote | null> {
 
   if (error || !data) return null
 
+  const categoria = data.categorias as unknown as { nome: string } | null
+
   return {
     ...data,
+    categoria_nome: categoria?.nome ?? null,
     produto_imagens: ((data.produto_imagens ?? []) as Imagem[])
       .sort((a, b) => a.ordem - b.ordem),
   }
@@ -113,9 +117,9 @@ export default async function PaginaLote(
 
           {/* Info */}
           <div className="flex flex-col gap-6">
-            {lote.categoria && (
+            {lote.categoria_nome && (
               <p className="text-xs font-semibold uppercase tracking-widest text-marrom-400">
-                {lote.categoria}
+                {lote.categoria_nome}
               </p>
             )}
 

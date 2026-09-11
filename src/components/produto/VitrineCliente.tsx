@@ -20,22 +20,29 @@ function estadoDoProduto(sinistro: string | null): ProdutoTipoA["estado"] {
 }
 
 export function VitrineCliente({ produtos }: VitrineClienteProps) {
-  const [categoriaAtiva, setCategoriaAtiva] = useState<string>("Todos")
+  // null = aba "Todos"
+  const [categoriaAtivaId, setCategoriaAtivaId] = useState<string | null>(null)
 
   const tipoA = produtos.filter((p) => p.tipo === "tipo_a")
   const tipoB = produtos.filter((p) => p.tipo === "tipo_b")
 
-  // Categorias únicas de tipo_a (lotes mostram todos)
-  const categorias = useMemo(() => {
-    const cats = Array.from(new Set(tipoA.map((p) => p.categoria).filter(Boolean))) as string[]
-    return ["Todos", ...cats.sort()]
+  // Categorias únicas de tipo_a (lotes mostram todos) — vem da tabela categorias
+  // via join, não da coluna de texto. Só entram categorias com produto publicado.
+  const categoriasAbas = useMemo(() => {
+    const mapa = new Map<string, string>()
+    tipoA.forEach((p) => {
+      if (p.categoria_id && p.categoria_nome) mapa.set(p.categoria_id, p.categoria_nome)
+    })
+    return Array.from(mapa.entries())
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"))
   }, [tipoA])
 
   const tipoAFiltrados = useMemo(() =>
-    categoriaAtiva === "Todos"
+    categoriaAtivaId === null
       ? tipoA
-      : tipoA.filter((p) => p.categoria === categoriaAtiva),
-    [tipoA, categoriaAtiva]
+      : tipoA.filter((p) => p.categoria_id === categoriaAtivaId),
+    [tipoA, categoriaAtivaId]
   )
 
   // Mapeia para o tipo esperado pelos cards
@@ -77,20 +84,31 @@ export function VitrineCliente({ produtos }: VitrineClienteProps) {
           </div>
 
           {/* Filtro por categoria */}
-          {categorias.length > 1 && (
+          {categoriasAbas.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-8" role="group" aria-label="Filtrar por categoria">
-              {categorias.map((cat) => (
+              <button
+                onClick={() => setCategoriaAtivaId(null)}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                  categoriaAtivaId === null
+                    ? "bg-marrom-700 text-white border-marrom-700"
+                    : "bg-white text-marrom-600 border-marrom-200 hover:border-marrom-400"
+                }`}
+                aria-pressed={categoriaAtivaId === null}
+              >
+                Todos
+              </button>
+              {categoriasAbas.map((cat) => (
                 <button
-                  key={cat}
-                  onClick={() => setCategoriaAtiva(cat)}
+                  key={cat.id}
+                  onClick={() => setCategoriaAtivaId(cat.id)}
                   className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                    categoriaAtiva === cat
+                    categoriaAtivaId === cat.id
                       ? "bg-marrom-700 text-white border-marrom-700"
                       : "bg-white text-marrom-600 border-marrom-200 hover:border-marrom-400"
                   }`}
-                  aria-pressed={categoriaAtiva === cat}
+                  aria-pressed={categoriaAtivaId === cat.id}
                 >
-                  {cat}
+                  {cat.nome}
                 </button>
               ))}
             </div>

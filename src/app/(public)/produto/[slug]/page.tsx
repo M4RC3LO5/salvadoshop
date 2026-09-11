@@ -29,7 +29,7 @@ interface Produto {
   url_ml: string | null
   quantidade_lote: number | null
   sinistro: string | null
-  categoria: string | null
+  categoria_nome: string | null
   estoque: number
   produto_imagens: Imagem[]
 }
@@ -43,7 +43,8 @@ async function buscarProduto(slug: string): Promise<Produto | null> {
     .from("produtos")
     .select(`
       id, slug, nome, tipo, descricao, specs_tecnicas,
-      preco_ml, preco_site, exclusivo_site, url_ml, quantidade_lote, sinistro, categoria, estoque,
+      preco_ml, preco_site, exclusivo_site, url_ml, quantidade_lote, sinistro, estoque,
+      categorias (nome),
       produto_imagens (url_cloudinary, ordem)
     `)
     .eq("slug", slug)
@@ -52,8 +53,11 @@ async function buscarProduto(slug: string): Promise<Produto | null> {
 
   if (error || !data) return null
 
+  const categoria = data.categorias as unknown as { nome: string } | null
+
   return {
     ...data,
+    categoria_nome: categoria?.nome ?? null,
     preco_ml: data.preco_ml ? Number(data.preco_ml) : null,
     preco_site: data.preco_site ? Number(data.preco_site) : null,
     produto_imagens: ((data.produto_imagens ?? []) as Imagem[])
@@ -130,9 +134,9 @@ export default async function PaginaProduto(
           <ol className="flex items-center gap-1.5">
             <li><a href="/" className="hover:text-marrom-700 transition-colors">Início</a></li>
             <li aria-hidden="true">/</li>
-            {produto.categoria && (
+            {produto.categoria_nome && (
               <>
-                <li><span>{produto.categoria}</span></li>
+                <li><span>{produto.categoria_nome}</span></li>
                 <li aria-hidden="true">/</li>
               </>
             )}
@@ -149,9 +153,9 @@ export default async function PaginaProduto(
           <div className="flex flex-col gap-6">
 
             {/* Categoria + nome */}
-            {produto.categoria && (
+            {produto.categoria_nome && (
               <p className="text-xs font-semibold uppercase tracking-widest text-marrom-400">
-                {produto.categoria}
+                {produto.categoria_nome}
               </p>
             )}
             <h1 className="text-2xl lg:text-3xl font-bold text-marrom-800 leading-snug">
