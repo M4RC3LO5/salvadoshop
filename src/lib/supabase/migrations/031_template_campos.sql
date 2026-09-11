@@ -122,6 +122,17 @@ create trigger trg_valida_dependencia_template_campo
 
 alter table public.template_campos enable row level security;
 
+-- GRANT explícito necessário além da policy: tabelas criadas via migration
+-- (role postgres) não herdam privilégio de SELECT para anon/authenticated
+-- por default privilege neste projeto — só objetos criados pelo role
+-- supabase_admin herdam isso automaticamente (conferido em
+-- pg_default_acl). categorias e produtos têm SELECT liberado para anon em
+-- produção, mas esse GRANT nunca foi registrado em nenhuma migration do
+-- repositório (concedido fora de banda, provavelmente via Studio) — sem
+-- esta linha, a policy "using (true)" abaixo nunca seria alcançada: o
+-- Postgres nega no nível de GRANT antes de avaliar RLS.
+grant select on public.template_campos to anon, authenticated;
+
 create policy "Template de campos é visível para todos"
   on public.template_campos for select
   using (true);
@@ -139,9 +150,25 @@ create policy "Somente Master remove campos de template"
   on public.template_campos for delete
   using (is_master());
 
+-- Mesmo raciocínio do GRANT de select acima: a policy de escrita só é
+-- alcançada se o role authenticated tiver o privilégio de tabela
+-- correspondente. is_master() dentro de cada policy continua sendo o que
+-- de fato restringe a escrita a Master.
+grant insert, update, delete on public.template_campos to authenticated;
+
 -- ------------------------------------------------------------
 -- 3. Seed — template de Fone de Ouvido
 -- ------------------------------------------------------------
+-- Garante a categoria "Fone de Ouvido" (idempotente via slug): em produção
+-- ela já existe (criada pelo backfill da migração 023 a partir de produto
+-- real) e este insert não faz nada; em uma branch de desenvolvimento nova,
+-- o seed 002 não cria essa categoria (item 27 do BACKLOG.md — seed 002
+-- incompatível com as categorias reais de produção), então o template
+-- ficaria órfão sem esta linha.
+insert into public.categorias (nome, slug)
+values ('Fone de Ouvido', 'fone-de-ouvido')
+on conflict (slug) do nothing;
+
 -- Campo-chave tipo_conexao precisa existir (linha inserida) antes das
 -- linhas que dependem dele, porque o trigger de validação roda por linha
 -- na ordem em que a instrução VALUES é escrita abaixo.
