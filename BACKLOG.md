@@ -74,7 +74,7 @@ Legenda: [ ] pendente · [x] concluído
   "Texto: …" em vez da lista de especificações — e, como o `<dd>` não
   preserva quebras de linha, os atributos separados por `\n` ficam
   emendados numa linha só. Achado durante o item 27. Não corrigido ainda.
-- [ ] **31. [Segurança] `estornar_pedido_estoque` executável por PUBLIC.**
+- [x] **31. [Segurança] `estornar_pedido_estoque` executável por PUBLIC.**
   Na branch de desenvolvimento usada no item 27 (sequência completa
   replayada), a função `estornar_pedido_estoque(uuid)` ficou com ACL
   nula — ou seja, EXECUTE para PUBLIC, o que inclui `anon` e
@@ -88,7 +88,21 @@ Legenda: [ ] pendente · [x] concluído
   portador da anon key pode chamar a RPC e cancelar pedido
   `aguardando_pagamento` de terceiros, se souber o id. Ação: via
   migration, `REVOKE EXECUTE` de `PUBLIC`, `anon` e `authenticated`,
-  mantendo `service_role`. Não corrigido ainda.
+  mantendo `service_role`.
+  ✅ Resolvido em 2026-09-29 — migration 031
+  (`031_revoke_estornar_pedido_estoque.sql`) revoga EXECUTE de `PUBLIC`,
+  `anon` e `authenticated` e concede explicitamente a `service_role`, sem
+  alterar a definição da função. Antes de aplicar, confirmado que não há
+  chamador: nenhuma chamada no repositório (o chamador era o webhook do
+  Stripe, removido no commit 8583a68), nenhuma outra função a chama em
+  produção (só um comentário em `validar_transicao_status_pedido`),
+  `pg_cron` não instalado e nenhuma edge function. Aplicada em produção
+  via `apply_migration` e verificada: `has_function_privilege` EXECUTE
+  = false para `PUBLIC`, `anon` e `authenticated`, true para
+  `service_role`; `proacl = {postgres=X/postgres,
+  service_role=X/postgres}`; registrada em
+  `supabase_migrations.schema_migrations` como
+  `031_revoke_estornar_pedido_estoque` (versão 20260929164125).
 
 ## 🟡 Prioridade média — correção / validação
 
