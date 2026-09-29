@@ -1,0 +1,32 @@
+-- ============================================================
+-- SalvadoShop — restringe EXECUTE de estornar_pedido_estoque a service_role
+-- Migração: 031_revoke_estornar_pedido_estoque.sql
+-- Item 31 do BACKLOG.md (segurança).
+--
+-- Contexto: estornar_pedido_estoque(uuid) é SECURITY DEFINER — cancela um
+-- pedido em aguardando_pagamento e devolve o estoque dos itens, ignorando a
+-- RLS. A migration 007 criou a função "sem GRANT" de propósito, para que só
+-- o webhook do Stripe (via service role) a chamasse. Mas no Postgres a
+-- ausência de GRANT não bloqueia nada: toda função nova recebe EXECUTE para
+-- PUBLIC por padrão, e o Supabase ainda concede EXECUTE explícito a anon e
+-- authenticated. Estado confirmado em produção em 2026-09-29:
+--   prosecdef = true
+--   proacl    = {=X/postgres, postgres=X/postgres, anon=X/postgres,
+--                authenticated=X/postgres, service_role=X/postgres}
+-- Consequência: qualquer portador da anon key podia chamar a RPC via
+-- PostgREST e cancelar pedido aguardando_pagamento de terceiros,
+-- sabendo o id.
+--
+-- Chamadores verificados antes desta migração (2026-09-29):
+--   - repositório: nenhuma chamada em código, rota ou script (o chamador
+--     era o webhook do Stripe, removido no commit 8583a68);
+--   - produção: nenhuma outra função chama a RPC (só um comentário em
+--     validar_transicao_status_pedido), pg_cron não instalado, nenhuma
+--     edge function.
+--
+-- Esta migração só ajusta privilégios. A definição da função e de qualquer
+-- outra função não é alterada. O dono (postgres) mantém EXECUTE.
+-- ============================================================
+
+REVOKE EXECUTE ON FUNCTION public.estornar_pedido_estoque(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.estornar_pedido_estoque(uuid) TO service_role;
