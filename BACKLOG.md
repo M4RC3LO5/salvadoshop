@@ -62,6 +62,33 @@ Legenda: [ ] pendente · [x] concluído
   produção — schema idêntico, sem diferença. Ver item 25 para um bug
   real (não de registro) encontrado durante essa validação. Lição
   registrada no CLAUDE.md, seção 18.11.
+- [ ] **28. Página pública mostra especificações com o rótulo "Texto".**
+  Afeta a vitrine. A tela de edição do admin grava `specs_tecnicas` sempre
+  como `{"texto": "<string>"}` (`api/admin/produtos/route.ts:206` e
+  `api/admin/produtos/[id]/route.ts:202` e `:304`), mas as páginas públicas
+  renderizam `specs_tecnicas` como pares chave/valor:
+  `src/app/(public)/produto/[slug]/page.tsx:99-104` (`renderizarSpecs`,
+  usado em `:253-263`) e `src/app/(public)/lotes/[slug]/page.tsx:190-202`
+  (`Object.entries(lote.specs_tecnicas)`). Resultado: todo produto
+  cadastrado pelo admin aparece na página pública com uma única linha
+  "Texto: …" em vez da lista de especificações — e, como o `<dd>` não
+  preserva quebras de linha, os atributos separados por `\n` ficam
+  emendados numa linha só. Achado durante o item 27. Não corrigido ainda.
+- [ ] **31. [Segurança] `estornar_pedido_estoque` executável por PUBLIC.**
+  Na branch de desenvolvimento usada no item 27 (sequência completa
+  replayada), a função `estornar_pedido_estoque(uuid)` ficou com ACL
+  nula — ou seja, EXECUTE para PUBLIC, o que inclui `anon` e
+  `authenticated`. A função é `SECURITY DEFINER` e cancela pedido e
+  devolve estoque; o CLAUDE.md (18.4) diz que ela deveria ser chamada só
+  pelo webhook, via service role, e a migration 007 comenta "sem GRANT
+  proposital" — mas no Postgres a ausência de GRANT não impede o EXECUTE
+  default para PUBLIC. Confirmado em produção em 2026-09-29:
+  `proacl = {=X/postgres, postgres=X, anon=X, authenticated=X,
+  service_role=X}` e `prosecdef = true` (SECURITY DEFINER). Qualquer
+  portador da anon key pode chamar a RPC e cancelar pedido
+  `aguardando_pagamento` de terceiros, se souber o id. Ação: via
+  migration, `REVOKE EXECUTE` de `PUBLIC`, `anon` e `authenticated`,
+  mantendo `service_role`. Não corrigido ainda.
 
 ## 🟡 Prioridade média — correção / validação
 
@@ -207,7 +234,7 @@ Legenda: [ ] pendente · [x] concluído
   como já estava, agora exercido de fato. Adicionado `touch-action: none`
   (`touch-none`) no card, recomendação do dnd-kit para arraste em touch não
   competir com o scroll da página.
-- [ ] **27. Seed de desenvolvimento (002) grava `specs_tecnicas` e imagens
+- [x] **27. Seed de desenvolvimento (002) grava `specs_tecnicas` e imagens
   em formato que a tela de edição não entende.** O seed grava
   `specs_tecnicas` como objeto estruturado livre (ex.: `{"marca": "...",
   "modelo": "...", ...}`), mas a tela de edição do admin
@@ -222,6 +249,57 @@ Legenda: [ ] pendente · [x] concluído
   `{"texto": "..."}` e com ao menos uma linha em `produto_imagens` por
   produto, testando a sequência completa numa branch nova antes de
   considerar resolvido.
+  ✅ Resolvido — a 002 passou a gravar `specs_tecnicas` no formato
+  `{"texto": "..."}` (formato confirmado em `NovoProdutoForm.tsx:28`/`:176`
+  e nas rotas de API), com o conteúdo anterior convertido em texto legível
+  ("Rótulo: valor", um atributo por linha), sem perda de informação, e
+  com 1 linha em `produto_imagens` por produto (5 no total, `ordem = 0`,
+  imagem de teste `…/v1790639988/Imagem1.jpg`, `public_id` fictício
+  `seed-dev/fake-produto-1` a `-5`, diferente do real `Imagem1`, para que
+  exclusão em dev não apague a imagem da conta compartilhada). Nenhum
+  produto do seed existe em produção (conferido). Validado numa branch de
+  desenvolvimento resetada para a 001 e com os arquivos do repositório
+  aplicados na ordem de produção, sem erro: seed novo confirmado via SQL e
+  schema idêntico a produção em colunas, constraints, triggers, funções
+  (lógica), policies, enums e RLS. A 012 rodou fora de ordem (depois da
+  013–016) por causa de um bucket residual do `reset_branch`; é só
+  storage, independente das 013–016. Teste de tela como Master: TV e lote
+  com especificações um atributo por linha (sem `\n` literal), miniatura
+  pela `url_cloudinary`, salvar publicado sem ajuste manual. Registro da
+  002 em `supabase_migrations.schema_migrations` atualizado em produção
+  (só metadado); branch nova criada do zero já nasce com o seed novo.
+  **Observação:** ao salvar um lote (tipo_b) pela tela, a rota
+  `PUT /api/admin/produtos/[id]` normaliza os campos do lote
+  (`estoque = 0`, `preco_ml`/`preco_site`/`url_ml` nulos,
+  `exclusivo_site = false` — `route.ts:223-228`), então os lotes do seed
+  (que nascem com `estoque` 40 e 15) mudam esses valores no primeiro save;
+  comportamento esperado da rota, não defeito do seed.
+  **Limitação conhecida:** editar imagem de produto do seed não funciona
+  na branch de desenvolvimento — `EditorImagem.tsx` (`buildUrl`, `:56`)
+  monta a URL da imagem editada a partir do `public_id`, e o `public_id`
+  do seed é fictício de propósito. A miniatura usa `url_cloudinary` e
+  aparece normalmente.
+- [ ] **29. Arquivo da migration 014 diverge do SQL registrado em
+  produção.** `014_estoque_item_produtos.sql` cria os índices de
+  `estoque_item_produtos` com nomes diferentes dos registrados em
+  `supabase_migrations.schema_migrations` (e existentes em produção).
+  Estrutura igual (mesmas colunas, UNIQUE e índice parcial), só os nomes
+  mudam:
+  - `idx_eip_estoque_item` (produção) × `estoque_item_produtos_estoque_item_id_idx` (arquivo)
+  - `idx_eip_produto` (produção) × `estoque_item_produtos_produto_id_idx` (arquivo)
+  - `idx_eip_uma_ativa_por_item` (produção) × `estoque_item_produtos_item_ativo_idx` (arquivo)
+  Branch criada normalmente replaya o registro e não é afetada; aparece só
+  ao aplicar os arquivos do repositório (achado na validação do item 27).
+  Alinhar o arquivo ao registro, conforme CLAUDE.md 18.11. Não corrigido
+  ainda.
+- [ ] **30. Branch nova do Supabase nasce sem grants de tabela para os
+  papéis da API.** Branches de desenvolvimento novas nascem com ACL
+  `Dxtm` em `public` — sem SELECT/INSERT/UPDATE/DELETE para `anon`,
+  `authenticated` e `service_role` — então a app não funciona apontando
+  para a branch sem GRANT manual. Produção tem os grants antigos
+  (padrão de projeto anterior da plataforma). Avaliar migration com GRANT
+  explícito para as tabelas de `public`, para o schema não depender do
+  padrão do projeto. Achado na validação do item 27.
 
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
@@ -256,7 +334,7 @@ Legenda: [ ] pendente · [x] concluído
 
 ## 🔵 Funcionalidades novas — priorizadas (P0–P3)
 
-- [ ] **12. [P0] Clonagem de produto.** Como administrador, quero duplicar um
+- [x] **12. [P0] Clonagem de produto.** Como administrador, quero duplicar um
   produto existente para agilizar cadastro de variações. Ícone de duplicar na
   tabela de listagem de produtos do admin. Server Action que lê o produto por
   id, copia os campos e insere novo registro. Regras obrigatórias na cópia:
@@ -270,7 +348,8 @@ Legenda: [ ] pendente · [x] concluído
   deve nascer com `exclusivo_site = true` (ver item 13) — caso contrário fica
   em estado inválido: não exclusivo e sem link. Após insert, redirect para a
   tela de edição do novo produto.
-- [ ] **13. [P1] Exclusividade de canal.** Como administrador, quero marcar se
+  ✅ Entregue no PR #28.
+- [x] **13. [P1] Exclusividade de canal.** Como administrador, quero marcar se
   o produto é exclusivo do site ou se tem anúncio no Mercado Livre.
   **Modelagem:** coluna `exclusivo_site` boolean not null default false em
   `produtos`, via `apply_migration`. Não criar tabela de canais nem coluna
@@ -291,7 +370,8 @@ Legenda: [ ] pendente · [x] concluído
   **Verificação:** produto exclusivo publicado não renderiza badge de
   desconto; produto com ML mantém o comparativo idêntico ao atual; tentativa
   de publicar produto não exclusivo sem `ml_url` é bloqueada.
-- [ ] **14. [P1] Criação dinâmica de categorias.** Como administrador, quero
+  ✅ Entregue nos PRs #29 e #31.
+- [x] **14. [P1] Criação dinâmica de categorias.** Como administrador, quero
   criar categoria sem sair da tela de cadastro do produto. Não usar
   react-select — usar combobox headless com input filtrável, estilizado com
   Tailwind, consistente com o restante do admin. Quando o termo digitado não
@@ -300,6 +380,7 @@ Legenda: [ ] pendente · [x] concluído
   inserir via Server Action, atualizar lista local e já deixar selecionada. Se
   a checagem encontrar categoria equivalente, selecionar a existente em vez de
   criar nova. Restringir criação ao papel Master.
+  ✅ Entregue no PR #33.
 - [ ] **15. [P2] Preenchimento por Vision AI.** Como administrador, quero
   extrair título, marca e especificações da foto da embalagem. NÃO disparar
   automaticamente no upload — botão explícito "Preencher com IA" ao lado do
@@ -322,4 +403,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-10 (item 24)*
+*Atualizado em: 2026-09-29 (itens 27 a 31)*
