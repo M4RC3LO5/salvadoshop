@@ -2,6 +2,7 @@ import { notFound, permanentRedirect } from "next/navigation"
 import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
+import { EspecificacoesTecnicas } from "@/components/produto/EspecificacoesTecnicas"
 
 interface Imagem {
   url_cloudinary: string
@@ -187,23 +188,7 @@ export default async function PaginaLote(
             )}
 
             {/* Specs */}
-            {lote.specs_tecnicas && Object.keys(lote.specs_tecnicas).length > 0 && (
-              <div className="border-t border-zinc-100 pt-6">
-                <h2 className="text-base font-semibold text-marrom-800 mb-3">Composição do Lote</h2>
-                <dl className="grid grid-cols-1 gap-1.5">
-                  {Object.entries(lote.specs_tecnicas).map(([chave, valor]) => {
-                    const label = chave.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-                    const texto = Array.isArray(valor) ? valor.join(", ") : String(valor)
-                    return (
-                      <div key={chave} className="flex gap-3 py-1.5 border-b border-zinc-50 last:border-0">
-                        <dt className="text-xs font-semibold text-zinc-500 w-32 shrink-0">{label}</dt>
-                        <dd className="text-xs text-zinc-700">{texto}</dd>
-                      </div>
-                    )
-                  })}
-                </dl>
-              </div>
-            )}
+            <EspecificacoesTecnicas titulo="Composição do Lote" specs={lote.specs_tecnicas} />
           </div>
         </div>
       </div>

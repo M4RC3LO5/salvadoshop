@@ -62,7 +62,7 @@ Legenda: [ ] pendente · [x] concluído
   produção — schema idêntico, sem diferença. Ver item 25 para um bug
   real (não de registro) encontrado durante essa validação. Lição
   registrada no CLAUDE.md, seção 18.11.
-- [ ] **28. Página pública mostra especificações com o rótulo "Texto".**
+- [x] **28. Página pública mostra especificações com o rótulo "Texto".**
   Afeta a vitrine. A tela de edição do admin grava `specs_tecnicas` sempre
   como `{"texto": "<string>"}` (`api/admin/produtos/route.ts:206` e
   `api/admin/produtos/[id]/route.ts:202` e `:304`), mas as páginas públicas
@@ -73,7 +73,20 @@ Legenda: [ ] pendente · [x] concluído
   cadastrado pelo admin aparece na página pública com uma única linha
   "Texto: …" em vez da lista de especificações — e, como o `<dd>` não
   preserva quebras de linha, os atributos separados por `\n` ficam
-  emendados numa linha só. Achado durante o item 27. Não corrigido ainda.
+  emendados numa linha só. Achado durante o item 27.
+  ✅ Resolvido em 2026-09-30 — novo componente compartilhado
+  `src/components/produto/EspecificacoesTecnicas.tsx` (server component),
+  usado em `produto/[slug]` ("Especificações Técnicas") e `lotes/[slug]`
+  ("Composição do Lote"), substituindo `renderizarSpecs` e o
+  `Object.entries` inline. Se `specs_tecnicas.texto` é string não vazia, o
+  texto é exibido sem rótulo, como está (texto livre, sem parse em tabela),
+  preservando quebras de linha e parágrafos (`whitespace-pre-line`,
+  `text-sm`), sem `dangerouslySetInnerHTML`. Senão, cai no formato antigo
+  chave/valor (compatibilidade com objeto livre), descartando valores
+  vazios e objetos aninhados (antes apareceriam como `[object Object]` no
+  lote). Sem conteúdo — inclusive `{"texto": ""}`, que o admin grava
+  quando o campo fica vazio — a seção inteira não é renderizada. Sem
+  alteração em API, admin, migrations ou dados. `npm run build` ok.
 - [x] **31. [Segurança] `estornar_pedido_estoque` executável por PUBLIC.**
   Na branch de desenvolvimento usada no item 27 (sequência completa
   replayada), a função `estornar_pedido_estoque(uuid)` ficou com ACL
@@ -315,6 +328,21 @@ Legenda: [ ] pendente · [x] concluído
   explícito para as tabelas de `public`, para o schema não depender do
   padrão do projeto. Achado na validação do item 27.
 
+- [ ] **32. [Segurança] Descrição pública usa `dangerouslySetInnerHTML`
+  com sanitização por regex.** O bloco "Descrição" de
+  `src/app/(public)/produto/[slug]/page.tsx` e o bloco "Sobre este lote"
+  de `src/app/(public)/lotes/[slug]/page.tsx` renderizam `descricao` com
+  `dangerouslySetInnerHTML`, passando por `sanitizarHTML` — uma função
+  duplicada nas duas páginas que só remove `<script>`, atributos `on*="..."`
+  entre aspas duplas e o texto `javascript:`. Contraria o CLAUDE.md 5.1
+  (XSS: "nunca usar dangerouslySetInnerHTML"), e a regex deixa passar
+  vetores comuns (ex.: atributo `on*` com aspas simples ou sem aspas,
+  `<iframe>`, `<style>`, `data:` em `href`/`src`). Avaliar biblioteca de
+  sanitização (ex.: DOMPurify/`isomorphic-dompurify` ou `sanitize-html`)
+  com allowlist das tags de formatação que o editor/"Melhorar com IA"
+  realmente produz, centralizada num helper único. Achado durante o item
+  28. Não corrigido ainda.
+
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
 - [ ] **6. Botão "Continuar" sob erro de estoque.** Quando há erro de estoque
@@ -417,4 +445,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-29 (itens 27 a 31)*
+*Atualizado em: 2026-09-30 (itens 28 e 32)*
