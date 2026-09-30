@@ -3,13 +3,10 @@ import type { Metadata } from "next"
 import { createClient } from "@/lib/supabase/server"
 import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
 import { BotaoCompraTipoA } from "@/components/produto/BotaoCompraTipoA"
+import { EspecificacoesTecnicas } from "@/components/produto/EspecificacoesTecnicas"
 import { calcularComparativoPreco } from "@/lib/utils/precos"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
-
-interface SpecsTecnicas {
-  [chave: string]: string | number | string[]
-}
 
 interface Imagem {
   url_cloudinary: string
@@ -22,7 +19,7 @@ interface Produto {
   nome: string
   tipo: "tipo_a" | "tipo_b"
   descricao: string | null
-  specs_tecnicas: SpecsTecnicas | null
+  specs_tecnicas: unknown
   preco_ml: number | null
   preco_site: number | null
   exclusivo_site: boolean
@@ -94,14 +91,6 @@ export async function generateMetadata(
 
 function formatarPreco(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-}
-
-function renderizarSpecs(specs: SpecsTecnicas) {
-  return Object.entries(specs).map(([chave, valor]) => {
-    const label = chave.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
-    const texto = Array.isArray(valor) ? valor.join(", ") : String(valor)
-    return { label, texto }
-  })
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -250,19 +239,7 @@ export default async function PaginaProduto(
             )}
 
             {/* Specs técnicas */}
-            {produto.specs_tecnicas && Object.keys(produto.specs_tecnicas).length > 0 && (
-              <div className="border-t border-zinc-100 pt-6">
-                <h2 className="text-base font-semibold text-marrom-800 mb-3">Especificações Técnicas</h2>
-                <dl className="grid grid-cols-1 gap-1.5">
-                  {renderizarSpecs(produto.specs_tecnicas).map(({ label, texto }) => (
-                    <div key={label} className="flex gap-3 py-1.5 border-b border-zinc-50 last:border-0">
-                      <dt className="text-xs font-semibold text-zinc-500 w-32 shrink-0">{label}</dt>
-                      <dd className="text-xs text-zinc-700">{texto}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
+            <EspecificacoesTecnicas titulo="Especificações Técnicas" specs={produto.specs_tecnicas} />
           </div>
         </div>
       </div>

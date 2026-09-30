@@ -846,7 +846,28 @@ Atualizar `statements` de um registro já aplicado é alteração de metadado e
 nunca reexecuta SQL, mas exige confirmação explícita antes, porque escreve
 em tabela interna do Supabase.
 
+### 18.12 PROCESSO — variáveis de ambiente nos previews da Vercel
+
+Os previews da Vercel (deploy de cada branch) usam **as duas variáveis
+públicas de produção**: `NEXT_PUBLIC_SUPABASE_URL` e
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`. Até setembro de 2026 elas só existiam no
+ambiente Production da Vercel e todo preview quebrava ao abrir; foram
+adicionadas manualmente ao ambiente Preview.
+
+A `SUPABASE_SERVICE_ROLE_KEY` **não existe em Preview** (de propósito).
+Consequência: rotas de admin e rotas de escrita que dependem da service
+role não funcionam em preview — o preview serve para conferir as páginas
+públicas (vitrine, produto, lote), não fluxos de admin ou de escrita.
+
+**Cuidado:** como a URL e a anon key são as de produção, o preview lê o
+banco de **produção**. Qualquer ação feita no preview que escreva com a
+anon key (ex.: sessão anônima do checkout) grava em produção.
+
+**Caso real:** conferência visual do item 28 do BACKLOG (especificações
+como texto livre) em `fix/specs-texto-publico`, feita no preview com
+produtos publicados de produção.
+
 ---
 
 *Última atualização: Setembro 2026*
-*Versão: 2.6*
+*Versão: 2.7*
