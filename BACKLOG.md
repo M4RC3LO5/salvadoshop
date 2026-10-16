@@ -343,6 +343,13 @@ Legenda: [ ] pendente · [x] concluído
   realmente produz, centralizada num helper único. Achado durante o item
   28. Não corrigido ainda.
 
+- [ ] **33. Auditar privilégios de tabela (anon / authenticated).** As tabelas
+  anteriores à migration 032 provavelmente têm `TRUNCATE`, `REFERENCES`,
+  `TRIGGER` (e, para `anon`, todos os privilégios) concedidos por padrão.
+  `TRUNCATE` ignora a RLS. Listar `information_schema.role_table_grants`,
+  revogar o que o código não usa, via `apply_migration` com arquivo (18.11).
+  Ver CLAUDE.md 18.14.
+
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
 - [ ] **6. Botão "Continuar" sob erro de estoque.** Quando há erro de estoque
@@ -432,6 +439,11 @@ Legenda: [ ] pendente · [x] concluído
   já preenchido pelo admin — preencher apenas vazios e destacar visualmente os
   campos preenchidos por IA para revisão. Tratar falha de parse e resposta
   vazia sem quebrar o formulário. Registrar log de uso para acompanhar custo.
+- [x] **17. [P1] Lista de Venda.** Documento derivado da triagem, editado no
+  sistema, no layout Comercial Dantas: gerar a partir da triagem, editar
+  (descrição, preço, quantidades), imprimir e exportar para Excel com fórmulas.
+  Dados internos da triagem nunca entram. Ver CLAUDE.md 18.13.
+
 - [ ] **16. [P3] Analytics de produto.** Como administrador, quero ver
   visualizações e acessos por produto. Não fazer update em `produtos` a cada
   evento — criar tabela `produto_eventos` append-only com `produto_id`, `tipo`
@@ -445,4 +457,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-09-30 (itens 28 e 32)*
+*Atualizado em: 2026-10-16 (itens 17 e 33)*

@@ -867,7 +867,50 @@ anon key (ex.: sessão anônima do checkout) grava em produção.
 como texto livre) em `fix/specs-texto-publico`, feita no preview com
 produtos publicados de produção.
 
+### 18.13 RESOLVIDA — Lista de Venda (documento derivado da triagem)
+
+A triagem é o **inventário interno** (custo, origem, fornecedor, estado,
+observações, lote, EAN). A **Lista de Venda** é um documento derivado dela,
+editado dentro do sistema e enviado ao cliente / colado na frente do palete.
+**Regra inviolável:** os dados internos da triagem NUNCA vão para a lista de
+venda. A rota `POST /api/admin/listas-venda` recebe só IDs e lê de
+`estoque_itens` no servidor apenas as colunas comerciais (nome, marca, sku,
+validade, num_caixas, qtd_embalagem); a tabela `listas_venda_itens` não tem
+coluna para os demais. `estoque_item_id` existe só para rastreio.
+
+- **Banco:** migrations `032_listas_venda.sql` (tabelas, RLS com `is_admin()`
+  — Master e Auxiliar —, índices, grants) e
+  `033_revoke_privilegios_listas_venda.sql`. Sem coluna de total: R$ Cx e
+  R$ Total são calculados (`src/lib/utils/lista-venda.ts`, em centavos).
+- **Telas:** `/admin/listas-venda` (lista, exclusão com confirmação) e
+  `/admin/listas-venda/[id]` (edição). Salvamento **por célula**, ao sair do
+  campo ou Enter (Esc cancela), um PATCH por campo com reversão se falhar —
+  mesmo padrão do inline-edit da triagem. Reordenação por setas.
+- **APIs:** `/api/admin/listas-venda/**`, Zod em tudo, client do Supabase com
+  a **sessão do usuário (RLS)** — nunca service role. Por isso funcionam em
+  preview (18.12). Guarda comum em `src/lib/supabase/admin-guard.ts`.
+- **Impressão:** `/admin/listas-venda/[id]/imprimir` — página HTML no layout
+  Comercial Dantas, A4, cabeçalho da tabela repete a cada página; o usuário
+  imprime ou escolhe "Salvar como PDF". O menu/sidebar do admin usa
+  `print:hidden`. Logo em `public/logo-comercial-dantas.png`; endereço, telefone
+  e e-mail do rodapé ficam em `src/lib/lista-venda/empresa.ts`.
+- **Excel:** `src/lib/lista-venda/exportar-xlsx.ts` (exceljs, client-side via
+  `import()`), mesmo layout da impressão, com logo. R$ Cx, R$ Total e o total
+  geral são **fórmulas**; a coluna Qtd vira três células (caixas · x · unid)
+  para continuar numérica. Linhas sem preço ficam em branco, como na impressão.
+- **Removido:** exportação CSV da triagem (substituída por esta lista).
+
+### 18.14 LIÇÃO APRENDIDA — privilégios padrão de tabela nova no Supabase
+
+Tabela criada por migration recebe, além do que a migration concede,
+`TRUNCATE`, `REFERENCES` e `TRIGGER` para `authenticated` (e todos os
+privilégios para `anon` nas tabelas mais antigas). `TRUNCATE` ignora a RLS.
+**Regra:** toda migration que cria tabela deve, no mesmo arquivo, dar `REVOKE
+ALL ... FROM anon` e conceder a `authenticated` só o que o código usa; depois
+conferir em `information_schema.role_table_grants`. As tabelas anteriores à 032
+não foram auditadas (ver BACKLOG).
+
 ---
 
-*Última atualização: Setembro 2026*
-*Versão: 2.7*
+*Última atualização: Outubro 2026*
+*Versão: 2.8*
