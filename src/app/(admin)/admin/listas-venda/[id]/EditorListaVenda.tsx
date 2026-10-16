@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, ArrowDown, ArrowUp, Loader2, Plus, Trash2, Check } from "lucide-react"
+import { ArrowLeft, ArrowDown, ArrowUp, FileSpreadsheet, Loader2, Plus, Printer, Trash2, Check } from "lucide-react"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 
 export interface ItemVenda {
@@ -115,6 +115,7 @@ export function EditorListaVenda({
   const [itens, setItens] = useState(itensIniciais)
   const [pendentes, setPendentes] = useState(0)
   const [erro, setErro] = useState("")
+  const [exportando, setExportando] = useState(false)
 
   const base = `/api/admin/listas-venda/${listaId}`
 
@@ -191,6 +192,27 @@ export function EditorListaVenda({
     if (!r.ok) setItens(anterior)
   }
 
+  async function exportarExcel() {
+    setExportando(true)
+    setErro("")
+    try {
+      const { gerarXlsxListaVenda } = await import("@/lib/lista-venda/exportar-xlsx")
+      const { blob, nomeArquivo } = await gerarXlsxListaVenda({ titulo, rodape, itens })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = nomeArquivo
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setErro("Erro ao gerar o Excel. Tente novamente.")
+    } finally {
+      setExportando(false)
+    }
+  }
+
   const geral = totalGeral(itens)
   const semPreco = itens.filter((i) => i.preco_unitario === null).length
 
@@ -200,11 +222,31 @@ export function EditorListaVenda({
         <Link href="/admin/listas-venda" className="inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Listas de Venda
         </Link>
-        <span role="status" aria-live="polite" className="inline-flex items-center gap-1.5 text-xs text-stone-500">
-          {pendentes > 0
-            ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Salvando…</>
-            : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> Alterações salvas</>}
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          <span role="status" aria-live="polite" className="mr-2 inline-flex items-center gap-1.5 text-xs text-stone-500">
+            {pendentes > 0
+              ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Salvando…</>
+              : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> Alterações salvas</>}
+          </span>
+          {/* Desabilitados enquanto há gravação pendente: a impressão lê do banco */}
+          {pendentes > 0 ? (
+            <button type="button" disabled className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 opacity-50">
+              <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
+            </button>
+          ) : (
+            <Link href={`/admin/listas-venda/${listaId}/imprimir`} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
+              <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={exportarExcel}
+            disabled={pendentes > 0 || exportando}
+            className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+          >
+            {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />} Exportar Excel
+          </button>
+        </div>
       </div>
 
       {erro && (
