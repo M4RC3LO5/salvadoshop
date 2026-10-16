@@ -15,6 +15,7 @@ import {
   X,
   Receipt,
   ScanLine,
+  ClipboardList,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -36,6 +37,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Produtos",      href: "/admin/produtos",   icon: Package },
   { label: "Pedidos",       href: "/admin/pedidos",    icon: Receipt },
   { label: "Triagem",       href: "/admin/triagem", icon: ScanLine },
+  { label: "Listas de Venda", href: "/admin/listas-venda", icon: ClipboardList },
   { label: "Novo Produto",  href: "/admin/produtos/novo", icon: PlusCircle },
   { label: "Aprovações",    href: "/admin/aprovacoes", icon: CheckSquare, masterOnly: true },
   { label: "Usuários",      href: "/admin/usuarios",   icon: Users,       masterOnly: true },
@@ -132,7 +134,7 @@ export function Sidebar({ role, pendingCount = 0 }: SidebarProps) {
     <>
       {/* Botão hamburguer — mobile */}
       <button
-        className="fixed left-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-stone-800 text-white shadow-md lg:hidden"
+        className="fixed left-4 top-4 z-50 flex h-9 w-9 items-center justify-center rounded-lg bg-stone-800 text-white shadow-md lg:hidden print:hidden"
         onClick={() => setMobileOpen((prev) => !prev)}
         aria-label={mobileOpen ? "Fechar menu" : "Abrir menu"}
         aria-expanded={mobileOpen}
@@ -152,7 +154,7 @@ export function Sidebar({ role, pendingCount = 0 }: SidebarProps) {
       {/* Sidebar mobile — drawer */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out lg:hidden
+          fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out lg:hidden print:hidden
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
         `}
         aria-label="Menu de navegação do painel"
@@ -162,7 +164,7 @@ export function Sidebar({ role, pendingCount = 0 }: SidebarProps) {
 
       {/* Sidebar desktop — estática */}
       <aside
-        className="hidden w-64 shrink-0 lg:flex lg:flex-col"
+        className="hidden w-64 shrink-0 lg:flex lg:flex-col print:!hidden"
         aria-label="Menu de navegação do painel"
       >
         <SidebarContent />

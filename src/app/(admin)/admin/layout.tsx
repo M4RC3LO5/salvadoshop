@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/admin/Sidebar"
+import { VoltarAoTopo } from "@/components/admin/VoltarAoTopo"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 // Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
@@ -50,13 +51,13 @@ export default async function AdminPanelLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen print:block print:min-h-0">
       <Sidebar role={adminUser.role as "master" | "auxiliar"} pendingCount={pendingCount} />
 
       {/* Área de conteúdo */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col overflow-hidden print:block print:overflow-visible">
         {/* Barra de topo — espaço para o hamburguer no mobile */}
-        <header className="flex h-14 items-center border-b border-stone-200 bg-white px-4 lg:hidden">
+        <header className="flex h-14 items-center border-b border-stone-200 bg-white px-4 lg:hidden print:hidden">
           {/* espaço reservado para o botão hamburguer fixo */}
           <div className="w-9" aria-hidden="true" />
           <span className="ml-3 text-sm font-semibold text-stone-700">
@@ -64,10 +65,12 @@ export default async function AdminPanelLayout({
           </span>
         </header>
 
-        <main className="flex-1 overflow-auto bg-stone-100 p-6">
+        <main className="flex-1 overflow-auto bg-stone-100 p-6 print:overflow-visible print:bg-white print:p-0">
           {children}
         </main>
       </div>
+
+      <VoltarAoTopo />
     </div>
   )
 }
