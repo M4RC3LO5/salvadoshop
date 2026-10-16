@@ -1,21 +1,13 @@
-import Image from "next/image"
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
-import { COR_CABECALHO, EMPRESA, LIMITE_DESCRICAO_LONGA } from "@/lib/lista-venda/empresa"
-import { BotoesImpressao } from "./BotoesImpressao"
+import { COR_CABECALHO } from "@/lib/lista-venda/empresa"
+import { normalizarLarguras } from "@/lib/lista-venda/larguras"
+import { ImpressaoListaVenda } from "./ImpressaoListaVenda"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 export const dynamic = "force-dynamic"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
-
-// Valores muito grandes (ex.: R$ 1.481.400,00) usam fonte menor para caber na célula.
-function Moeda({ valor }: { valor: number | null }) {
-  const txt = valor === null ? "" : BRL.format(valor)
-  return <td className={`direita num${txt.length > 12 ? " apertada" : ""}`}>{txt}</td>
-}
 
 export default async function ImprimirListaVendaPage({ params }: { params: { id: string } }) {
   if (!UUID.test(params.id)) notFound()
@@ -36,7 +28,7 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
 
   const { data: lista } = await supabase
     .from("listas_venda")
-    .select("id, titulo, rodape")
+    .select("id, titulo, rodape, larguras_colunas")
     .eq("id", params.id)
     .maybeSingle()
 
@@ -52,7 +44,6 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
     ...i,
     preco_unitario: i.preco_unitario === null ? null : Number(i.preco_unitario),
   }))
-  const geral = totalGeral(itens)
 
   return (
     <div className="lista-impressao">
@@ -64,15 +55,21 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
         .lista-impressao { font-family: Calibri, Carlito, Arial, sans-serif; color: #000; }
         .folha { background: #fff; width: 210mm; max-width: 100%; margin: 0 auto; padding: 8mm; box-sizing: border-box; display: flex; flex-direction: column; min-height: 297mm; }
         @media print { .folha { width: auto; padding: 0; margin: 0; min-height: 279mm; } }
-        .folha table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9.5pt; }
+        .folha table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; }
         .folha thead { display: table-header-group; }
         .folha tr { break-inside: avoid; page-break-inside: avoid; }
-        .folha th, .folha td { border: 1px solid #000; padding: 1.2mm 0.9mm; }
-        .folha th { white-space: nowrap; }
+        .folha th, .folha td { border: 1px solid #000; padding: 0.9mm 0.9mm; }
+        .folha th { white-space: nowrap; position: relative; }
+        .alca { position: absolute; top: 0; right: -5px; width: 10px; height: 100%; cursor: col-resize; z-index: 2; touch-action: none; user-select: none; }
+        .alca::after { content: ""; position: absolute; left: 4px; top: 20%; height: 60%; width: 2px; border-radius: 1px; background: rgba(0,0,0,.28); }
+        .alca:hover::after, .alca:focus-visible::after { background: #b45309; width: 3px; left: 3.5px; }
+        .alca:focus-visible { outline: none; }
+        @media print { .alca { display: none !important; } }
         .folha td { overflow: hidden; word-break: break-word; }
         .folha td.num { white-space: nowrap; }
         .folha td.apertada { font-size: 8pt; }
-        .folha td { border-top-color: #9a9a9a; border-bottom-color: #9a9a9a; vertical-align: bottom; height: 7.4mm; overflow-wrap: anywhere; }
+        .folha td.fab { font-size: 8.5pt; }
+        .folha td { border-top-color: #9a9a9a; border-bottom-color: #9a9a9a; vertical-align: bottom; height: 4.9mm; overflow-wrap: anywhere; }
         .folha th { background: #${COR_CABECALHO}; font-family: "Arial Black", Arial, sans-serif; font-weight: 900; font-size: 9pt; text-align: center; }
         .folha th.titulo { text-decoration: underline; border-bottom: 1px solid #000; }
         .folha td.centro { text-align: center; }
@@ -83,77 +80,13 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
         .rodape-empresa { margin-top: auto; padding-top: 8mm; text-align: center; font-family: Arial, sans-serif; font-size: 9.4pt; }
       `}</style>
 
-      <div className="mx-auto mb-4 flex max-w-[210mm] items-center justify-between print:hidden">
-        <BotoesImpressao voltarHref={`/admin/listas-venda/${lista.id}`} />
-      </div>
-
-      <div className="folha shadow print:shadow-none">
-        <div className="mb-[9mm]">
-          <Image
-            src={EMPRESA.logoPublicPath}
-            alt="Comercial Dantas de Salvados e Sinistros — compra e venda por atacado, desde 2004"
-            width={EMPRESA.logoLargura}
-            height={EMPRESA.logoAltura}
-            unoptimized
-            priority
-            style={{ width: "100mm", height: "auto" }}
-          />
-        </div>
-
-        <table>
-          <colgroup>
-            <col style={{ width: "28%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "8.5%" }} />
-            <col style={{ width: "9%" }} />
-            <col style={{ width: "8.5%" }} />
-            <col style={{ width: "8.5%" }} />
-            <col style={{ width: "10%" }} />
-            <col style={{ width: "12.5%" }} />
-          </colgroup>
-          <thead>
-            <tr><th colSpan={8} className="titulo">{lista.titulo}</th></tr>
-            <tr>
-              <th scope="col">Descrição</th>
-              <th scope="col">Fabr.</th>
-              <th scope="col">Ref.</th>
-              <th scope="col">Vencto</th>
-              <th scope="col">Qtd</th>
-              <th scope="col">R$ UND</th>
-              <th scope="col">R$ Cx</th>
-              <th scope="col">R$ Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {itens.map((i) => {
-              const cx = precoCaixa(i)
-              const total = totalItem(i)
-              return (
-                <tr key={i.id}>
-                  <td className={i.descricao.length > LIMITE_DESCRICAO_LONGA ? "longa" : undefined}>{i.descricao}</td>
-                  <td className="centro">{i.fabricante}</td>
-                  <td className="centro">{i.referencia}</td>
-                  <td className="centro">{i.vencimento}</td>
-                  <td className="centro num">{i.qtd_caixas} &nbsp;x&nbsp; {i.unid_por_caixa}</td>
-                  <Moeda valor={i.preco_unitario} />
-                  <Moeda valor={cx} />
-                  <Moeda valor={total} />
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-
-        <div className="total-geral">{BRL.format(geral)}</div>
-
-        <p className="aviso">{lista.rodape}</p>
-
-        <div className="rodape-empresa">
-          {EMPRESA.linhasRodape.map((linha) => (
-            <div key={linha}>{linha}</div>
-          ))}
-        </div>
-      </div>
+      <ImpressaoListaVenda
+        listaId={lista.id}
+        titulo={lista.titulo}
+        rodape={lista.rodape}
+        itens={itens}
+        largurasIniciais={normalizarLarguras(lista.larguras_colunas)}
+      />
     </div>
   )
 }

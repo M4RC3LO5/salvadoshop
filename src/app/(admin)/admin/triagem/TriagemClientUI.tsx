@@ -811,6 +811,8 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
   const [excluindoLote, setExcluindoLote] = useState(false)
   const [exportando, setExportando] = useState<"pdf" | null>(null)
   const [gerandoListaVenda, setGerandoListaVenda] = useState(false)
+  // Trava síncrona: um segundo clique antes da re-renderização não cria outra lista.
+  const gerandoListaVendaRef = useRef(false)
   const router = useRouter()
 
   const [mostrarMoverDialog, setMostrarMoverDialog] = useState(false)
@@ -1238,7 +1240,7 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
   }
 
   async function gerarListaVenda() {
-    if (!listaSelecionada) return
+    if (!listaSelecionada || gerandoListaVendaRef.current) return
     // Mesmo conjunto do linhasParaExportar, na ordem em que aparece na tela.
     const alvo = linhasParaExportar()
     const ids = new Set(alvo.map((i) => i.id))
@@ -1247,6 +1249,7 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
     const itemIds = [...naTela, ...foraDaTela].map((i) => i.id)
     if (itemIds.length === 0) return
 
+    gerandoListaVendaRef.current = true
     setGerandoListaVenda(true)
     setErroAcao("")
     try {
@@ -1258,12 +1261,14 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
       const json = await res.json()
       if (!res.ok || !json.success) {
         setErroAcao(json.error?.message ?? "Erro ao gerar a lista de venda.")
+        gerandoListaVendaRef.current = false
         setGerandoListaVenda(false)
         return
       }
       router.push(`/admin/listas-venda/${json.data.id}`)
     } catch {
       setErroAcao("Erro de conexão ao gerar a lista de venda.")
+      gerandoListaVendaRef.current = false
       setGerandoListaVenda(false)
     }
   }
@@ -1575,7 +1580,7 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
                   {exportando === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileText className="h-3.5 w-3.5" aria-hidden="true" />} Exportar PDF
                 </button>
                 <button type="button" onClick={gerarListaVenda} disabled={gerandoListaVenda} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
-                  {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} Gerar lista de venda
+                  {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} {gerandoListaVenda ? "Gerando..." : "Gerar lista de venda"}
                 </button>
                 <button type="button" onClick={imprimir} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
@@ -1594,7 +1599,7 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
                 {exportando === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileText className="h-3.5 w-3.5" aria-hidden="true" />} Exportar PDF
               </button>
               <button type="button" onClick={gerarListaVenda} disabled={gerandoListaVenda} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
-                {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} Gerar lista de venda
+                {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} {gerandoListaVenda ? "Gerando..." : "Gerar lista de venda"}
               </button>
               <button type="button" onClick={imprimir} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
                 <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir

@@ -5,6 +5,7 @@
 
 import { precoCaixa, totalGeral, totalItem, type ItemCalculavel } from "@/lib/utils/lista-venda"
 import { COR_CABECALHO, EMPRESA, LIMITE_DESCRICAO_LONGA } from "@/lib/lista-venda/empresa"
+import { LARGURAS_PADRAO, type LargurasColunas } from "@/lib/lista-venda/larguras"
 
 export interface ItemExportavel extends ItemCalculavel {
   descricao: string
@@ -16,9 +17,20 @@ export interface ItemExportavel extends ItemCalculavel {
 const PRIMEIRA_LINHA_DADOS = 8
 const LINHA_TITULO = 6
 const LINHA_CABECALHO = 7
-// Larguras (em caracteres) das colunas de texto, usadas para estimar a altura
-// da linha quando o texto quebra — a mesma estimativa serve para a coluna B..D.
-const LARGURA_COLUNAS_TEXTO = [38, 22, 11, 11]
+// Largura total da tabela em "caracteres" do Excel. A planilha é impressa com
+// "ajustar à largura da página", então só a PROPORÇÃO entre colunas importa:
+// cada coluna recebe sua porcentagem (a mesma da impressão) desta largura total.
+const LARGURA_TOTAL_CHARS = 130
+// O bloco Qtd ocupa três colunas (caixas · "x" · unid): divide a porcentagem de qtd.
+const PARTES_QTD = { caixas: 0.4, x: 0.2, unid: 0.4 }
+
+// Mínimos do bloco Qtd: abaixo disso o Excel mostra ### em números de 4 dígitos.
+const MIN_CHARS_NUMERO = 4
+const MIN_CHARS_X = 2
+
+function larguraChars(pct: number): number {
+  return Math.round(((pct / 100) * LARGURA_TOTAL_CHARS) * 10) / 10
+}
 
 function linhasNecessarias(texto: string, larguraChars: number): number {
   if (!texto) return 1
@@ -61,9 +73,16 @@ export async function gerarXlsxListaVenda(dados: {
   titulo: string
   rodape: string
   itens: ItemExportavel[]
+  larguras?: LargurasColunas
 }): Promise<{ blob: Blob; nomeArquivo: string }> {
   const { default: ExcelJS } = await import("exceljs")
   const { titulo, rodape, itens } = dados
+  const lg = dados.larguras ?? LARGURAS_PADRAO
+  const largDescricao = larguraChars(lg.descricao)
+  const largFabr = larguraChars(lg.fabr)
+  const largRef = larguraChars(lg.ref)
+  const largVencto = larguraChars(lg.vencto)
+  const largTextos = [largDescricao, largFabr, largRef, largVencto]
 
   const wb = new ExcelJS.Workbook()
   wb.creator = "Comercial Dantas"
@@ -83,9 +102,11 @@ export async function gerarXlsxListaVenda(dados: {
 
   // A Descrição | B Fabr. | C Ref. | D Vencto | E caixas | F "x" | G unid | H R$ UND | I R$ Cx | J R$ Total
   ws.columns = [
-    { width: 38 }, { width: 22 }, { width: 11 }, { width: 11 },
-    { width: 5.5 }, { width: 3 }, { width: 5.5 },
-    { width: 11 }, { width: 12 }, { width: 14 },
+    { width: largDescricao }, { width: largFabr }, { width: largRef }, { width: largVencto },
+    { width: Math.max(MIN_CHARS_NUMERO, larguraChars(lg.qtd * PARTES_QTD.caixas)) },
+    { width: Math.max(MIN_CHARS_X, larguraChars(lg.qtd * PARTES_QTD.x)) },
+    { width: Math.max(MIN_CHARS_NUMERO, larguraChars(lg.qtd * PARTES_QTD.unid)) },
+    { width: larguraChars(lg.und) }, { width: larguraChars(lg.cx) }, { width: larguraChars(lg.total) },
   ]
 
   // ── Logo (linhas 1 a 5) ──
@@ -138,10 +159,10 @@ export async function gerarXlsxListaVenda(dados: {
     const maxLinhas = Math.max(
       ...textos.map((t, n) => {
         const fator = n === 0 && t.length > LIMITE_DESCRICAO_LONGA ? 1.2 : 0.95 // fonte menor cabe mais
-        return linhasNecessarias(t, Math.floor(LARGURA_COLUNAS_TEXTO[n] * fator))
+        return linhasNecessarias(t, Math.floor(largTextos[n] * fator))
       })
     )
-    row.height = Math.max(21, maxLinhas * 13 + 8)
+    row.height = Math.max(18, maxLinhas * 12.5 + 5)
 
     const cx = precoCaixa(item)
     const total = totalItem(item)
@@ -162,7 +183,7 @@ export async function gerarXlsxListaVenda(dados: {
     for (let c = 1; c <= 10; c++) {
       const cell = ws.getCell(r, c)
       const longa = c === 1 && item.descricao.length > LIMITE_DESCRICAO_LONGA
-      cell.font = { name: "Calibri", size: longa ? 8 : 10 }
+      cell.font = { name: "Calibri", size: longa ? 8 : c === 2 ? 9 : 10 }
       cell.border = { top: cinza, bottom: cinza, left: preta, right: preta }
       cell.alignment = {
         vertical: "bottom",
@@ -170,6 +191,10 @@ export async function gerarXlsxListaVenda(dados: {
         wrapText: c <= 4, // Descrição, Fabr., Ref. e Vencto quebram linha; nada invade a vizinha
       }
     }
+    // Bloco Qtd (E·F·G): só a borda externa, sem divisórias internas
+    ws.getCell(r, 5).border = { top: cinza, bottom: cinza, left: preta }
+    ws.getCell(r, 6).border = { top: cinza, bottom: cinza }
+    ws.getCell(r, 7).border = { top: cinza, bottom: cinza, right: preta }
     ws.getCell(r, 5).alignment = { vertical: "bottom", horizontal: "right" }
     ws.getCell(r, 6).alignment = { vertical: "bottom", horizontal: "center" }
     ws.getCell(r, 7).alignment = { vertical: "bottom", horizontal: "left" }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { Sidebar } from "@/components/admin/Sidebar"
+import { VoltarAoTopo } from "@/components/admin/VoltarAoTopo"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 // Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
@@ -68,6 +69,8 @@ export default async function AdminPanelLayout({
           {children}
         </main>
       </div>
+
+      <VoltarAoTopo />
     </div>
   )
 }

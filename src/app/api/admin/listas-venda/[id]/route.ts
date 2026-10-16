@@ -1,10 +1,13 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { requireAdmin, erroValidacao, erroInterno } from "@/lib/supabase/admin-guard"
+import { largurasColunasSchema } from "@/lib/validations/larguras-colunas"
 
 const patchSchema = z.object({
   titulo: z.string().trim().min(1, "O título é obrigatório.").max(200).optional(),
   rodape: z.string().max(1000).optional(),
+  // null = voltar ao padrão
+  larguras_colunas: largurasColunasSchema.nullable().optional(),
 }).strict()
 
 const idSchema = z.string().uuid()

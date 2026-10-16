@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ArrowDown, ArrowUp, FileSpreadsheet, Loader2, Plus, Printer, Trash2, Check } from "lucide-react"
+import type { LargurasColunas } from "@/lib/lista-venda/larguras"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 
 export interface ItemVenda {
@@ -121,12 +122,13 @@ function CelulaNumero({
 // ── Editor ────────────────────────────────────────────────────────────────────
 
 export function EditorListaVenda({
-  listaId, tituloInicial, rodapeInicial, itensIniciais,
+  listaId, tituloInicial, rodapeInicial, itensIniciais, larguras,
 }: {
   listaId: string
   tituloInicial: string
   rodapeInicial: string
   itensIniciais: ItemVenda[]
+  larguras: LargurasColunas
 }) {
   const [titulo, setTitulo] = useState(tituloInicial)
   const [rodape, setRodape] = useState(rodapeInicial)
@@ -216,7 +218,7 @@ export function EditorListaVenda({
     setErro("")
     try {
       const { gerarXlsxListaVenda } = await import("@/lib/lista-venda/exportar-xlsx")
-      const { blob, nomeArquivo } = await gerarXlsxListaVenda({ titulo, rodape, itens })
+      const { blob, nomeArquivo } = await gerarXlsxListaVenda({ titulo, rodape, itens, larguras })
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url

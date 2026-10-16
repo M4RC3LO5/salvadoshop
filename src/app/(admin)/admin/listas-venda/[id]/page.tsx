@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
+import { normalizarLarguras } from "@/lib/lista-venda/larguras"
 import { EditorListaVenda, type ItemVenda } from "./EditorListaVenda"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
@@ -26,7 +27,7 @@ export default async function ListaVendaPage({ params }: { params: { id: string 
 
   const { data: lista } = await supabase
     .from("listas_venda")
-    .select("id, titulo, rodape")
+    .select("id, titulo, rodape, larguras_colunas")
     .eq("id", params.id)
     .maybeSingle()
 
@@ -47,5 +48,5 @@ export default async function ListaVendaPage({ params }: { params: { id: string 
     preco_unitario: i.preco_unitario === null ? null : Number(i.preco_unitario),
   }))
 
-  return <EditorListaVenda listaId={lista.id} tituloInicial={lista.titulo} rodapeInicial={lista.rodape} itensIniciais={itens} />
+  return <EditorListaVenda listaId={lista.id} tituloInicial={lista.titulo} rodapeInicial={lista.rodape} itensIniciais={itens} larguras={normalizarLarguras(lista.larguras_colunas)} />
 }
