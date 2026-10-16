@@ -879,13 +879,31 @@ validade, num_caixas, qtd_embalagem); a tabela `listas_venda_itens` não tem
 coluna para os demais. `estoque_item_id` existe só para rastreio.
 
 - **Banco:** migrations `032_listas_venda.sql` (tabelas, RLS com `is_admin()`
-  — Master e Auxiliar —, índices, grants) e
-  `033_revoke_privilegios_listas_venda.sql`. Sem coluna de total: R$ Cx e
-  R$ Total são calculados (`src/lib/utils/lista-venda.ts`, em centavos).
-- **Telas:** `/admin/listas-venda` (lista, exclusão com confirmação) e
-  `/admin/listas-venda/[id]` (edição). Salvamento **por célula**, ao sair do
+  — Master e Auxiliar —, índices, grants),
+  `033_revoke_privilegios_listas_venda.sql` e
+  `034_listas_venda_larguras_colunas.sql` (coluna `larguras_colunas jsonb`,
+  ver "Larguras por lista"). As três já aplicadas em produção. Sem coluna de
+  total: R$ Cx e R$ Total são calculados (`src/lib/utils/lista-venda.ts`, em
+  centavos).
+- **Gerar a partir da triagem:** botão "Gerar lista de venda" (usa os itens
+  selecionados ou, sem seleção, os exibidos, na ordem da tela). O botão trava
+  no clique (ref síncrona + estado) e mostra "Gerando...", para clique duplo
+  não criar listas duplicadas.
+- **Telas:** `/admin/listas-venda` (lista, exclusão individual e **em massa**)
+  e `/admin/listas-venda/[id]` (edição). Salvamento **por célula**, ao sair do
   campo ou Enter (Esc cancela), um PATCH por campo com reversão se falhar —
-  mesmo padrão do inline-edit da triagem. Reordenação por setas.
+  mesmo padrão do inline-edit da triagem. Descrição, fabricante, referência e
+  vencimento são `textarea` com auto-altura (texto sempre visível). Reordenação
+  por setas.
+- **Exclusão em massa:** checkbox por linha + "selecionar todos" (marca as
+  visíveis); barra "Excluir selecionadas (N)" com confirmação que mostra a
+  quantidade. Uma única requisição `DELETE /api/admin/listas-venda` com
+  `{ ids }` (Zod: UUIDs, 1 a 200 — `MAX_EXCLUSAO_EM_MASSA` em
+  `src/lib/lista-venda/limites.ts`), RLS valendo; itens saem por cascade.
+  A exclusão individual continua em `DELETE /api/admin/listas-venda/[id]`.
+- **Voltar ao topo:** botão flutuante em todo o admin
+  (`src/components/admin/VoltarAoTopo.tsx`), aparece após 400px de rolagem,
+  `print:hidden`.
 - **APIs:** `/api/admin/listas-venda/**`, Zod em tudo, client do Supabase com
   a **sessão do usuário (RLS)** — nunca service role. Por isso funcionam em
   preview (18.12). Guarda comum em `src/lib/supabase/admin-guard.ts`.
@@ -893,11 +911,35 @@ coluna para os demais. `estoque_item_id` existe só para rastreio.
   Comercial Dantas, A4, cabeçalho da tabela repete a cada página; o usuário
   imprime ou escolhe "Salvar como PDF". O menu/sidebar do admin usa
   `print:hidden`. Logo em `public/logo-comercial-dantas.png`; endereço, telefone
-  e e-mail do rodapé ficam em `src/lib/lista-venda/empresa.ts`.
+  e e-mail do rodapé ficam em `src/lib/lista-venda/empresa.ts`. Nenhuma célula
+  invade a vizinha: Fabr., Ref. e Vencto quebram linha (overflow hidden) e
+  valores em dinheiro muito grandes usam fonte menor.
+- **Número de página:** "Página X de Y" no rodapé de cada folha via
+  `@page { @bottom-center }` com `counter(page)`/`counter(pages)` (margem
+  inferior de 12mm reservada). **Só funciona no Chrome e no Edge recentes
+  (131+)**; Firefox e Safari imprimem sem o número. No diálogo de impressão,
+  deixar **"Cabeçalhos e rodapés" desmarcado**, senão o navegador escreve data
+  e URL na mesma margem. No xlsx, rodapé de impressão `Página &P de &N`.
+- **Larguras por lista (034):** `listas_venda.larguras_colunas` guarda a
+  porcentagem de cada coluna (`descricao`, `fabr`, `ref`, `vencto`, `qtd`,
+  `und`, `cx`, `total`); `NULL` = padrão do código
+  (`src/lib/lista-venda/larguras.ts`, pensado para fabricante de ~20
+  caracteres em 1 linha), assim mudar o padrão vale para toda lista nunca
+  personalizada. Na tela de impressão há uma alça de arraste na borda direita
+  de cada título (só na tela, `print:hidden`; também ← → no teclado): a coluna
+  vizinha compensa, a soma continua 100% e há largura mínima por coluna. Salva
+  ao soltar (debounce de 500ms) com indicador "Larguras salvas" e botão
+  "Restaurar padrão" (grava `NULL`). Validação Zod em
+  `src/lib/validations/larguras-colunas.ts` (8 chaves, mínimos, soma ~100).
+  Master e Auxiliar podem ajustar (mesma policy de UPDATE).
 - **Excel:** `src/lib/lista-venda/exportar-xlsx.ts` (exceljs, client-side via
   `import()`), mesmo layout da impressão, com logo. R$ Cx, R$ Total e o total
   geral são **fórmulas**; a coluna Qtd vira três células (caixas · x · unid)
-  para continuar numérica. Linhas sem preço ficam em branco, como na impressão.
+  para continuar numérica, com só a borda externa do bloco. As larguras de
+  coluna seguem as porcentagens salvas (Qtd divide a sua entre E/F/G, com
+  mínimo para não mostrar `###`); descrição, fabr., ref. e vencto quebram
+  linha e a altura da linha é calculada pelo texto que mais quebra. Linhas sem
+  preço ficam em branco, como na impressão.
 - **Removido:** exportação CSV da triagem (substituída por esta lista).
 
 ### 18.14 LIÇÃO APRENDIDA — privilégios padrão de tabela nova no Supabase
@@ -913,4 +955,4 @@ não foram auditadas (ver BACKLOG).
 ---
 
 *Última atualização: Outubro 2026*
-*Versão: 2.8*
+*Versão: 2.9*
