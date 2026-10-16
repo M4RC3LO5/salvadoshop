@@ -16,6 +16,25 @@ export interface ItemExportavel extends ItemCalculavel {
 const PRIMEIRA_LINHA_DADOS = 8
 const LINHA_TITULO = 6
 const LINHA_CABECALHO = 7
+// Larguras (em caracteres) das colunas de texto, usadas para estimar a altura
+// da linha quando o texto quebra — a mesma estimativa serve para a coluna B..D.
+const LARGURA_COLUNAS_TEXTO = [38, 22, 11, 11]
+
+function linhasNecessarias(texto: string, larguraChars: number): number {
+  if (!texto) return 1
+  // Quebra por palavras, como o Excel faz; palavra maior que a coluna quebra no meio.
+  let linhas = 1
+  let atual = 0
+  for (const palavra of texto.split(/\s+/)) {
+    let tam = palavra.length
+    while (tam > larguraChars) { linhas++; tam -= larguraChars }
+    if (atual === 0) atual = tam
+    else if (atual + 1 + tam <= larguraChars) atual += 1 + tam
+    else { linhas++; atual = tam }
+  }
+  return linhas
+}
+
 const MOEDA = '"R$" #,##0.00'
 
 function nomeArquivoSeguro(titulo: string): string {
@@ -64,7 +83,7 @@ export async function gerarXlsxListaVenda(dados: {
 
   // A Descrição | B Fabr. | C Ref. | D Vencto | E caixas | F "x" | G unid | H R$ UND | I R$ Cx | J R$ Total
   ws.columns = [
-    { width: 50 }, { width: 14 }, { width: 10 }, { width: 10 },
+    { width: 38 }, { width: 22 }, { width: 11 }, { width: 11 },
     { width: 5.5 }, { width: 3 }, { width: 5.5 },
     { width: 11 }, { width: 12 }, { width: 14 },
   ]
@@ -114,7 +133,15 @@ export async function gerarXlsxListaVenda(dados: {
   itens.forEach((item, idx) => {
     const r = PRIMEIRA_LINHA_DADOS + idx
     const row = ws.getRow(r)
-    row.height = 21
+    // Altura pela célula de texto que mais quebra (Descrição, Fabr., Ref., Vencto)
+    const textos = [item.descricao, item.fabricante ?? "", item.referencia ?? "", item.vencimento ?? ""]
+    const maxLinhas = Math.max(
+      ...textos.map((t, n) => {
+        const fator = n === 0 && t.length > LIMITE_DESCRICAO_LONGA ? 1.2 : 0.95 // fonte menor cabe mais
+        return linhasNecessarias(t, Math.floor(LARGURA_COLUNAS_TEXTO[n] * fator))
+      })
+    )
+    row.height = Math.max(21, maxLinhas * 13 + 8)
 
     const cx = precoCaixa(item)
     const total = totalItem(item)
@@ -140,7 +167,7 @@ export async function gerarXlsxListaVenda(dados: {
       cell.alignment = {
         vertical: "bottom",
         horizontal: c === 1 || c >= 8 ? "left" : "center",
-        wrapText: c === 1,
+        wrapText: c <= 4, // Descrição, Fabr., Ref. e Vencto quebram linha; nada invade a vizinha
       }
     }
     ws.getCell(r, 5).alignment = { vertical: "bottom", horizontal: "right" }

@@ -11,6 +11,12 @@ export const dynamic = "force-dynamic"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
+// Valores muito grandes (ex.: R$ 1.481.400,00) usam fonte menor para caber na célula.
+function Moeda({ valor }: { valor: number | null }) {
+  const txt = valor === null ? "" : BRL.format(valor)
+  return <td className={`direita num${txt.length > 12 ? " apertada" : ""}`}>{txt}</td>
+}
+
 export default async function ImprimirListaVendaPage({ params }: { params: { id: string } }) {
   if (!UUID.test(params.id)) notFound()
 
@@ -62,7 +68,10 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
         .folha thead { display: table-header-group; }
         .folha tr { break-inside: avoid; page-break-inside: avoid; }
         .folha th, .folha td { border: 1px solid #000; padding: 1.2mm 0.9mm; }
-        .folha th, .folha td:not(:first-child) { white-space: nowrap; overflow-wrap: normal; }
+        .folha th { white-space: nowrap; }
+        .folha td { overflow: hidden; word-break: break-word; }
+        .folha td.num { white-space: nowrap; }
+        .folha td.apertada { font-size: 8pt; }
         .folha td { border-top-color: #9a9a9a; border-bottom-color: #9a9a9a; vertical-align: bottom; height: 7.4mm; overflow-wrap: anywhere; }
         .folha th { background: #${COR_CABECALHO}; font-family: "Arial Black", Arial, sans-serif; font-weight: 900; font-size: 9pt; text-align: center; }
         .folha th.titulo { text-decoration: underline; border-bottom: 1px solid #000; }
@@ -93,14 +102,14 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
 
         <table>
           <colgroup>
-            <col style={{ width: "36%" }} />
-            <col style={{ width: "10.5%" }} />
-            <col style={{ width: "8%" }} />
-            <col style={{ width: "9.2%" }} />
+            <col style={{ width: "28%" }} />
+            <col style={{ width: "15%" }} />
             <col style={{ width: "8.5%" }} />
-            <col style={{ width: "8.8%" }} />
             <col style={{ width: "9%" }} />
+            <col style={{ width: "8.5%" }} />
+            <col style={{ width: "8.5%" }} />
             <col style={{ width: "10%" }} />
+            <col style={{ width: "12.5%" }} />
           </colgroup>
           <thead>
             <tr><th colSpan={8} className="titulo">{lista.titulo}</th></tr>
@@ -125,10 +134,10 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
                   <td className="centro">{i.fabricante}</td>
                   <td className="centro">{i.referencia}</td>
                   <td className="centro">{i.vencimento}</td>
-                  <td className="centro">{i.qtd_caixas} &nbsp;x&nbsp; {i.unid_por_caixa}</td>
-                  <td className="direita">{i.preco_unitario === null ? "" : BRL.format(i.preco_unitario)}</td>
-                  <td className="direita">{cx === null ? "" : BRL.format(cx)}</td>
-                  <td className="direita">{total === null ? "" : BRL.format(total)}</td>
+                  <td className="centro num">{i.qtd_caixas} &nbsp;x&nbsp; {i.unid_por_caixa}</td>
+                  <Moeda valor={i.preco_unitario} />
+                  <Moeda valor={cx} />
+                  <Moeda valor={total} />
                 </tr>
               )
             })}

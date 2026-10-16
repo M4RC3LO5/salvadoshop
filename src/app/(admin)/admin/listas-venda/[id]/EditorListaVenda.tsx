@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, ArrowDown, ArrowUp, FileSpreadsheet, Loader2, Plus, Printer, Trash2, Check } from "lucide-react"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
@@ -35,23 +35,42 @@ function CelulaTexto({
   opcional?: boolean
 }) {
   const [v, setV] = useState(valor ?? "")
+  const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => setV(valor ?? ""), [valor])
+
+  // Auto-altura: o campo cresce com o texto (quebra de linha) e acompanha
+  // mudanças de largura da coluna. Texto sempre visível por inteiro.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ajustar = () => {
+      el.style.height = "auto"
+      el.style.height = `${el.scrollHeight}px`
+    }
+    ajustar()
+    window.addEventListener("resize", ajustar)
+    return () => window.removeEventListener("resize", ajustar)
+  }, [v])
+
   return (
-    <input
-      type="text"
+    <textarea
+      ref={ref}
+      rows={1}
       value={v}
       aria-label={label}
-      onChange={(e) => setV(e.target.value)}
+      title={v || undefined}
+      // Uma linha lógica só: quebras coladas viram espaço.
+      onChange={(e) => setV(e.target.value.replace(/\s*\n+\s*/g, " "))}
       onBlur={() => {
         const limpo = v.trim()
         if (limpo === (valor ?? "")) { setV(valor ?? ""); return }
         onSalvar(opcional && limpo === "" ? null : limpo)
       }}
       onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur()
+        if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur() }
         if (e.key === "Escape") { setV(valor ?? ""); e.currentTarget.blur() }
       }}
-      className={`${INPUT} ${className}`}
+      className={`${INPUT} block resize-none overflow-hidden break-words leading-snug ${className}`}
     />
   )
 }
@@ -267,12 +286,12 @@ export function EditorListaVenda({
       </div>
 
       <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-        <table className="w-full min-w-[960px] text-sm">
+        <table className="w-full min-w-[1040px] text-sm">
           <thead className="bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
             <tr>
               <th scope="col" className="w-16 px-2 py-2"><span className="sr-only">Ordem</span></th>
               <th scope="col" className="px-2 py-2">Descrição</th>
-              <th scope="col" className="w-32 px-2 py-2">Fabr.</th>
+              <th scope="col" className="w-40 px-2 py-2">Fabr.</th>
               <th scope="col" className="w-28 px-2 py-2">Ref.</th>
               <th scope="col" className="w-24 px-2 py-2">Vencto</th>
               <th scope="col" className="w-36 px-2 py-2">Qtd (cx × unid)</th>
