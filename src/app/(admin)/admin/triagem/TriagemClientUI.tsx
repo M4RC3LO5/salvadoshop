@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   GripVertical,
   Search,
@@ -9,8 +10,8 @@ import {
   ChevronUp,
   Loader2,
   AlertTriangle,
-  FileDown,
   FileText,
+  ClipboardList,
   Printer,
   Plus,
   PackageOpen,
@@ -176,17 +177,6 @@ function escapeHtml(valor: string): string {
   const div = document.createElement("div")
   div.textContent = valor
   return div.innerHTML
-}
-
-function baixarArquivo(blob: Blob, nomeArquivo: string) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement("a")
-  a.href = url
-  a.download = nomeArquivo
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
 }
 
 // ── Diálogo de confirmação genérico ─────────────────────────────────────────
@@ -820,6 +810,8 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
   const [confirmarExclusaoLote, setConfirmarExclusaoLote] = useState(false)
   const [excluindoLote, setExcluindoLote] = useState(false)
   const [exportando, setExportando] = useState<"pdf" | null>(null)
+  const [gerandoListaVenda, setGerandoListaVenda] = useState(false)
+  const router = useRouter()
 
   const [mostrarMoverDialog, setMostrarMoverDialog] = useState(false)
   const [movendo, setMovendo] = useState(false)
@@ -1245,16 +1237,35 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
     return formatarValorExibicao(coluna, valor)
   }
 
-  function exportarCSV() {
-    const colunas = colunasParaExportar()
-    const linhas = linhasParaExportar()
-    const cabecalho = colunas.map((c) => c.label)
-    const corpo = linhas.map((item) => colunas.map((c) => valorExportavel(item, c)))
-    const csv = [cabecalho, ...corpo]
-      .map((linha) => linha.map((v) => `"${v.replace(/"/g, '""')}"`).join(","))
-      .join("\r\n")
-    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
-    baixarArquivo(blob, `${listaSelecionada?.nome ?? "triagem"}.csv`)
+  async function gerarListaVenda() {
+    if (!listaSelecionada) return
+    // Mesmo conjunto do linhasParaExportar, na ordem em que aparece na tela.
+    const alvo = linhasParaExportar()
+    const ids = new Set(alvo.map((i) => i.id))
+    const naTela = itensExibidos.filter((i) => ids.has(i.id))
+    const foraDaTela = alvo.filter((i) => !naTela.includes(i))
+    const itemIds = [...naTela, ...foraDaTela].map((i) => i.id)
+    if (itemIds.length === 0) return
+
+    setGerandoListaVenda(true)
+    setErroAcao("")
+    try {
+      const res = await fetch("/api/admin/listas-venda", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ triagem_lista_id: listaSelecionada.id, item_ids: itemIds }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErroAcao(json.error?.message ?? "Erro ao gerar a lista de venda.")
+        setGerandoListaVenda(false)
+        return
+      }
+      router.push(`/admin/listas-venda/${json.data.id}`)
+    } catch {
+      setErroAcao("Erro de conexão ao gerar a lista de venda.")
+      setGerandoListaVenda(false)
+    }
   }
 
   async function exportarPDF() {
@@ -1560,11 +1571,11 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
                 >
                   <FolderInput className="h-3.5 w-3.5" aria-hidden="true" /> Mover para outra lista
                 </button>
-                <button type="button" onClick={exportarCSV} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
-                  <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Exportar CSV
-                </button>
                 <button type="button" onClick={exportarPDF} disabled={exportando === "pdf"} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                   {exportando === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileText className="h-3.5 w-3.5" aria-hidden="true" />} Exportar PDF
+                </button>
+                <button type="button" onClick={gerarListaVenda} disabled={gerandoListaVenda} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                  {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} Gerar lista de venda
                 </button>
                 <button type="button" onClick={imprimir} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
                   <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
@@ -1579,11 +1590,11 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
           {/* Exportação sem seleção — sempre acessível */}
           {selecionados.size === 0 && itens.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={exportarCSV} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
-                <FileDown className="h-3.5 w-3.5" aria-hidden="true" /> Exportar CSV
-              </button>
               <button type="button" onClick={exportarPDF} disabled={exportando === "pdf"} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
                 {exportando === "pdf" ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileText className="h-3.5 w-3.5" aria-hidden="true" />} Exportar PDF
+              </button>
+              <button type="button" onClick={gerarListaVenda} disabled={gerandoListaVenda} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50">
+                {gerandoListaVenda ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />} Gerar lista de venda
               </button>
               <button type="button" onClick={imprimir} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
                 <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
