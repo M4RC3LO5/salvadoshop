@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
+import { requireAdmin } from "@/lib/supabase/admin-guard"
+import { MAX_EXCLUSAO_EM_MASSA } from "@/lib/lista-venda/limites"
 
 // Client do Supabase com a sessão do usuário (RLS) — sem service role.
 // Os dados da lista de venda são lidos de estoque_itens aqui no servidor: o
@@ -11,6 +13,14 @@ const bodySchema = z.object({
   triagem_lista_id: z.string().uuid(),
   // IDs na ordem em que aparecem na tela — define a coluna "ordem".
   item_ids: z.array(z.string().uuid()).min(1, "Selecione ao menos um item.").max(1000),
+})
+
+// Exclusão em massa: uma requisição, lista de ids validada, limite por chamada.
+const excluirSchema = z.object({
+  ids: z.array(z.string().uuid("ID inválido.")).min(1, "Selecione ao menos uma lista.").max(
+    MAX_EXCLUSAO_EM_MASSA,
+    `Selecione no máximo ${MAX_EXCLUSAO_EM_MASSA} listas por vez.`
+  ),
 })
 
 // "2028-04-15" -> "04/2028"
@@ -149,4 +159,50 @@ export async function POST(request: NextRequest) {
   }))
 
   return Response.json({ success: true, data: { id: lista.id } }, { status: 201 })
+}
+
+// DELETE — exclui várias listas de uma vez (itens saem em cascata no banco)
+export async function DELETE(request: NextRequest) {
+  const guard = await requireAdmin()
+  if (!guard.ok) return guard.response
+
+  let body: unknown
+  try {
+    body = await request.json()
+  } catch {
+    return Response.json(
+      { success: false, error: { code: "VALIDATION_ERROR", message: "Body inválido." } },
+      { status: 400 }
+    )
+  }
+
+  const parsed = excluirSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json(
+      { success: false, error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message ?? "Dados inválidos." } },
+      { status: 422 }
+    )
+  }
+  const ids = Array.from(new Set(parsed.data.ids))
+
+  // A RLS (is_admin) continua valendo; .select() devolve só o que foi de fato apagado.
+  const { data, error } = await guard.supabase.from("listas_venda").delete().in("id", ids).select("id")
+
+  if (error) {
+    console.error(JSON.stringify({ event: "listas_venda.excluir_massa.error", error }))
+    return Response.json(
+      { success: false, error: { code: "INTERNAL_ERROR", message: "Erro ao excluir as listas." } },
+      { status: 500 }
+    )
+  }
+
+  console.log(JSON.stringify({
+    event: "listas_venda.excluidas_em_massa",
+    solicitadas: ids.length,
+    excluidas: data?.length ?? 0,
+    admin_id: guard.adminUser.id,
+    timestamp: new Date().toISOString(),
+  }))
+
+  return Response.json({ success: true, data: { ids: (data ?? []).map((r) => r.id) } })
 }

@@ -100,6 +100,9 @@ export async function gerarXlsxListaVenda(dados: {
     },
   })
 
+  // Rodapé de impressão do Excel: "Página X de Y" (o endereço da empresa continua nas células)
+  ws.headerFooter.oddFooter = "&C&8Página &P de &N"
+
   // A Descrição | B Fabr. | C Ref. | D Vencto | E caixas | F "x" | G unid | H R$ UND | I R$ Cx | J R$ Total
   ws.columns = [
     { width: largDescricao }, { width: largFabr }, { width: largRef }, { width: largVencto },

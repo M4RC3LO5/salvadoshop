@@ -48,13 +48,15 @@ export default async function ImprimirListaVendaPage({ params }: { params: { id:
   return (
     <div className="lista-impressao">
       <style>{`
-        @page { size: A4 portrait; margin: 8mm; }
+        /* "Página X de Y" na margem inferior de cada folha (margin box, Chrome/Edge 131+).
+           A margem inferior maior reserva o espaço: não encosta no endereço nem na tabela. */
+        @page { size: A4 portrait; margin: 8mm 8mm 12mm 8mm; @bottom-center { content: "Página " counter(page) " de " counter(pages); font-family: Arial, sans-serif; font-size: 8pt; color: #444; } }
         @media print {
           html, body { background: #fff !important; }
         }
         .lista-impressao { font-family: Calibri, Carlito, Arial, sans-serif; color: #000; }
         .folha { background: #fff; width: 210mm; max-width: 100%; margin: 0 auto; padding: 8mm; box-sizing: border-box; display: flex; flex-direction: column; min-height: 297mm; }
-        @media print { .folha { width: auto; padding: 0; margin: 0; min-height: 279mm; } }
+        @media print { .folha { width: auto; padding: 0; margin: 0; min-height: 277mm; } }
         .folha table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; }
         .folha thead { display: table-header-group; }
         .folha tr { break-inside: avoid; page-break-inside: avoid; }
