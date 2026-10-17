@@ -3,6 +3,23 @@ import { z } from "zod"
 // Remove as tags permitidas; se sobrar qualquer "<", há tag (ou atributo) não permitido.
 const TAGS_PERMITIDAS = /<\/?(p|ul|li|strong)>/gi
 
+const TAG_QUALQUER = /(<[^<>]*>)/ // sem "<" dentro, para um "<" solto não engolir a tag seguinte
+const TAG_PERMITIDA = /^<(\/?)(p|ul|li|strong)\s*>$/i
+
+// Limpa o HTML da IA em vez de rejeitar: mantém só <p>, <ul>, <li> e <strong> (sem atributos),
+// remove qualquer outra tag e escapa "<" solto. O refine de descricao_html segue como trava final.
+export function sanitizarDescricao(html: string): string {
+  return html
+    .split(TAG_QUALQUER) // posições ímpares são tags; as pares, texto
+    .map((parte, i) => {
+      if (i % 2 === 0) return parte.replace(/</g, "&lt;")
+      const m = TAG_PERMITIDA.exec(parte)
+      return m ? `<${m[1]}${m[2].toLowerCase()}>` : ""
+    })
+    .join("")
+    .trim()
+}
+
 // Dados extraídos pela IA, salvos em anuncios_ia.dados_ia.
 //
 // ATENÇÃO: "pedido" é dado INTERNO (custo de compra, origem do produto).

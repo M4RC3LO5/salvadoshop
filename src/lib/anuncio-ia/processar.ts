@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { MODELO, calcularCustoUsd } from "./custo"
-import { DadosAnuncioIa } from "./schema"
+import { DadosAnuncioIa, sanitizarDescricao } from "./schema"
 import { FERRAMENTA_RASCUNHO, montarSystemPrompt } from "./prompt"
 
 // Só roda no servidor — não importar em componente client.
@@ -110,7 +110,21 @@ export async function processarAnuncio(
     const bloco = resposta.content.find((b) => b.type === "tool_use")
     if (!bloco || bloco.type !== "tool_use") throw new Error("Resposta sem tool_use.")
 
-    const dados = DadosAnuncioIa.parse(bloco.input)
+    // Limpa a descrição (tags não permitidas, "<" solto) numa cópia, em vez de falhar depois da chamada paga
+    let entrada: unknown = bloco.input
+    if (entrada && typeof entrada === "object" && !Array.isArray(entrada)) {
+      const copia = { ...(entrada as Record<string, unknown>) }
+      if (typeof copia.descricao_html === "string") {
+        const limpa = sanitizarDescricao(copia.descricao_html)
+        if (limpa !== copia.descricao_html) {
+          console.log(JSON.stringify({ event: "anuncio_ia.descricao_sanitizada", anuncio_id: id }))
+        }
+        copia.descricao_html = limpa
+      }
+      entrada = copia
+    }
+
+    const dados = DadosAnuncioIa.parse(entrada)
     if (dados.categoria_id && !lista.some((c) => c.id === dados.categoria_id)) {
       dados.categoria_id = null
     }
