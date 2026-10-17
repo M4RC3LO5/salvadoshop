@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-export function BotaoProcessar({ id, status }: { id: string; status: "enviado" | "erro" }) {
+export function BotaoProcessar({ id, status }: { id: string; status: "enviado" | "erro" | "processando" }) {
   const router = useRouter()
   const [processando, setProcessando] = useState(false)
   const [erro, setErro] = useState("")
@@ -39,7 +39,7 @@ export function BotaoProcessar({ id, status }: { id: string; status: "enviado" |
         className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {processando && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-        {processando ? "Processando..." : status === "erro" ? "Tentar de novo" : "Processar"}
+        {processando ? "Processando..." : status === "enviado" ? "Processar" : "Tentar de novo"}
       </button>
       {erro && (
         <p role="alert" className="max-w-[16rem] text-right text-xs text-red-700">

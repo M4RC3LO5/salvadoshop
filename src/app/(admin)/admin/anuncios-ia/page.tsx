@@ -4,9 +4,13 @@ import Image from "next/image"
 import { Camera, ImageOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { BotaoProcessar } from "./BotaoProcessar"
+import { AtualizacaoAutomatica } from "./AtualizacaoAutomatica"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 export const dynamic = "force-dynamic"
+
+// Processando há mais de 5 min = travado (a trava de processar.ts já permite retomar)
+const TRAVADO_APOS_MS = 5 * 60 * 1000
 
 const STATUS_ROTULO: Record<string, { label: string; cls: string }> = {
   enviado:     { label: "Na fila",              cls: "bg-gray-100 text-gray-700" },
@@ -57,7 +61,7 @@ export default async function AnunciosIaPage({
 
   const { data, error } = await supabase
     .from("anuncios_ia")
-    .select("id, status, imagens, created_at, dados_ia, erro_mensagem, custo_usd")
+    .select("id, status, imagens, created_at, updated_at, dados_ia, erro_mensagem, custo_usd")
     .neq("status", "descartado")
     .order("created_at", { ascending: false })
 
@@ -72,6 +76,9 @@ export default async function AnunciosIaPage({
       id: a.id as string,
       status: a.status as string,
       created_at: a.created_at as string,
+      travado:
+        a.status === "processando" &&
+        Date.now() - new Date(a.updated_at as string).getTime() > TRAVADO_APOS_MS,
       qtdFotos: fotos.length,
       miniatura: fotos[0]?.url ?? null,
       nome: ((a.dados_ia as { nome?: string | null } | null)?.nome ?? null) as string | null,
@@ -79,6 +86,8 @@ export default async function AnunciosIaPage({
       custo: a.custo_usd === null || a.custo_usd === undefined ? null : Number(a.custo_usd),
     }
   })
+
+  const haPendente = anuncios.some((a) => a.status === "enviado" || a.status === "processando")
 
   return (
     <div className="space-y-6">
@@ -98,6 +107,8 @@ export default async function AnunciosIaPage({
           Fotos enviadas! O anúncio entrou na fila.
         </div>
       )}
+
+      <AtualizacaoAutomatica ativo={haPendente} />
 
       {error && (
         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
@@ -146,8 +157,8 @@ export default async function AnunciosIaPage({
                   )}
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}>{st.label}</span>
-                {(a.status === "enviado" || a.status === "erro") && (
-                  <BotaoProcessar id={a.id} status={a.status} />
+                {(a.status === "enviado" || a.status === "erro" || a.travado) && (
+                  <BotaoProcessar id={a.id} status={a.travado ? "processando" : (a.status as "enviado" | "erro")} />
                 )}
               </li>
             )
