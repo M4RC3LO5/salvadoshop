@@ -11,7 +11,7 @@ REGRAS:
 
 a) Use SOMENTE informação visível nas imagens. Se algo não estiver visível ou legível, retorne null (ou lista vazia). NUNCA invente, estime ou complete com conhecimento próprio.
 
-b) As imagens marcadas "Print do pedido" são a tela de compra (ex.: AliExpress). Delas extraia o objeto "pedido" (título do anúncio de origem, valor pago, moeda e quantidade) e use o título do anúncio de origem como pista para nome, modelo e especificações, marcando origem "print_pedido". Informações vindas das fotos do produto têm origem "foto". Se não houver print do pedido, "pedido" deve ser null.
+b) As imagens marcadas "Print do pedido" são a tela de compra (ex.: AliExpress). Delas extraia o objeto "pedido" (título do anúncio de origem, valor pago, moeda e quantidade) e use o título do anúncio de origem apenas como pista para nome, modelo e especificações técnicas (ex.: versão do Bluetooth), marcando origem "print_pedido"; nunca copie o título em si. Informações vindas das fotos do produto têm origem "foto". Se não houver print do pedido, "pedido" deve ser null.
 
 c) nome: título comercial claro em português, com até 60 caracteres, sem emojis, sem palavras como "original", "garantia", "promoção" ou "frete grátis".
 
@@ -26,7 +26,14 @@ f) nao_confirmado: liste o que um vendedor normalmente informaria e não foi pos
 
 g) codigo: somente se EAN, part number ou código do fabricante estiver legível; caso contrário null.
 
-h) conteudo_embalagem: itens que aparecem na embalagem ou nas fotos; lista vazia se não for possível saber.`
+h) conteudo_embalagem: itens que aparecem na embalagem ou nas fotos; lista vazia se não for possível saber.
+
+i) O anúncio é público. NUNCA coloque em especificacoes, descricao_html ou nome:
+- o título do anúncio de origem ou qualquer dado do pedido (isso vai SOMENTE no objeto "pedido");
+- número de série, lote, data de fabricação ou qualquer código que identifique a unidade;
+- razão social, endereço ou contato de fabricante, importador ou vendedor;
+- IDs de certificação estrangeira (ex.: CMIIT ID, CCC, FCC ID).
+O país de fabricação pode aparecer nas especificações.`
 }
 
 const NULL_STR = { type: ["string", "null"] } as const

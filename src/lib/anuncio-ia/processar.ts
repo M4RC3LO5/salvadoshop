@@ -24,6 +24,17 @@ function encurtarNome(nome: string): string {
   return base.trim()
 }
 
+// Nomes de especificação que nunca podem ir para o produto público (comparados sem acento, minúsculos)
+const NOMES_PROIBIDOS = ["anuncio de origem", "titulo do anuncio", "serial", "numero de serie", "lote", "cmiit"]
+
+function normalizar(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
+}
+
 function detalharErro(e: unknown): unknown {
   return e instanceof Error ? { name: e.name, message: e.message } : e
 }
@@ -106,6 +117,21 @@ export async function processarAnuncio(
     if (dados.nome && dados.nome.length > LIMITE_NOME) {
       dados.nome = encurtarNome(dados.nome)
       dados.nao_confirmado.push("Título encurtado automaticamente; revise o nome.")
+    }
+
+    // Proteção em código: o anúncio é público, então tira das especificações
+    // o que é do pedido ou identifica a unidade (mesmo se a IA ignorar o prompt).
+    const tituloOrigem = normalizar(dados.pedido?.titulo_anuncio_origem ?? "")
+    const antes = dados.especificacoes.length
+    dados.especificacoes = dados.especificacoes.filter((e) => {
+      const nomeNorm = normalizar(e.nome)
+      if (NOMES_PROIBIDOS.some((t) => nomeNorm.includes(t))) return false
+      if (tituloOrigem && normalizar(e.valor) === tituloOrigem) return false
+      return true
+    })
+    const removidos = antes - dados.especificacoes.length
+    if (removidos > 0) {
+      console.log(JSON.stringify({ event: "anuncio_ia.especificacoes_filtradas", anuncio_id: id, removidos }))
     }
 
     // Passo 5 — sucesso
