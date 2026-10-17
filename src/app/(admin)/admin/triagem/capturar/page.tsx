@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Camera,
   RotateCcw,
@@ -14,6 +15,7 @@ import {
   Tag as TagIcon,
   PackageX,
 } from "lucide-react"
+import { EscolherLista, type ListaCaptura } from "./EscolherLista"
 
 function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -204,9 +206,28 @@ function inputCls(opts: { erro?: boolean; destaque?: boolean } = {}) {
   )
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function uuidOuNulo(valor: string | string[] | undefined): string | null {
+  return typeof valor === "string" && UUID_RE.test(valor) ? valor : null
+}
+
 // ── Página ───────────────────────────────────────────────────────────────────
 
-export default function CapturarTriagemPage() {
+export default function CapturarTriagemPage({
+  searchParams,
+}: {
+  searchParams?: { lista?: string | string[]; sugerida?: string | string[] }
+}) {
+  const router = useRouter()
+  const listaId = uuidOuNulo(searchParams?.lista)
+  const sugeridaId = uuidOuNulo(searchParams?.sugerida)
+
+  // Listas existentes (GET /api/triagem/listas) — usadas na Etapa 0 e para validar ?lista
+  const [listas, setListas] = useState<ListaCaptura[] | null>(null)
+  const [erroListas, setErroListas] = useState("")
+  const [confirmandoTroca, setConfirmandoTroca] = useState(false)
+
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1)
   const [tipoCaptura, setTipoCaptura] = useState<TipoCaptura | null>(null)
 
@@ -228,9 +249,44 @@ export default function CapturarTriagemPage() {
   const [salvando, setSalvando] = useState(false)
   const [erroSalvar, setErroSalvar] = useState("")
 
-  // Lista de triagem em andamento — itens seguintes caem na mesma lista
-  const [listaId, setListaId] = useState<string | null>(null)
   const [mensagemSucesso, setMensagemSucesso] = useState("")
+
+  async function carregarListas() {
+    setErroListas("")
+    try {
+      const res = await fetch("/api/triagem/listas")
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setErroListas(json.error?.message ?? "Não foi possível carregar as listas.")
+        return
+      }
+      setListas(json.data as ListaCaptura[])
+    } catch {
+      setErroListas("Erro de conexão ao carregar as listas.")
+    }
+  }
+
+  useEffect(() => {
+    carregarListas()
+  }, [])
+
+  const listaAtiva = listaId && listas ? listas.find((l) => l.id === listaId) ?? null : null
+  const listaNaoEncontrada = !!listaId && !!listas && !listaAtiva
+
+  function escolherLista(lista: ListaCaptura) {
+    setListas((prev) => (prev && !prev.some((l) => l.id === lista.id) ? [lista, ...prev] : prev))
+    router.replace(`/admin/triagem/capturar?lista=${lista.id}`)
+  }
+
+  function trocarLista() {
+    if (!listaAtiva) return
+    router.replace(`/admin/triagem/capturar?sugerida=${listaAtiva.id}`)
+  }
+
+  function aoClicarTrocar() {
+    if (etapa === 1) trocarLista()
+    else setConfirmandoTroca(true)
+  }
 
   useEffect(() => {
     if (!mensagemSucesso) return
@@ -360,6 +416,11 @@ export default function CapturarTriagemPage() {
     setErroSalvar("")
     if (!formValido) return
 
+    if (!listaAtiva) {
+      setErroSalvar("Lista não encontrada. Escolha uma lista antes de salvar.")
+      return
+    }
+
     if (!fotoConvertida || !tipoCaptura) {
       setErroSalvar("Foto não encontrada. Volte e capture a foto novamente.")
       return
@@ -384,7 +445,7 @@ export default function CapturarTriagemPage() {
       formData.append("fornecedor", campos.fornecedor)
       formData.append("tipo_captura", tipoCaptura)
       formData.append("campos_ia", JSON.stringify(montarCamposIA()))
-      if (listaId) formData.append("lista_id", listaId)
+      formData.append("lista_id", listaAtiva.id)
 
       const res = await fetch("/api/triagem/itens", { method: "POST", body: formData })
       const json = await res.json()
@@ -394,7 +455,6 @@ export default function CapturarTriagemPage() {
         return
       }
 
-      setListaId(json.data.lista_id)
       setMensagemSucesso("Item salvo")
       iniciarProximoItem()
     } catch {
@@ -428,12 +488,56 @@ export default function CapturarTriagemPage() {
     setErroSalvar("")
   }
 
+  const voltarHref = listaAtiva ? `/admin/triagem?lista=${listaAtiva.id}` : "/admin/triagem"
+
+  // ── Etapa 0 — escolha da lista ──
+  if (!listaAtiva) {
+    return (
+      <div className="mx-auto flex max-w-xl flex-col gap-6 pb-10">
+        <div className="border-b border-stone-200 pb-4">
+          <Link
+            href={voltarHref}
+            className="inline-flex w-fit items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
+          </Link>
+        </div>
+
+        <h1 className="text-2xl font-bold text-stone-800">Triagem de Estoque</h1>
+
+        {erroListas ? (
+          <div className="flex flex-col items-start gap-3">
+            <p role="alert" className="text-sm text-red-600">{erroListas}</p>
+            <button
+              type="button"
+              onClick={carregarListas}
+              className="inline-flex min-h-[44px] items-center rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : listas === null ? (
+          <p role="status" className="flex items-center gap-2 text-sm text-stone-500">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Carregando listas...
+          </p>
+        ) : (
+          <EscolherLista
+            listas={listas}
+            sugeridaId={sugeridaId}
+            aviso={listaNaoEncontrada ? "Lista não encontrada. Escolha outra." : undefined}
+            onEscolher={escolherLista}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-6 pb-10">
 
       <div className="border-b border-stone-200 pb-4">
         <Link
-          href="/admin/triagem"
+          href={voltarHref}
           className="inline-flex w-fit items-center gap-1.5 text-sm text-stone-500 hover:text-stone-700"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Voltar para a lista
@@ -454,8 +558,44 @@ export default function CapturarTriagemPage() {
             />
           ))}
         </div>
-        {listaId && (
-          <p className="mt-2 text-xs text-stone-400">Adicionando itens à lista de triagem em andamento.</p>
+      </div>
+
+      {/* Faixa da lista ativa */}
+      <div className="flex flex-col gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 text-sm text-green-900">
+            Lista: <span className="break-words font-semibold">{listaAtiva.nome}</span>
+          </p>
+          <button
+            type="button"
+            onClick={aoClicarTrocar}
+            disabled={salvando}
+            className="inline-flex min-h-[44px] shrink-0 items-center rounded-lg border border-green-300 bg-white px-4 text-sm font-medium text-green-800 transition hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Trocar
+          </button>
+        </div>
+        {confirmandoTroca && etapa !== 1 && (
+          <div role="alert" className="flex flex-col gap-2 border-t border-green-200 pt-2">
+            <p className="text-sm text-green-900">Trocar de lista? O item em andamento será perdido.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={trocarLista}
+                disabled={salvando}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg bg-amber-700 px-4 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+              >
+                Trocar
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmandoTroca(false)}
+                className="inline-flex min-h-[44px] flex-1 items-center justify-center rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 hover:bg-stone-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

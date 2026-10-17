@@ -7,7 +7,13 @@ import { TriagemClientUI, type ListaRow } from "./TriagemClientUI"
 // mesmo após o registro já estar correto no banco.
 export const dynamic = "force-dynamic"
 
-export default async function TriagemPage() {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+export default async function TriagemPage({
+  searchParams,
+}: {
+  searchParams?: { lista?: string | string[] }
+}) {
   const supabase = createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,5 +40,15 @@ export default async function TriagemPage() {
     qtd_itens: lista.itens?.[0]?.count ?? 0,
   }))
 
-  return <TriagemClientUI listasIniciais={listasIniciais} role={adminUser.role as "master" | "auxiliar"} />
+  const listaParam = typeof searchParams?.lista === "string" ? searchParams.lista : ""
+  const listaInicialId =
+    UUID_RE.test(listaParam) && listasIniciais.some((l) => l.id === listaParam) ? listaParam : null
+
+  return (
+    <TriagemClientUI
+      listasIniciais={listasIniciais}
+      role={adminUser.role as "master" | "auxiliar"}
+      listaInicialId={listaInicialId}
+    />
+  )
 }

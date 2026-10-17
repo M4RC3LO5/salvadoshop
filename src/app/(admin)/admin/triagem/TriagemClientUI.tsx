@@ -776,13 +776,16 @@ function LinhaItem({
 interface Props {
   listasIniciais: ListaRow[]
   role: "master" | "auxiliar"
+  listaInicialId?: string | null
 }
 
-export function TriagemClientUI({ listasIniciais, role }: Props) {
+export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }: Props) {
   const isMaster = role === "master"
   const [listas, setListas] = useState<ListaRow[]>(listasIniciais)
   const [categorias, setCategorias] = useState<CategoriaOption[]>([])
-  const [listaSelecionadaId, setListaSelecionadaId] = useState<string | null>(listasIniciais[0]?.id ?? null)
+  const [listaSelecionadaId, setListaSelecionadaId] = useState<string | null>(
+    listaInicialId ?? listasIniciais[0]?.id ?? null
+  )
 
   const [itens, setItens] = useState<ItemRow[]>([])
   const [carregandoItens, setCarregandoItens] = useState(false)
@@ -1397,7 +1400,11 @@ export function TriagemClientUI({ listasIniciais, role }: Props) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-stone-800">Triagem de Estoque</h1>
           <Link
-            href="/admin/triagem/capturar"
+            href={
+              listaSelecionadaId
+                ? `/admin/triagem/capturar?sugerida=${listaSelecionadaId}`
+                : "/admin/triagem/capturar"
+            }
             className="inline-flex items-center gap-2 rounded-lg bg-amber-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
