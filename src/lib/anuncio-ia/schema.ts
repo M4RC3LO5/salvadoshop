@@ -35,11 +35,11 @@ export const DadosAnuncioIa = z.object({
       z.object({
         nome: z.string(),
         valor: z.string(),
-        origem: z.enum(["foto", "print_pedido"]),
+        origem: z.enum(["foto", "print_pedido", "manual"]), // "manual" = adicionada pelo humano na revisão
       })
     )
-    .max(30),
-  conteudo_embalagem: z.array(z.string()).max(20),
+    .max(40),
+  conteudo_embalagem: z.array(z.string()).max(30),
   descricao_html: z
     .string()
     .max(3000)

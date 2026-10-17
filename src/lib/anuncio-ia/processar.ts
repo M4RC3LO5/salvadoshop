@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { z } from "zod"
 import { MODELO, calcularCustoUsd } from "./custo"
 import { DadosAnuncioIa, sanitizarDescricao } from "./schema"
+import { removerEspecificacoesDuplicadas } from "./especificacoes"
 import { FERRAMENTA_RASCUNHO, montarSystemPrompt } from "./prompt"
 
 // Só roda no servidor — não importar em componente client.
@@ -143,6 +144,7 @@ export async function processarAnuncio(
       if (tituloOrigem && normalizar(e.valor) === tituloOrigem) return false
       return true
     })
+    dados.especificacoes = removerEspecificacoesDuplicadas(dados.especificacoes)
     const removidos = antes - dados.especificacoes.length
     if (removidos > 0) {
       console.log(JSON.stringify({ event: "anuncio_ia.especificacoes_filtradas", anuncio_id: id, removidos }))
