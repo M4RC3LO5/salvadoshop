@@ -125,7 +125,21 @@ export default async function AnunciosIaPage({
           {anuncios.map((a) => {
             const st = STATUS_ROTULO[a.status] ?? { label: a.status, cls: "bg-gray-100 text-gray-700" }
             return (
-              <li key={a.id} className="flex items-center gap-4 p-3">
+              <li
+                key={a.id}
+                className={`relative flex items-center gap-4 p-3 ${
+                  a.status === "pronto"
+                    ? "hover:bg-gray-50 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-600"
+                    : ""
+                }`}
+              >
+                {a.status === "pronto" && (
+                  <Link
+                    href={`/admin/anuncios-ia/${a.id}`}
+                    aria-label={`Revisar anúncio de ${formatDataHora(a.created_at)}${a.nome ? `: ${a.nome}` : ""}`}
+                    className="absolute inset-0 z-10 focus:outline-none"
+                  />
+                )}
                 <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md bg-gray-100">
                   {a.miniatura ? (
                     <Image
