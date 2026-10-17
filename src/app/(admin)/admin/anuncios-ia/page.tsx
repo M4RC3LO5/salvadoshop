@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Camera, ImageOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { BotaoProcessar } from "./BotaoProcessar"
+import { AcoesLinha } from "./AcoesLinha"
 import { AtualizacaoAutomatica } from "./AtualizacaoAutomatica"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
@@ -182,6 +183,14 @@ export default async function AnunciosIaPage({
                 )}
                 {(a.status === "enviado" || a.status === "erro" || a.travado) && (
                   <BotaoProcessar id={a.id} status={a.travado ? "processando" : (a.status as "enviado" | "erro")} />
+                )}
+                {(a.status === "erro" || a.status === "convertido") && (
+                  <AcoesLinha
+                    id={a.id}
+                    status={a.status}
+                    temProduto={a.produtoId !== null}
+                    dataRotulo={formatDataHora(a.created_at)}
+                  />
                 )}
               </li>
             )

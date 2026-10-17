@@ -57,7 +57,7 @@ export async function PATCH(
 
   const { data: atual, error: erroBusca } = await supabase
     .from("anuncios_ia")
-    .select("status, dados_ia")
+    .select("status, dados_ia, produto_id")
     .eq("id", id.data)
     .maybeSingle()
 
@@ -85,7 +85,7 @@ export async function PATCH(
     }))
 
   if (parsed.data.acao === "descartar") {
-    if (atual.status !== "pronto" && atual.status !== "erro") {
+    if (atual.status !== "pronto" && atual.status !== "erro" && atual.status !== "convertido") {
       return erroValidacao("Este anúncio não pode ser descartado agora.", 409)
     }
 
@@ -94,7 +94,7 @@ export async function PATCH(
       .from("anuncios_ia")
       .update({ status: "descartado" })
       .eq("id", id.data)
-      .in("status", ["pronto", "erro"])
+      .in("status", ["pronto", "erro", "convertido"])
       .select("id")
 
     if (error) return erroInterno("anuncio_ia.descartar.error", error, "Não foi possível descartar. Tente novamente.")
