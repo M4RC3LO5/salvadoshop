@@ -3,6 +3,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { Camera, ImageOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
+import { BotaoProcessar } from "./BotaoProcessar"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 export const dynamic = "force-dynamic"
@@ -18,6 +19,10 @@ const STATUS_ROTULO: Record<string, { label: string; cls: string }> = {
 interface ImagemAnuncio {
   url?: string
   tipo?: string
+}
+
+function formatCusto(valor: number) {
+  return `US$ ${valor.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })}`
 }
 
 function formatDataHora(iso: string) {
@@ -52,7 +57,7 @@ export default async function AnunciosIaPage({
 
   const { data, error } = await supabase
     .from("anuncios_ia")
-    .select("id, status, imagens, created_at")
+    .select("id, status, imagens, created_at, dados_ia, erro_mensagem, custo_usd")
     .neq("status", "descartado")
     .order("created_at", { ascending: false })
 
@@ -69,6 +74,9 @@ export default async function AnunciosIaPage({
       created_at: a.created_at as string,
       qtdFotos: fotos.length,
       miniatura: fotos[0]?.url ?? null,
+      nome: ((a.dados_ia as { nome?: string | null } | null)?.nome ?? null) as string | null,
+      erroMensagem: (a.erro_mensagem ?? null) as string | null,
+      custo: a.custo_usd === null || a.custo_usd === undefined ? null : Number(a.custo_usd),
     }
   })
 
@@ -125,8 +133,22 @@ export default async function AnunciosIaPage({
                   <p className="text-sm text-gray-600">
                     {a.qtdFotos} {a.qtdFotos === 1 ? "foto" : "fotos"}
                   </p>
+                  {a.status === "pronto" && (
+                    <>
+                      <p className="truncate text-sm text-gray-800">{a.nome ?? "Sem nome identificado"}</p>
+                      {a.custo !== null && (
+                        <p className="text-xs text-gray-500">Custo IA: {formatCusto(a.custo)}</p>
+                      )}
+                    </>
+                  )}
+                  {a.status === "erro" && a.erroMensagem && (
+                    <p className="text-sm text-red-700">{a.erroMensagem}</p>
+                  )}
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}>{st.label}</span>
+                {(a.status === "enviado" || a.status === "erro") && (
+                  <BotaoProcessar id={a.id} status={a.status} />
+                )}
               </li>
             )
           })}
