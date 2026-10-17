@@ -8,7 +8,7 @@ const TAGS_PERMITIDAS = /<\/?(p|ul|li|strong)>/gi
 // ATENÇÃO: "pedido" é dado INTERNO (custo de compra, origem do produto).
 // NUNCA deve ir para o produto público — nem na descrição, nem nas especificações.
 export const DadosAnuncioIa = z.object({
-  nome: z.string().max(60).nullable(),
+  nome: z.string().max(200).nullable(), // o limite de 60 é aplicado em processar.ts (encurta em vez de falhar)
   marca: z.string().nullable(),
   modelo: z.string().nullable(),
   codigo: z.string().nullable(), // EAN, part number ou código do fabricante visível

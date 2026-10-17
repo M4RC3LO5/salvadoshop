@@ -14,6 +14,20 @@ const imagensSchema = z.array(
   z.object({ url: z.string(), tipo: z.enum(["foto", "print_pedido"]) })
 )
 
+const LIMITE_NOME = 60
+
+// Corta no último espaço que deixe até 60 caracteres (sem espaço, corte seco).
+function encurtarNome(nome: string): string {
+  const corte = nome.slice(0, LIMITE_NOME + 1)
+  const ultimoEspaco = corte.lastIndexOf(" ", LIMITE_NOME)
+  const base = ultimoEspaco > 0 ? nome.slice(0, ultimoEspaco) : nome.slice(0, LIMITE_NOME)
+  return base.trim()
+}
+
+function detalharErro(e: unknown): unknown {
+  return e instanceof Error ? { name: e.name, message: e.message } : e
+}
+
 export class NaoProcessavelError extends Error {
   constructor() {
     super("NAO_PROCESSAVEL")
@@ -31,7 +45,7 @@ export async function processarAnuncio(
     .from("anuncios_ia")
     .update({ status: "processando", erro_mensagem: null })
     .eq("id", id)
-    .or(`status.in.(enviado,erro),and(status.eq.processando,updated_at.lt.${limite})`)
+    .or(`status.in.(enviado,erro),and(status.eq.processando,updated_at.lt."${limite}")`)
     .select("imagens")
 
   if (erroTrava) throw erroTrava
@@ -89,6 +103,10 @@ export async function processarAnuncio(
     if (dados.categoria_id && !lista.some((c) => c.id === dados.categoria_id)) {
       dados.categoria_id = null
     }
+    if (dados.nome && dados.nome.length > LIMITE_NOME) {
+      dados.nome = encurtarNome(dados.nome)
+      dados.nao_confirmado.push("Título encurtado automaticamente; revise o nome.")
+    }
 
     // Passo 5 — sucesso
     const custo = calcularCustoUsd(tokensEntrada, tokensSaida)
@@ -116,7 +134,7 @@ export async function processarAnuncio(
     return { status: "pronto" }
   } catch (error) {
     // Passo 6 — falha: mensagem simples no banco, detalhe só no console
-    console.error(JSON.stringify({ event: "anuncio_ia.processar.error", anuncio_id: id, error }))
+    console.error(JSON.stringify({ event: "anuncio_ia.processar.error", anuncio_id: id, error: detalharErro(error) }))
 
     const patch: Record<string, unknown> = { status: "erro", erro_mensagem: MENSAGEM_ERRO }
     if (tokensEntrada !== null && tokensSaida !== null) {
@@ -127,7 +145,7 @@ export async function processarAnuncio(
     }
     const { error: erroGravar } = await supabase.from("anuncios_ia").update(patch).eq("id", id)
     if (erroGravar) {
-      console.error(JSON.stringify({ event: "anuncio_ia.processar.error", anuncio_id: id, error: erroGravar }))
+      console.error(JSON.stringify({ event: "anuncio_ia.processar.error", anuncio_id: id, error: detalharErro(erroGravar) }))
     }
     return { status: "erro" }
   }
