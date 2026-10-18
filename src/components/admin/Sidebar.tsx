@@ -166,7 +166,7 @@ export function Sidebar({ role, pendingCount = 0 }: SidebarProps) {
 
       {/* Sidebar desktop — estática */}
       <aside
-        className="hidden w-64 shrink-0 lg:flex lg:flex-col print:!hidden"
+        className="hidden w-64 shrink-0 lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col print:!hidden"
         aria-label="Menu de navegação do painel"
       >
         <SidebarContent />
