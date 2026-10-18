@@ -952,7 +952,70 @@ ALL ... FROM anon` e conceder a `authenticated` só o que o código usa; depois
 conferir em `information_schema.role_table_grants`. As tabelas anteriores à 032
 não foram auditadas (ver BACKLOG).
 
+### 18.15 RESOLVIDA — Anúncio por fotos (PRs #47 a #55)
+
+Fluxo: fotos do produto (+ print do pedido, opcional) → a IA monta um rascunho
+→ revisão humana → "Salvar e criar produto" abre o Novo Produto pré-preenchido
+→ o humano define tipo, preço e estoque e salva pelo fluxo normal (validações,
+aprovação do Auxiliar e regras de preço inalteradas).
+
+- **Banco:** tabela isolada `anuncios_ia` (migration 035). Status: `enviado`,
+  `processando`, `pronto`, `erro`, `convertido`, `descartado`. Nada toca
+  `produtos` até a conversão. "Remover da fila" = status `descartado` (some da
+  fila).
+- **IA:** `claude-sonnet-4-6` via tool `registrar_rascunho` (saída
+  estruturada), imagens enviadas por URL, validação Zod antes de gravar. Custo
+  medido de ~US$ 0,05 por anúncio, gravado em `custo_usd`. Nome com mais de 60
+  caracteres é encurtado (nunca rejeitado); `descricao_html` é sanitizada (só
+  `p`/`ul`/`li`/`strong`) em vez de rejeitada.
+- **Conteúdo público:** o prompt (regra i) e um filtro em código impedem título
+  do anúncio de origem, dados do pedido, número de série/lote, razão social de
+  fabricante/importador e certificações estrangeiras (CMIIT etc.) nas
+  especificações, na descrição e no nome. `dados_ia.pedido` (valor pago,
+  origem) é INTERNO: aparece só na caixa "Uso interno" da revisão e NUNCA vai
+  para o produto. Prints do pedido também não viram imagem do produto
+  (`montarRascunhoProduto`).
+- **Processamento:** disparado automaticamente após o envio com `waitUntil`
+  (`@vercel/functions`, `maxDuration` 60). Trava atômica por UPDATE
+  condicional; "processando" há mais de 5 min pode ser retomado ("Tentar de
+  novo").
+- **EXCEÇÃO DOCUMENTADA à regra de sessão:** o processamento em segundo plano
+  usa `SUPABASE_SERVICE_ROLE_KEY` (`src/lib/anuncio-ia/supabase-servico.ts`),
+  porque roda depois da resposta, sem a sessão do usuário. O uso é restrito a
+  esse processamento e sempre filtrado pelo id do anúncio. Envio, revisão e
+  conversão continuam com a sessão (RLS). Sem a chave, o envio degrada para o
+  botão "Processar".
+- **Conversão:** o `NovoProdutoForm` recebeu as props opcionais `inicial` e
+  `anuncioIaId` (aditivas; sem elas o form é idêntico ao anterior). A ação
+  `converter` só marca o anúncio depois do produto criado; falha nela não
+  desfaz o produto.
+- **Imagens:** ficam em `salvadoshop/anuncios-ia/temp` no Cloudinary (diferente
+  da seção 8; o produto aponta para elas). Como a exclusão de produto apaga as
+  fotos (18.7), um anúncio convertido cujo produto foi excluído NÃO pode voltar
+  para revisão — só "Remover da fila".
+- **Testes:** feitos em produção/preview por decisão do Marcelo (tela nova e
+  isolada), com limpeza dos dados de teste.
+
+### 18.16 RESOLVIDA — Triagem: escolha da lista antes da captura (PR #53)
+
+- **Problema:** a lista ativa ficava só na memória da página; voltar ou
+  atualizar criava outra lista "Triagem dd/mm/aaaa".
+- **Solução:** Etapa 0 "Em qual lista vamos trabalhar?" (continuar na sugerida
+  ou mais recente, escolher outra dos últimos 30 dias, ou criar nova com nome
+  sugerido editável). A lista ativa fica no endereço (`?lista=`); a tela
+  principal envia a lista selecionada como `?sugerida=`. Faixa "Lista: X ·
+  Trocar" nas etapas. `POST /api/triagem/listas` criado; a rota de itens não
+  mudou (o fallback que cria lista sem `lista_id` continua existindo, mas a UI
+  sempre envia `lista_id`).
+
+### 18.17 DECISÃO — Menu lateral do admin fixo (PR #56)
+
+Sidebar desktop com `lg:sticky lg:top-0 lg:h-screen`; a página continua
+rolando normalmente. Rolagem interna do `main` foi descartada porque quebraria
+o `VoltarAoTopo` (usa `window.scrollY`), a restauração de rolagem, o Ctrl+F e a
+impressão.
+
 ---
 
 *Última atualização: Outubro 2026*
-*Versão: 2.9*
+*Versão: 3.0*

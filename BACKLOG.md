@@ -350,6 +350,12 @@ Legenda: [ ] pendente · [x] concluído
   revogar o que o código não usa, via `apply_migration` com arquivo (18.11).
   Ver CLAUDE.md 18.14.
 
+- [ ] **36. Anúncio por fotos — extras planejados.** P6: pesquisa web com
+  fontes. P7: alertas (Anatel para Bluetooth/Wi-Fi, possível réplica de
+  marca). P8: referência de preço. P9: custo da IA somado ao preço por botão
+  (com cotação fixa configurável). Prioridade média; aguardando uso real da
+  P1–P5 (CLAUDE.md 18.15).
+
 ## 🟢 Prioridade baixa — polimento de UX/UI
 
 - [ ] **6. Botão "Continuar" sob erro de estoque.** Quando há erro de estoque
@@ -380,6 +386,22 @@ Legenda: [ ] pendente · [x] concluído
   toque. Achado durante a correção do item 22; nunca funcionou por teclado,
   não é regressão. Corrigir junto de uma revisão de acessibilidade do
   admin.
+
+- [ ] **34. Limpar fotos órfãs em `salvadoshop/anuncios-ia/temp`.** Uploads
+  abandonados no meio do envio e anúncios descartados deixam fotos na pasta
+  temporária do Cloudinary. NUNCA apagar fotos de anúncios convertidos: são as
+  fotos do produto (CLAUDE.md 18.15). Prioridade baixa.
+- [ ] **35. Mover fotos de produtos criados por anúncio para
+  `salvadoshop/produtos/{id}/`.** Hoje o produto aponta para a pasta temporária
+  do anúncio, diferente da regra da seção 8 do CLAUDE.md. Avaliar mover (e
+  atualizar `url_cloudinary`/`public_id`) ao criar o produto. Prioridade baixa.
+- [ ] **37. UX: mostrar o nome do produto nas linhas "Virou produto" da
+  fila.** Hoje a linha só mostra o status e o link "Ver produto"; mostrar o
+  nome ajuda a achar o anúncio certo. Prioridade baixa.
+- [ ] **38. Filtro de especificações da IA usa substring.** Termos como
+  "serial" e "lote" removem também especificações legítimas, como "Porta
+  serial". Trocar por comparação mais precisa sem deixar passar número de
+  série/lote da unidade. Prioridade baixa.
 
 ## 🔵 Funcionalidades novas — priorizadas (P0–P3)
 
@@ -457,4 +479,4 @@ Legenda: [ ] pendente · [x] concluído
 
 ---
 *Criado em: 2026-07-25 · Fonte: testes do sistema em produção*
-*Atualizado em: 2026-10-16 (itens 17 e 33)*
+*Atualizado em: 2026-10-17 (itens 34 a 38)*
