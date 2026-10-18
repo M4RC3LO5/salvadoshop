@@ -28,6 +28,7 @@ const dadosSchema = z.object({
 const bodySchema = z.discriminatedUnion("acao", [
   z.object({ acao: z.literal("salvar"), dados: dadosSchema }),
   z.object({ acao: z.literal("descartar") }),
+  z.object({ acao: z.literal("converter"), produto_id: z.uuid() }),
 ])
 
 export async function PATCH(
@@ -56,7 +57,7 @@ export async function PATCH(
 
   const { data: atual, error: erroBusca } = await supabase
     .from("anuncios_ia")
-    .select("status, dados_ia")
+    .select("status, dados_ia, produto_id")
     .eq("id", id.data)
     .maybeSingle()
 
@@ -70,17 +71,21 @@ export async function PATCH(
     )
   }
 
-  const log = (event: "anuncio_ia.revisado" | "anuncio_ia.descartado") =>
+  const log = (
+    event: "anuncio_ia.revisado" | "anuncio_ia.descartado" | "anuncio_ia.convertido",
+    extra: Record<string, unknown> = {}
+  ) =>
     console.log(JSON.stringify({
       event,
       anuncio_id: id.data,
+      ...extra,
       admin_id: adminUser.id,
       role: adminUser.role,
       timestamp: new Date().toISOString(),
     }))
 
   if (parsed.data.acao === "descartar") {
-    if (atual.status !== "pronto" && atual.status !== "erro") {
+    if (atual.status !== "pronto" && atual.status !== "erro" && atual.status !== "convertido") {
       return erroValidacao("Este anúncio não pode ser descartado agora.", 409)
     }
 
@@ -89,7 +94,7 @@ export async function PATCH(
       .from("anuncios_ia")
       .update({ status: "descartado" })
       .eq("id", id.data)
-      .in("status", ["pronto", "erro"])
+      .in("status", ["pronto", "erro", "convertido"])
       .select("id")
 
     if (error) return erroInterno("anuncio_ia.descartar.error", error, "Não foi possível descartar. Tente novamente.")
@@ -97,6 +102,35 @@ export async function PATCH(
 
     log("anuncio_ia.descartado")
     return Response.json({ success: true, data: { status: "descartado" } })
+  }
+
+  if (parsed.data.acao === "converter") {
+    if (atual.status !== "pronto") {
+      return erroValidacao("Este anúncio não está pronto para virar produto.", 409)
+    }
+
+    const produtoId = parsed.data.produto_id
+    const { data: produto, error: erroProduto } = await supabase
+      .from("produtos")
+      .select("id")
+      .eq("id", produtoId)
+      .maybeSingle()
+    if (erroProduto) return erroInterno("anuncio_ia.converter.produto.error", erroProduto, "Não foi possível concluir. Tente novamente.")
+    if (!produto) return erroValidacao("Produto não encontrado.")
+
+    const { data: convertido, error: erroConverter } = await supabase
+      .from("anuncios_ia")
+      .update({ status: "convertido", produto_id: produtoId })
+      .eq("id", id.data)
+      .eq("status", "pronto")
+      .select("id")
+    if (erroConverter) return erroInterno("anuncio_ia.converter.error", erroConverter, "Não foi possível concluir. Tente novamente.")
+    if (!convertido || convertido.length === 0) {
+      return erroValidacao("Este anúncio não está pronto para virar produto.", 409)
+    }
+
+    log("anuncio_ia.convertido", { produto_id: produtoId })
+    return Response.json({ success: true, data: { status: "convertido" } })
   }
 
   // acao === "salvar"

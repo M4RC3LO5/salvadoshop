@@ -4,6 +4,7 @@ import Image from "next/image"
 import { Camera, ImageOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { BotaoProcessar } from "./BotaoProcessar"
+import { AcoesLinha } from "./AcoesLinha"
 import { AtualizacaoAutomatica } from "./AtualizacaoAutomatica"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
@@ -61,7 +62,7 @@ export default async function AnunciosIaPage({
 
   const { data, error } = await supabase
     .from("anuncios_ia")
-    .select("id, status, imagens, created_at, updated_at, dados_ia, erro_mensagem, custo_usd")
+    .select("id, status, imagens, created_at, updated_at, dados_ia, erro_mensagem, custo_usd, produto_id")
     .neq("status", "descartado")
     .order("created_at", { ascending: false })
 
@@ -83,6 +84,7 @@ export default async function AnunciosIaPage({
       miniatura: fotos[0]?.url ?? null,
       nome: ((a.dados_ia as { nome?: string | null } | null)?.nome ?? null) as string | null,
       erroMensagem: (a.erro_mensagem ?? null) as string | null,
+      produtoId: (a.produto_id ?? null) as string | null,
       custo: a.custo_usd === null || a.custo_usd === undefined ? null : Number(a.custo_usd),
     }
   })
@@ -171,8 +173,24 @@ export default async function AnunciosIaPage({
                   )}
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs font-medium ${st.cls}`}>{st.label}</span>
+                {a.status === "convertido" && a.produtoId && (
+                  <Link
+                    href={`/admin/produtos/${a.produtoId}/editar`}
+                    className="text-sm font-medium text-blue-700 underline-offset-2 hover:underline"
+                  >
+                    Ver produto
+                  </Link>
+                )}
                 {(a.status === "enviado" || a.status === "erro" || a.travado) && (
                   <BotaoProcessar id={a.id} status={a.travado ? "processando" : (a.status as "enviado" | "erro")} />
+                )}
+                {(a.status === "erro" || a.status === "convertido") && (
+                  <AcoesLinha
+                    id={a.id}
+                    status={a.status}
+                    temProduto={a.produtoId !== null}
+                    dataRotulo={formatDataHora(a.created_at)}
+                  />
                 )}
               </li>
             )

@@ -155,13 +155,25 @@ function inputCls(erro: boolean) {
 
 // ── Formulário principal ──────────────────────────────────────────────────────
 
+export interface ProdutoInicial {
+  nome: string
+  specs: string
+  descricao: string
+  categoria_id: string | null
+  categoria_nome?: string
+  imagens: { url: string; public_id: string }[]
+}
+
 interface NovoProdutoFormProps {
   role: Role
   produto?: ProdutoParaEditar
   modo?: "criar" | "editar"
+  // Pré-preenchimento (Anúncio por fotos): só vale quando não há produto
+  inicial?: ProdutoInicial
+  anuncioIaId?: string
 }
 
-export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFormProps) {
+export function NovoProdutoForm({ role, produto, modo = "criar", inicial, anuncioIaId }: NovoProdutoFormProps) {
   const router = useRouter()
   const isMaster = role === "master"
   const isEdicao = modo === "editar"
@@ -172,12 +184,16 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
 
   // Campos comuns — inicializados com dados existentes no modo edição
   const [tipo, setTipo] = useState<TipoProduto>(produto?.tipo ?? null)
-  const [nome, setNome] = useState(produto?.nome ?? "")
-  const [specs, setSpecs] = useState(produto?.specs_tecnicas?.texto ?? "")
-  const [descricao, setDescricao] = useState(produto?.descricao ?? "")
-  const [imagens, setImagens] = useState<ImagemSalva[]>(produto?.imagens ?? [])
+  const [nome, setNome] = useState(produto?.nome ?? inicial?.nome ?? "")
+  const [specs, setSpecs] = useState(produto?.specs_tecnicas?.texto ?? inicial?.specs ?? "")
+  const [descricao, setDescricao] = useState(produto?.descricao ?? inicial?.descricao ?? "")
+  const [imagens, setImagens] = useState<ImagemSalva[]>(produto?.imagens ?? inicial?.imagens ?? [])
   const [categoriaSelecionada, setCategoriaSelecionada] = useState<CategoriaOption | null>(
-    produto?.categoria_id ? { id: produto.categoria_id, nome: produto.categoria_nome ?? "" } : null
+    produto?.categoria_id
+      ? { id: produto.categoria_id, nome: produto.categoria_nome ?? "" }
+      : inicial?.categoria_id
+        ? { id: inicial.categoria_id, nome: inicial.categoria_nome ?? "" }
+        : null
   )
   const [categorias, setCategorias] = useState<CategoriaOption[]>([])
   const [estoque, setEstoque] = useState(produto?.estoque != null ? String(produto.estoque) : "")
@@ -335,9 +351,26 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
           pendente: "enviado para aprovação",
           publicado: "publicado com sucesso",
         }
+        // Anúncio por fotos: marca como convertido só depois do produto criado.
+        // Falha aqui não desfaz o produto.
+        let complemento = ""
+        if (anuncioIaId) {
+          try {
+            const resConv = await fetch(`/api/admin/anuncios-ia/${anuncioIaId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ acao: "converter", produto_id: json.data.id }),
+            })
+            const jsonConv = await resConv.json()
+            if (!resConv.ok || !jsonConv.success) throw new Error("converter_falhou")
+          } catch (e) {
+            console.error("Não foi possível marcar o anúncio como convertido.", e)
+            complemento = " (não foi possível marcar o anúncio como convertido)"
+          }
+        }
         setToast({
           tipo: "sucesso",
-          mensagem: `Produto ${statusLabel[json.data.status] ?? "salvo"}!`,
+          mensagem: `Produto ${statusLabel[json.data.status] ?? "salvo"}!${complemento}`,
           slug: json.data.slug,
           produtoTipo: tipo ?? undefined,
         })
@@ -367,7 +400,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
 
           {/* ── Coluna esquerda — upload ── */}
           <div className="flex flex-col gap-2">
-            <ImageUploadZone onChange={setImagens} initialImages={produto?.imagens} />
+            <ImageUploadZone onChange={setImagens} initialImages={produto?.imagens ?? inicial?.imagens} />
             {erros.imagens && (
               <p className="text-xs text-red-600" role="alert">{erros.imagens}</p>
             )}
@@ -419,7 +452,7 @@ export function NovoProdutoForm({ role, produto, modo = "criar" }: NovoProdutoFo
         </div>
 
         {/* ── Descrição Comercial ── */}
-        <RichTextEditor onChange={setDescricao} initialContent={produto?.descricao ?? undefined} nome={nome} specs={specs} />
+        <RichTextEditor onChange={setDescricao} initialContent={produto?.descricao ?? inicial?.descricao ?? undefined} nome={nome} specs={specs} />
         {erros.descricao && (
           <p className="-mt-6 text-xs text-red-600" role="alert">{erros.descricao}</p>
         )}

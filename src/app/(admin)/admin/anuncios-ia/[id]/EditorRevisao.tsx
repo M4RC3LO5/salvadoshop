@@ -108,7 +108,7 @@ export function EditorRevisao({ anuncioId, imagens, categorias, custo, dados }: 
     setSpecs((prev) => [...prev, { nome: "", valor: "", origem: "manual" }])
   }
 
-  async function salvar() {
+  async function salvar(criarProdutoDepois = false) {
     if (salvandoRef.current || descartandoRef.current) return
     setMensagem("")
     setErro("")
@@ -159,6 +159,9 @@ export function EditorRevisao({ anuncioId, imagens, categorias, custo, dados }: 
       // O servidor remove especificações repetidas; reflete isso na tela.
       if (Array.isArray(json.data?.especificacoes)) setSpecs(json.data.especificacoes)
       setMensagem("Alterações salvas")
+      if (criarProdutoDepois) {
+        router.push(`/admin/produtos/novo?anuncio_ia=${anuncioId}`)
+      }
     } catch {
       setErro("Erro de conexão. Tente novamente.")
     } finally {
@@ -383,11 +386,20 @@ export function EditorRevisao({ anuncioId, imagens, categorias, custo, dados }: 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button
           type="button"
-          onClick={salvar}
+          onClick={() => salvar()}
           disabled={ocupado}
           className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {salvando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</> : "Salvar"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => salvar(true)}
+          disabled={ocupado}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-green-700 px-6 text-sm font-semibold text-white hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          Salvar e criar produto
         </button>
 
         {!confirmandoDescarte ? (
