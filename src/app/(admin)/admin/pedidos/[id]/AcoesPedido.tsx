@@ -34,9 +34,9 @@ const proximoOperacional: Record<string, { novoStatus: string; label: string }> 
   enviado:      { novoStatus: "entregue", label: "Marcar como entregue" },
 }
 
-// Confirmação manual de pagamento (Pix por chave fixa / cartão via link
-// enviado por WhatsApp) — sem integração automática, só o Master confirma,
-// depois de checar o extrato ou o comprovante recebido.
+// Confirmação manual de pagamento (Pix por chave fixa) — sem integração
+// automática, só o Master confirma, depois de checar o extrato ou o
+// comprovante recebido.
 const CONFIRMAR_PAGAMENTO: Transicao = {
   novoStatus: "pago",
   label: "Confirmar pagamento",
@@ -235,7 +235,7 @@ export function AcoesPedido({
       {mostrarConfirmarPagamento && (
         <div role="alertdialog" aria-label="Confirmar pagamento" className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
           <p className="text-sm text-stone-700">
-            Confirma que o pagamento deste pedido foi recebido (Pix no extrato ou cartão confirmado)? Essa ação não pode ser desfeita por aqui.
+            Confirma que o pagamento deste pedido foi recebido (Pix no extrato)? Essa ação não pode ser desfeita por aqui.
           </p>
           <div className="flex gap-2">
             <button
