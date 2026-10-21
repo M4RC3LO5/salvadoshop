@@ -56,11 +56,9 @@ export default function PaginaCheckout() {
   const [email, setEmail] = useState("")
   const [telefone, setTelefone] = useState("")
 
-  // Pagamento — Pix ou Cartão de crédito. O pagamento em si não é mais
-  // processado no site: o checkout só registra o pedido; a confirmação é
-  // manual (Pix por chave fixa + WhatsApp, cartão via link enviado por
-  // WhatsApp).
-  const [formaPagamento, setFormaPagamento] = useState<"pix" | "cartao_credito">("pix")
+  // Pagamento — somente Pix. O pagamento em si não é processado no site:
+  // o checkout só registra o pedido; a confirmação é manual (Pix por chave
+  // fixa + WhatsApp).
   const [cepEndereco, setCepEndereco] = useState("")
   const [buscandoCep, setBuscandoCep] = useState(false)
   const [erroCep, setErroCep] = useState("")
@@ -144,7 +142,7 @@ export default function PaginaCheckout() {
             quantidade: item.quantidade,
           })),
           enderecoEntrega: { cep: cepEndereco, rua, numero, complemento, bairro, cidade, uf },
-          formaPagamento,
+          formaPagamento: "pix",
           customerEmail: email || undefined,
           compradorNome: nome.trim(),
           compradorTelefone: telefone.trim(),
@@ -383,60 +381,14 @@ export default function PaginaCheckout() {
           <section className="bg-white border border-marrom-100 rounded-xl p-4 sm:p-5 shadow-sm flex flex-col gap-4">
             <h2 className="text-base font-bold text-marrom-800">Forma de Pagamento</h2>
 
-            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Forma de pagamento">
-              <button
-                type="button"
-                role="radio"
-                aria-checked={formaPagamento === "pix"}
-                onClick={() => setFormaPagamento("pix")}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                  formaPagamento === "pix"
-                    ? "border-green-500 bg-green-50 text-green-700"
-                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                }`}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 2 2 12l10 10 10-10L12 2Z" /><circle cx="12" cy="12" r="3" />
-                </svg>
-                Pix
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={formaPagamento === "cartao_credito"}
-                onClick={() => setFormaPagamento("cartao_credito")}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                  formaPagamento === "cartao_credito"
-                    ? "border-green-500 bg-green-50 text-green-700"
-                    : "border-zinc-200 text-zinc-600 hover:border-zinc-300"
-                }`}
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-                </svg>
-                Cartão de crédito
-              </button>
+            <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+              <p className="text-sm text-marrom-800 font-medium">
+                Na próxima tela você recebe o QR Code e o código Pix copia e cola para pagar.
+              </p>
             </div>
-
-            {formaPagamento === "pix" ? (
-              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-                </svg>
-                <p className="text-sm text-marrom-800 font-medium">
-                  Na próxima tela você recebe o QR Code e o código Pix copia e cola para pagar.
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-start gap-3 bg-marrom-50 border border-marrom-200 rounded-xl p-4">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-marrom-600 shrink-0 mt-0.5" aria-hidden="true">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <p className="text-sm text-marrom-800 font-medium">
-                  Enviaremos o link de pagamento pelo WhatsApp após a confirmação do pedido.
-                </p>
-              </div>
-            )}
           </section>
         </div>
 

@@ -22,7 +22,7 @@ const checkoutSchema = z.object({
   orderId: z.string().uuid(),
   itens: z.array(itemSchema).min(1),
   enderecoEntrega: enderecoSchema,
-  formaPagamento: z.enum(['pix', 'cartao_credito']),
+  formaPagamento: z.literal('pix'),
   customerEmail: z.string().email().optional(),
   compradorNome: z.string().trim().min(2).max(120),
   compradorTelefone: z.string().trim().min(10).max(20),
