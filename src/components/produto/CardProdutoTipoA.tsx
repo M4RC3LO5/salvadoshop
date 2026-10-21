@@ -19,6 +19,7 @@ export interface ProdutoTipoA {
   urlML?: string
   imagemUrl?: string
   imagemAlt?: string
+  esgotado?: boolean
 }
 
 interface CardProdutoTipoAProps {
@@ -53,7 +54,7 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
               src={produto.imagemUrl}
               alt={produto.imagemAlt ?? produto.nome}
               fill
-              className="object-cover"
+              className={`object-cover ${produto.esgotado ? "grayscale" : ""}`}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             />
           ) : (
@@ -70,6 +71,12 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
           <span className="absolute top-2 left-2 text-[10px] font-semibold uppercase tracking-wider bg-marrom-700 text-white px-2 py-0.5 rounded-full">
             Tipo A
           </span>
+
+          {produto.esgotado && (
+            <span className="absolute bottom-2 left-2 text-xs font-bold uppercase tracking-wider bg-zinc-900 text-white px-3 py-1 rounded-full">
+              Esgotado
+            </span>
+          )}
         </div>
 
         {/* Conteúdo */}
@@ -124,7 +131,8 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
             </div>
           )}
 
-          {/* Botão */}
+          {/* Botão (não aparece quando esgotado) */}
+          {!produto.esgotado && (
           <button
             type="button"
             onClick={(e) => {
@@ -141,11 +149,12 @@ export function CardProdutoTipoA({ produto }: CardProdutoTipoAProps) {
           >
             Comprar
           </button>
+          )}
         </div>
       </article>
       </Link>
 
-      {!produto.exclusivo && popupAberto && (
+      {!produto.esgotado && !produto.exclusivo && popupAberto && (
         <PopupCompraTipoA
           produto={produto}
           onFechar={() => setPopupAberto(false)}

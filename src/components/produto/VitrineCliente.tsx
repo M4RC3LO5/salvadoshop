@@ -23,7 +23,14 @@ export function VitrineCliente({ produtos }: VitrineClienteProps) {
   // null = aba "Todos"
   const [categoriaAtivaId, setCategoriaAtivaId] = useState<string | null>(null)
 
-  const tipoA = produtos.filter((p) => p.tipo === "tipo_a")
+  // Esgotados vão para o fim; Array.sort é estável, então a ordem atual se mantém.
+  const tipoA = useMemo(
+    () =>
+      produtos
+        .filter((p) => p.tipo === "tipo_a")
+        .sort((a, b) => Number(a.esgotado) - Number(b.esgotado)),
+    [produtos]
+  )
   const tipoB = produtos.filter((p) => p.tipo === "tipo_b")
 
   // Categorias únicas de tipo_a (lotes mostram todos) — vem da tabela categorias
@@ -57,6 +64,7 @@ export function VitrineCliente({ produtos }: VitrineClienteProps) {
       exclusivo: p.exclusivo_site,
       urlML: p.url_ml ?? undefined,
       imagemUrl: p.imagem_url ?? undefined,
+      esgotado: p.esgotado,
     }
   }
 
