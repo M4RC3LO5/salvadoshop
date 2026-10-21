@@ -5,6 +5,7 @@ import { GaleriaProduto } from "@/components/produto/GaleriaProduto"
 import { BotaoCompraTipoA } from "@/components/produto/BotaoCompraTipoA"
 import { EspecificacoesTecnicas } from "@/components/produto/EspecificacoesTecnicas"
 import { calcularComparativoPreco } from "@/lib/utils/precos"
+import { estaEsgotado } from "@/lib/utils/esgotado"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ export default async function PaginaProduto(
   }
 
   const precoSite = produto.preco_site
+  const esgotado = estaEsgotado(produto.tipo, produto.estoque)
   const comparativo = calcularComparativoPreco(produto.preco_ml, precoSite)
   const imagens = produto.produto_imagens.map((i) => i.url_cloudinary)
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
@@ -159,6 +161,12 @@ export default async function PaginaProduto(
               </div>
             )}
 
+            {esgotado && (
+              <span className="w-fit text-sm font-bold uppercase tracking-wider bg-zinc-900 text-white px-3 py-1 rounded-full">
+                Esgotado
+              </span>
+            )}
+
             {/* Preço — Tipo A */}
             {produto.tipo === "tipo_a" && precoSite && (
               produto.exclusivo_site ? (
@@ -198,7 +206,16 @@ export default async function PaginaProduto(
             )}
 
             {/* CTA */}
-            {produto.tipo === "tipo_a" && precoSite ? (
+            {esgotado ? (
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="w-full bg-zinc-200 text-zinc-600 font-semibold py-3.5 px-6 rounded-xl cursor-not-allowed text-base"
+              >
+                Esgotado
+              </button>
+            ) : produto.tipo === "tipo_a" && precoSite ? (
               <BotaoCompraTipoA
                 produto={{
                   id: produto.id,

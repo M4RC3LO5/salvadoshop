@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { Hero } from "@/components/shared/Hero"
 import { VitrineCliente } from "@/components/produto/VitrineCliente"
+import { DIAS_ESGOTADO_NA_VITRINE, estaEsgotado } from "@/lib/utils/esgotado"
 
 // ── Tipo interno da query ─────────────────────────────────────────────────────
 
@@ -18,12 +19,16 @@ export interface ProdutoPublico {
   quantidade_lote: number | null
   sinistro: string | null
   imagem_url: string | null
+  esgotado: boolean
 }
 
 // ── Busca produtos publicados com primeira imagem ─────────────────────────────
 
 async function buscarProdutos(): Promise<ProdutoPublico[]> {
   const supabase = createClient()
+  const limiteISO = new Date(
+    Date.now() - DIAS_ESGOTADO_NA_VITRINE * 24 * 60 * 60 * 1000
+  ).toISOString()
 
   const { data, error } = await supabase
     .from("produtos")
@@ -40,9 +45,13 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
       url_ml,
       quantidade_lote,
       sinistro,
+      estoque,
+      esgotado_em,
       produto_imagens!left (url_cloudinary, ordem)
     `)
     .eq("status", "publicado")
+    // Esgotado (tipo_a sem estoque) some da vitrine depois de DIAS_ESGOTADO_NA_VITRINE dias
+    .or(`tipo.neq.tipo_a,estoque.gt.0,esgotado_em.gt.${limiteISO}`)
     .order("created_at", { ascending: false })
 
   if (error || !data) return []
@@ -65,6 +74,7 @@ async function buscarProdutos(): Promise<ProdutoPublico[]> {
       quantidade_lote: p.quantidade_lote,
       sinistro: p.sinistro,
       imagem_url: principal?.url_cloudinary ?? null,
+      esgotado: estaEsgotado(p.tipo, p.estoque),
     }
   })
 }

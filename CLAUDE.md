@@ -1034,6 +1034,16 @@ partir de `aguardando_cotacao_frete`, `aguardando_pagamento`, `pago` ou
 `cancelado` -> `reembolsado` não devolve de novo. `estornar_pedido_estoque` só
 cancela o pedido; o loop de devolução foi removido para não contar em dobro.
 
+### 18.20 DECISÃO — Produto esgotado na vitrine
+
+Esgotado = `tipo_a` com `estoque <= 0` (lotes não mudam; helper
+`estaEsgotado` em `src/lib/utils/esgotado.ts`). Na vitrine o card fica em preto
+e branco, com selo "Esgotado", sem botão de compra e no fim da lista; some 30
+dias depois de esgotar (`DIAS_ESGOTADO_NA_VITRINE`). A página do produto segue
+abrindo por link, com selo e botão desativado. A coluna `produtos.esgotado_em`
+(migration 037) é mantida por trigger: `now()` na primeira vez que o estoque
+zera, `NULL` quando volta a ser > 0.
+
 ---
 
 *Última atualização: Outubro 2026*
