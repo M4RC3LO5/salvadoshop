@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react"
 import { createClient } from "@/lib/supabase/server"
 import { AcoesPedido } from "./AcoesPedido"
 import { ProgressoPedido } from "./ProgressoPedido"
+import { formatarCpf } from "@/lib/validations/cpf"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
 // Sem isso, o fetch do supabase-js pode ser servido do Next.js Data Cache
@@ -84,7 +85,7 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
     .from("pedidos")
     .select(`
       id, numero_pedido, status, subtotal, frete_valor, frete_modalidade, total, forma_pagamento, created_at, updated_at,
-      comprador_nome, comprador_email, comprador_telefone,
+      comprador_nome, comprador_cpf, comprador_email, comprador_telefone,
       endereco_entrega, codigo_rastreio, transportadora, url_rastreamento,
       pedido_itens ( quantidade, preco_unitario, produtos ( nome ) )
     `)
@@ -153,6 +154,10 @@ export default async function DetalhePedidoPage({ params }: PageProps) {
             <div className="flex justify-between gap-4">
               <dt className="text-stone-500">Nome</dt>
               <dd className="text-right font-medium text-stone-800">{pedido.comprador_nome ?? "Não informado"}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-stone-500">CPF</dt>
+              <dd className="text-right font-medium text-stone-800">{pedido.comprador_cpf ? formatarCpf(pedido.comprador_cpf) : "Não informado"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-stone-500">E-mail</dt>

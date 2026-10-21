@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { somenteDigitosCpf, validarCpf } from '@/lib/validations/cpf'
 
 const itemSchema = z.object({
   produto_id: z.string().uuid(),
@@ -26,6 +27,7 @@ const checkoutSchema = z.object({
   customerEmail: z.string().email().optional(),
   compradorNome: z.string().trim().min(2).max(120),
   compradorTelefone: z.string().trim().min(10).max(20),
+  compradorCpf: z.string().transform(somenteDigitosCpf).refine(validarCpf, 'CPF inválido'),
 })
 
 export async function POST(request: NextRequest) {
@@ -40,7 +42,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { orderId, itens, enderecoEntrega, formaPagamento, customerEmail, compradorNome, compradorTelefone } = parsed.data
+    const { orderId, itens, enderecoEntrega, formaPagamento, customerEmail, compradorNome, compradorTelefone, compradorCpf } = parsed.data
     const supabase = createClient()
 
     // Checkout de convidado: garante uma sessão (anônima, se preciso) para
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
         comprador_nome: compradorNome,
         comprador_email: customerEmail ?? null,
         comprador_telefone: compradorTelefone,
+        comprador_cpf: compradorCpf,
       })
       .eq('id', orderId)
       .eq('cliente_id', user.id)
