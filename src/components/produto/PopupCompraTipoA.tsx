@@ -166,7 +166,7 @@ export function PopupCompraTipoA({ produto, onFechar }: PopupCompraTipoAProps) {
 
         {/* Aviso segurança */}
         <p className="text-center text-[11px] text-zinc-400 pb-4 px-5">
-          🔒 Pagamento via Pix ou cartão de crédito
+          🔒 Pagamento via Pix
         </p>
       </div>
 

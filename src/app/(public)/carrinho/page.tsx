@@ -364,7 +364,7 @@ export default function PaginaCarrinho() {
             </button>
 
             <p className="text-center text-[11px] text-zinc-400">
-              🔒 Pagamento via Pix ou cartão de crédito
+              🔒 Pagamento via Pix
             </p>
           </div>
         </aside>

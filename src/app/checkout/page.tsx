@@ -386,7 +386,7 @@ export default function PaginaCheckout() {
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
               <p className="text-sm text-marrom-800 font-medium">
-                Na próxima tela você recebe o QR Code e o código Pix copia e cola para pagar.
+                Pagamento somente via Pix. Depois do pedido, enviamos pelo WhatsApp o valor do frete e as instruções para pagar.
               </p>
             </div>
           </section>
