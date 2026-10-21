@@ -686,8 +686,8 @@ não na rota.
 - O comportamento do Auxiliar não foi testado com sessão real (apenas Master).
 
 **Débito técnico — retenção LGPD (pendente, bloco futuro):** os dados do
-comprador devem ser eliminados após a entrega do pedido + prazo de devolução
-(política definida). A exclusão automática (cron/job) ainda NÃO foi
+comprador (nome, e-mail, telefone e CPF) devem ser eliminados após a entrega do
+pedido + prazo de devolução (política definida). A exclusão automática (cron/job) ainda NÃO foi
 implementada. Ao implementar, verificar prazos fiscais/legais de retenção do
 registro da transação (possivelmente mais longos que o prazo de devolução).
 
@@ -1043,6 +1043,16 @@ dias depois de esgotar (`DIAS_ESGOTADO_NA_VITRINE`). A página do produto segue
 abrindo por link, com selo e botão desativado. A coluna `produtos.esgotado_em`
 (migration 037) é mantida por trigger: `now()` na primeira vez que o estoque
 zera, `NULL` quando volta a ser > 0.
+
+### 18.21 RESOLVIDA — CPF do comprador no pedido
+
+O CPF é obrigatório no checkout (nota fiscal e declaração de conteúdo; base
+legal LGPD: obrigação legal, 6.1). É validado na tela e de novo no servidor
+(`POST /api/checkout/pedido`, Zod com `validarCpf` de
+`src/lib/validations/cpf.ts`) e gravado em `pedidos.comprador_cpf` (migration
+038) só com os 11 dígitos, sem máscara; o admin o exibe formatado. Nullable
+porque pedidos antigos não têm CPF. O CPF NUNCA entra em log. Entra na mesma
+regra de eliminação do débito técnico de retenção LGPD (18.5).
 
 ---
 

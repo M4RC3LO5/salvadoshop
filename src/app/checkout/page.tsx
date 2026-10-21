@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useCarrinho } from "@/contexts/CarrinhoContext"
+import { validarCpf } from "@/lib/validations/cpf"
 
 // ─── CPF helpers ─────────────────────────────────────────────────────────────
 
@@ -11,21 +12,6 @@ function mascaraCpf(valor: string): string {
   if (d.length <= 6) return `${d.slice(0, 3)}.${d.slice(3)}`
   if (d.length <= 9) return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6)}`
   return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`
-}
-
-function validarCpf(valor: string): boolean {
-  const d = valor.replace(/\D/g, "")
-  if (d.length !== 11) return false
-  // Rejeita sequências repetidas
-  if (/^(\d)\1{10}$/.test(d)) return false
-
-  const calc = (fator: number) => {
-    let soma = 0
-    for (let i = 0; i < fator - 1; i++) soma += parseInt(d[i]) * (fator - i)
-    const resto = (soma * 10) % 11
-    return resto >= 10 ? 0 : resto
-  }
-  return calc(10) === parseInt(d[9]) && calc(11) === parseInt(d[10])
 }
 
 // ─── CEP helpers ─────────────────────────────────────────────────────────────
@@ -86,7 +72,7 @@ export default function PaginaCheckout() {
   const cpfDigitos = cpf.replace(/\D/g, "")
   const cpfCompleto = cpfDigitos.length === 11
   const cpfValido = cpfCompleto && validarCpf(cpf)
-  const mostrarErroCpf = cpfTocado && cpfCompleto && !cpfValido
+  const mostrarErroCpf = cpfTocado && !cpfValido
 
   function handleCpfChange(e: React.ChangeEvent<HTMLInputElement>) {
     setCpf(mascaraCpf(e.target.value))
@@ -146,6 +132,7 @@ export default function PaginaCheckout() {
           customerEmail: email || undefined,
           compradorNome: nome.trim(),
           compradorTelefone: telefone.trim(),
+          compradorCpf: cpfDigitos,
         }),
       })
 
@@ -174,7 +161,7 @@ export default function PaginaCheckout() {
   // usados para contato operacional — exigidos antes de seguir ao pagamento.
   const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
   const telefoneDigitos = telefone.replace(/\D/g, "")
-  const dadosCompradorOk = nome.trim().length >= 2 && emailValido && telefoneDigitos.length >= 10
+  const dadosCompradorOk = nome.trim().length >= 2 && emailValido && telefoneDigitos.length >= 10 && cpfValido
 
   const podeContinuar = itens.length > 0 && enderecoCompleto && !enviando && dadosCompradorOk
 
@@ -222,7 +209,7 @@ export default function PaginaCheckout() {
               />
               {mostrarErroCpf && (
                 <p id="cpf-erro" role="alert" className="text-[11px] text-red-600 font-medium">
-                  CPF inválido. Verifique os dígitos.
+                  {cpfCompleto ? "CPF inválido. Verifique os dígitos." : "Informe um CPF válido."}
                 </p>
               )}
             </div>
