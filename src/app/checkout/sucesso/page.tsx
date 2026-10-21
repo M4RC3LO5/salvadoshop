@@ -107,9 +107,7 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
   const totalFormatado = BRL.format(pedido.total)
   const centavos = String(pedido.numero_pedido % 100).padStart(2, "0")
 
-  const mensagemWhatsApp = pedido.forma_pagamento === "pix"
-    ? `Olá! Já paguei o Pix do pedido #${pedido.numero_pedido}, no valor de ${totalFormatado}.`
-    : `Olá! Quero finalizar o pagamento do pedido #${pedido.numero_pedido} (${totalFormatado}) no cartão de crédito. Pode me enviar o link de pagamento?`
+  const mensagemWhatsApp = `Olá! Já paguei o Pix do pedido #${pedido.numero_pedido}, no valor de ${totalFormatado}.`
 
   const urlWhatsApp = montarUrlWhatsApp(mensagemWhatsApp)
 
@@ -147,17 +145,13 @@ export default async function PaginaCheckoutSucesso({ searchParams }: PaginaChec
               </p>
             </div>
 
-            {pedido.forma_pagamento === "pix" ? (
-              <SecaoPix
-                pixQrCodeDataUrl={pixQrCodeDataUrl}
-                pixCopiaCola={pixCopiaCola}
-                totalFormatado={totalFormatado}
-                centavos={centavos}
-                urlWhatsApp={urlWhatsApp}
-              />
-            ) : (
-              <SecaoCartao totalFormatado={totalFormatado} urlWhatsApp={urlWhatsApp} />
-            )}
+            <SecaoPix
+              pixQrCodeDataUrl={pixQrCodeDataUrl}
+              pixCopiaCola={pixCopiaCola}
+              totalFormatado={totalFormatado}
+              centavos={centavos}
+              urlWhatsApp={urlWhatsApp}
+            />
           </>
         )}
 
@@ -281,28 +275,6 @@ function SecaoAguardandoFrete() {
         Recebemos seu pedido! Estamos calculando o frete e em breve enviamos o valor final e as instruções de pagamento pelo WhatsApp.
       </p>
     </div>
-  )
-}
-
-// ── Seção Cartão ──────────────────────────────────────────────────────────
-
-function SecaoCartao({ totalFormatado, urlWhatsApp }: { totalFormatado: string; urlWhatsApp: string }) {
-  return (
-    <section className="bg-white border border-marrom-100 rounded-xl p-5 shadow-sm flex flex-col gap-4">
-      <h2 className="text-base font-bold text-marrom-800">Pagar no cartão de crédito</h2>
-      <p className="text-sm text-zinc-600">
-        Vamos te enviar o link de pagamento seguro pelo WhatsApp, no valor de <strong>{totalFormatado}</strong>. É só chamar a gente.
-      </p>
-      <a
-        href={urlWhatsApp}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-semibold py-3.5 rounded-xl transition-colors"
-      >
-        <IconeWhatsApp />
-        Receber link de pagamento
-      </a>
-    </section>
   )
 }
 

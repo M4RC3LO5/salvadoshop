@@ -77,7 +77,7 @@ Cliente clica "Comprar"
 → Popup abre com comparação de preços
 → Cliente escolhe: ML ou Site
   → ML: aviso de segurança → redireciona para ML
-  → Site: fluxo de checkout interno (Pix ou Cartão)
+  → Site: fluxo de checkout interno (Pix)
 ```
 
 ### 3.4 Fluxo de compra Tipo B
@@ -1014,6 +1014,15 @@ Sidebar desktop com `lg:sticky lg:top-0 lg:h-screen`; a página continua
 rolando normalmente. Rolagem interna do `main` foi descartada porque quebraria
 o `VoltarAoTopo` (usa `window.scrollY`), a restauração de rolagem, o Ctrl+F e a
 impressão.
+
+### 18.18 DECISÃO — Somente Pix no checkout
+
+O cartão de crédito não era processado no site (só registrava o pedido e pedia
+link pelo WhatsApp). Decisão de negócio: o site aceita **somente Pix**; a rota
+`POST /api/checkout/pedido` valida `formaPagamento` como `z.literal('pix')`.
+O valor `cartao_credito` do enum `forma_pagamento` foi mantido no banco de
+propósito (sem migration), e os labels do admin de pedidos também, para exibir
+qualquer pedido antigo. Em produção não havia pedido com cartão.
 
 ---
 
