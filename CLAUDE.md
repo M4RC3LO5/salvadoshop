@@ -1024,6 +1024,16 @@ O valor `cartao_credito` do enum `forma_pagamento` foi mantido no banco de
 propósito (sem migration), e os labels do admin de pedidos também, para exibir
 qualquer pedido antigo. Em produção não havia pedido com cartão.
 
+### 18.19 DECISÃO — Estoque volta ao cancelar ou reembolsar antes do envio
+
+Trigger `trg_devolver_estoque_cancelamento` em `pedidos` (migration 036) é a
+fonte única da devolução: quando o status vira `cancelado` ou `reembolsado` a
+partir de `aguardando_cotacao_frete`, `aguardando_pagamento`, `pago` ou
+`em_separacao`, os itens voltam para `produtos.estoque`. Pedido `enviado` ou
+`entregue` NÃO devolve (o produto saiu da loja; ajuste manual quando voltar), e
+`cancelado` -> `reembolsado` não devolve de novo. `estornar_pedido_estoque` só
+cancela o pedido; o loop de devolução foi removido para não contar em dobro.
+
 ---
 
 *Última atualização: Outubro 2026*
