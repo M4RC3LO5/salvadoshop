@@ -1054,6 +1054,16 @@ legal LGPD: obrigação legal, 6.1). É validado na tela e de novo no servidor
 porque pedidos antigos não têm CPF. O CPF NUNCA entra em log. Entra na mesma
 regra de eliminação do débito técnico de retenção LGPD (18.5).
 
+### 18.22 RESOLVIDA — Páginas legais
+
+Quatro páginas públicas estáticas (`revalidate = 3600`): `/privacidade`,
+`/termos`, `/trocas` e `/contato`. Os dados da empresa vêm de `EMPRESA_LOJA`
+(`src/lib/empresa-loja.ts`) e o WhatsApp de `NEXT_PUBLIC_WHATSAPP_NUMBER`;
+nenhum dado da empresa é escrito fixo no texto. O rodapé linka as quatro e o
+checkout mostra, abaixo do "Continuar", o aceite dos Termos e da Política de
+Trocas. O texto é uma base que **precisa de revisão de advogado/contador antes
+de abrir ao público** (BACKLOG 40).
+
 ---
 
 *Última atualização: Outubro 2026*

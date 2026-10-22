@@ -441,6 +441,18 @@ export default function PaginaCheckout() {
             >
               {enviando ? "Registrando pedido…" : "Continuar"}
             </button>
+
+            <p className="text-xs text-zinc-500 text-center">
+              Ao continuar, você concorda com os{" "}
+              <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline hover:text-marrom-700">
+                Termos de Uso
+              </a>{" "}
+              e a{" "}
+              <a href="/trocas" target="_blank" rel="noopener noreferrer" className="underline hover:text-marrom-700">
+                Política de Trocas e Devoluções
+              </a>
+              .
+            </p>
           </div>
         </aside>
 
