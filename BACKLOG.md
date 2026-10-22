@@ -402,6 +402,10 @@ Legenda: [ ] pendente · [x] concluído
   "serial" e "lote" removem também especificações legítimas, como "Porta
   serial". Trocar por comparação mais precisa sem deixar passar número de
   série/lote da unidade. Prioridade baixa.
+- [ ] **39. Dados da empresa pendentes em `src/lib/empresa-loja.ts`.** Razão
+  social, CNPJ e e-mail ainda são fictícios (marcados PENDENTE no arquivo) —
+  trocar antes de abrir ao público. Endereço e link do Mercado Livre já são
+  os reais.
 
 ## 🔵 Funcionalidades novas — priorizadas (P0–P3)
 
