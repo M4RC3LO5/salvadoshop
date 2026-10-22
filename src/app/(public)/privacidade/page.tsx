@@ -94,7 +94,7 @@ export default function PaginaPrivacidade() {
         <li>revogar um consentimento que tenha dado.</li>
       </ul>
       <p>
-        Para fazer um pedido, escreva para{" "}
+        Para exercer qualquer um desses direitos, escreva para{" "}
         <a href={`mailto:${EMPRESA_LOJA.email}`}>{EMPRESA_LOJA.email}</a>
         {whatsapp && (
           <>
