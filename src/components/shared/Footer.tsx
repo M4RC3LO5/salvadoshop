@@ -1,14 +1,6 @@
 import Link from "next/link"
 
-// TODO: substituir pelos dados reais da empresa antes do go-live
-const EMPRESA = {
-  cnpj: "00.000.000/0001-00",
-  razaoSocial: "SalvadoShop Comércio Ltda.",
-  endereco: "Rua das Mercadorias Recuperadas, 123 — São Paulo, SP — CEP 00000-000",
-  email: "contato@lojadossalvados.com.br",
-  // TODO: substituir pela URL real da loja no Mercado Livre
-  mercadoLivreUrl: "https://www.mercadolivre.com.br/",
-}
+import { EMPRESA_LOJA as EMPRESA } from "@/lib/empresa-loja"
 
 export function Footer() {
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""
