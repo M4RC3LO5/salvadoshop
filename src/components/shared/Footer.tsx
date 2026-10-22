@@ -41,6 +41,9 @@ export function Footer() {
               <Link href="/termos" className="hover:text-white transition-colors">
                 Termos de Uso
               </Link>
+              <Link href="/trocas" className="hover:text-white transition-colors">
+                Trocas e Devoluções
+              </Link>
               <Link href="/contato" className="hover:text-white transition-colors">
                 Contato
               </Link>

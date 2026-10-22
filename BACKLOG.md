@@ -406,6 +406,9 @@ Legenda: [ ] pendente · [x] concluído
   social, CNPJ e e-mail ainda são fictícios (marcados PENDENTE no arquivo) —
   trocar antes de abrir ao público. Endereço e link do Mercado Livre já são
   os reais.
+- [ ] **40. Revisão jurídica do texto de `/privacidade`, `/termos` e
+  `/trocas` antes de abrir ao público.** O texto atual é uma base escrita sem
+  revisão de advogado/contador.
 
 ## 🔵 Funcionalidades novas — priorizadas (P0–P3)
 
