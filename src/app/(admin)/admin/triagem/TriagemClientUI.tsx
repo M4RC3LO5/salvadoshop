@@ -173,6 +173,34 @@ function valorParaOrdenacao(item: ItemRow, chave: ChaveColuna): string | number 
   return item[chave as keyof ItemRow] as string | number | null
 }
 
+// Minúsculas e sem acento, para a busca casar "hidratacao" com "HIDRATAÇÃO".
+function normalizarBusca(texto: string): string {
+  return texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+}
+
+// Junta o texto de TODAS as colunas (inclusive as ocultas pelo seletor), como aparece
+// na tela. Datas entram também como mm/aaaa, para "03/2029" achar a validade.
+function textoBuscavel(item: ItemRow): string {
+  const partes: string[] = []
+  for (const coluna of COLUNAS) {
+    if (coluna.chave === "produto_ativo") {
+      if (item.produto_ativo) {
+        partes.push(item.produto_ativo.slug, valorParaOrdenacao(item, "produto_ativo") as string)
+      }
+      continue
+    }
+    const valor = item[coluna.chave] as string | number | null
+    const exibido = formatarValorExibicao(coluna, valor)
+    if (!exibido) continue
+    partes.push(exibido)
+    if (coluna.tipo === "data") {
+      const [ano, mes] = String(valor).split("-")
+      if (ano && mes) partes.push(`${mes}/${ano}`)
+    }
+  }
+  return normalizarBusca(partes.join(" "))
+}
+
 function escapeHtml(valor: string): string {
   const div = document.createElement("div")
   div.textContent = valor
@@ -990,15 +1018,20 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
   }
 
   // ── Filtro + ordenação ──────────────────────────────────────────────────────
+  const textosBuscaveis = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const i of itens) mapa.set(i.id, textoBuscavel(i))
+    return mapa
+  }, [itens])
+
   const itensFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase()
-    if (!termo) return itens
-    return itens.filter((i) =>
-      (i.nome ?? "").toLowerCase().includes(termo) ||
-      (i.marca ?? "").toLowerCase().includes(termo) ||
-      (i.ean ?? "").toLowerCase().includes(termo)
-    )
-  }, [itens, busca])
+    const palavras = normalizarBusca(busca).split(/\s+/).filter(Boolean)
+    if (palavras.length === 0) return itens
+    return itens.filter((i) => {
+      const texto = textosBuscaveis.get(i.id) ?? ""
+      return palavras.every((p) => texto.includes(p))
+    })
+  }, [itens, busca, textosBuscaveis])
 
   const itensExibidos = useMemo(() => {
     if (!colunaOrdenacao) return itensFiltrados
@@ -1521,8 +1554,8 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
                 type="search"
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
-                placeholder="Buscar por nome, marca ou EAN..."
-                aria-label="Buscar itens"
+                placeholder="Buscar em qualquer coluna..."
+                aria-label="Buscar em qualquer coluna..."
                 className="w-full rounded-lg border border-stone-300 bg-white py-2.5 pl-9 pr-3 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/20"
               />
             </div>
