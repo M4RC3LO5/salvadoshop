@@ -6,6 +6,14 @@ import { ArrowLeft, ArrowDown, ArrowUp, FileSpreadsheet, Loader2, Plus, Printer,
 import type { LargurasColunas } from "@/lib/lista-venda/larguras"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 
+// A tela do editor tem exatamente a altura da janela (a página não rola, só a
+// lista), descontando o que o layout do admin (admin/layout.tsx) põe em volta:
+//   celular = barra do topo h-14 (3.5rem) + padding p-6 do main (3rem) + folga 0.1rem
+//   desktop = padding p-6 do main (3rem) + folga 0.1rem
+// (o padding p-4/lg:p-8 da própria tela já está dentro da altura, border-box.)
+// Se o layout do admin mudar (barra, padding), estes valores têm que mudar junto.
+const ALTURA_TELA_EDITOR = "h-[calc(100dvh-6.6rem)] lg:h-[calc(100dvh-3.1rem)]"
+
 export interface ItemVenda {
   id: string
   ordem: number
@@ -238,8 +246,10 @@ export function EditorListaVenda({
   const semPreco = itens.filter((i) => i.preco_unitario === null).length
 
   return (
-    <div className="mx-auto max-w-7xl p-4 lg:p-8">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div className={`mx-auto flex max-w-7xl flex-col p-4 lg:p-8 ${ALTURA_TELA_EDITOR}`}>
+      {/* Área rolável: só o título e os títulos das colunas ficam fixos ao rolar; o resto sobe junto */}
+      <div data-rolagem-principal className="min-h-0 flex-1 overflow-auto">
+      <div className="sticky left-0 mb-4 flex flex-wrap items-center justify-between gap-2">
         <Link href="/admin/listas-venda" className="inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Listas de Venda
         </Link>
@@ -271,11 +281,11 @@ export function EditorListaVenda({
       </div>
 
       {erro && (
-        <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+        <p role="alert" className="sticky left-0 mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
       )}
 
-      <div className="mb-4">
-        <label htmlFor="titulo-lista" className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">Título</label>
+      <div className="sticky left-0 top-0 z-20 flex h-16 items-center bg-stone-100">
+        <label htmlFor="titulo-lista" className="sr-only">Título</label>
         <input
           id="titulo-lista"
           key={titulo}
@@ -287,9 +297,9 @@ export function EditorListaVenda({
         />
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-        <table className="w-full min-w-[1040px] text-sm">
-          <thead className="bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+      <div className="w-max min-w-full rounded-lg border border-stone-200 bg-white">
+        <table className="w-full min-w-[1040px] border-separate border-spacing-0 text-sm">
+          <thead className="text-left text-xs font-semibold uppercase tracking-wide text-stone-500 [&>tr>th]:sticky [&>tr>th]:top-16 [&>tr>th]:z-10 [&>tr>th]:bg-stone-50 [&>tr>th]:shadow-[inset_0_-1px_0_#e7e5e4] [&>tr>th:first-child]:rounded-tl-lg [&>tr>th:last-child]:rounded-tr-lg">
             <tr>
               <th scope="col" className="w-16 px-2 py-2"><span className="sr-only">Ordem</span></th>
               <th scope="col" className="px-2 py-2">Descrição</th>
@@ -303,7 +313,7 @@ export function EditorListaVenda({
               <th scope="col" className="w-10 px-2 py-2"><span className="sr-only">Remover</span></th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-stone-100">
+          <tbody className="[&>tr:not(:first-child)>td]:border-t [&>tr:not(:first-child)>td]:border-stone-100">
             {itens.length === 0 && (
               <tr><td colSpan={10} className="px-4 py-8 text-center text-stone-500">Nenhum item. Adicione uma linha abaixo.</td></tr>
             )}
@@ -348,7 +358,7 @@ export function EditorListaVenda({
             })}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-stone-300 bg-stone-50">
+            <tr className="bg-stone-50 [&>td]:border-t-2 [&>td]:border-stone-300">
               <td colSpan={8} className="px-2 py-2 text-right text-sm font-semibold text-stone-700">Total geral</td>
               <td className="px-2 py-2 text-right text-sm font-bold tabular-nums text-stone-900">{BRL.format(geral)}</td>
               <td />
@@ -357,7 +367,7 @@ export function EditorListaVenda({
         </table>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="sticky left-0 mt-3 flex flex-wrap items-center justify-between gap-2">
         <button type="button" onClick={adicionarLinha} className="inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50">
           <Plus className="h-4 w-4" aria-hidden="true" /> Adicionar linha
         </button>
@@ -368,7 +378,7 @@ export function EditorListaVenda({
         )}
       </div>
 
-      <div className="mt-6">
+      <div className="sticky left-0 mt-6">
         <label htmlFor="rodape-lista" className="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">Rodapé</label>
         <textarea
           id="rodape-lista"
@@ -379,6 +389,7 @@ export function EditorListaVenda({
           onBlur={salvarRodape}
           className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:border-amber-600 focus:outline-none focus:ring-1 focus:ring-amber-600"
         />
+      </div>
       </div>
     </div>
   )
