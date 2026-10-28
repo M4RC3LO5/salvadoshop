@@ -108,6 +108,21 @@ export async function GET(request: NextRequest) {
     )
   }
 
+  // Nome de quem triou e de quem alterou por último. O Auxiliar só lê o próprio
+  // registro em admin_usuarios, então o nome vem da função nomes_admin (só id e nome).
+  const idsAdmin = Array.from(new Set(
+    (itens ?? []).flatMap((i) => [i.criado_por, i.atualizado_por]).filter((id): id is string => typeof id === "string")
+  ))
+  const nomesPorId = new Map<string, string>()
+  if (idsAdmin.length > 0) {
+    const { data: nomes, error: nomesError } = await supabase.rpc("nomes_admin", { p_ids: idsAdmin })
+    if (nomesError) {
+      console.error(JSON.stringify({ event: "triagem.itens.get.nomes_admin.error", error: nomesError, lista_id: listaId }))
+    } else {
+      for (const n of (nomes ?? []) as { id: string; nome: string }[]) nomesPorId.set(n.id, n.nome)
+    }
+  }
+
   const itensFormatados = (itens ?? []).map((item) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { publicacao, foto_url, ...resto } = item as typeof item & {
@@ -116,6 +131,8 @@ export async function GET(request: NextRequest) {
     return {
       ...resto,
       produto_ativo: publicacao?.[0]?.produto ?? null,
+      criado_por_nome: (resto.criado_por && nomesPorId.get(resto.criado_por)) || null,
+      atualizado_por_nome: (resto.atualizado_por && nomesPorId.get(resto.atualizado_por)) || null,
     }
   })
 

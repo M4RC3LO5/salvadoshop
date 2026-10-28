@@ -89,6 +89,12 @@ interface ItemRow {
   origem: string | null
   fornecedor: string | null
   data_entrada: string
+  criado_por: string | null
+  created_at: string
+  criado_por_nome: string | null
+  atualizado_por: string | null
+  atualizado_em: string | null
+  atualizado_por_nome: string | null
   produto_ativo: ProdutoAtivo | null
 }
 
@@ -96,8 +102,9 @@ type ChaveColuna =
   | "produto_ativo" | "nome" | "marca" | "sku" | "ean" | "qtd_embalagem" | "num_caixas"
   | "total_unidades" | "lote" | "validade" | "estado" | "custo_unitario" | "origem"
   | "fornecedor" | "observacoes" | "data_entrada"
+  | "criado_por_nome" | "created_at" | "atualizado_por_nome" | "atualizado_em"
 
-type TipoColuna = "badge" | "texto" | "numero" | "moeda" | "data" | "select" | "textarea" | "readonly"
+type TipoColuna = "badge" | "texto" | "numero" | "moeda" | "data" | "datahora" | "select" | "textarea" | "readonly"
 
 interface OpcaoSelect { value: string; label: string }
 
@@ -144,6 +151,10 @@ const COLUNAS: ColunaConfig[] = [
   { chave: "fornecedor", label: "Fornecedor", tipo: "texto", editavel: true, ordenavel: true },
   { chave: "observacoes", label: "Observações", tipo: "textarea", editavel: true, ordenavel: true },
   { chave: "data_entrada", label: "Entrada", tipo: "data", editavel: false, ordenavel: true },
+  { chave: "criado_por_nome", label: "Triado por", tipo: "readonly", editavel: false, ordenavel: true },
+  { chave: "created_at", label: "Triado em", tipo: "datahora", editavel: false, ordenavel: true },
+  { chave: "atualizado_por_nome", label: "Alterado por", tipo: "readonly", editavel: false, ordenavel: true },
+  { chave: "atualizado_em", label: "Alterado em", tipo: "datahora", editavel: false, ordenavel: true },
 ]
 
 // A tela da triagem tem exatamente a altura da janela (a página não rola, só a
@@ -166,11 +177,30 @@ function formatarDataBR(iso: string): string {
   return `${dia}/${mes}/${ano}`
 }
 
+const FORMATO_DATAHORA_BR = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+
+// dd/mm/aaaa hh:mm no fuso de São Paulo (monta pelas partes para não depender do separador do ICU).
+function formatarDataHoraBR(iso: string): string {
+  const data = new Date(iso)
+  if (Number.isNaN(data.getTime())) return iso
+  const p = Object.fromEntries(FORMATO_DATAHORA_BR.formatToParts(data).map((x) => [x.type, x.value]))
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`
+}
+
 function formatarValorExibicao(coluna: ColunaConfig, valor: string | number | null): string {
   if (valor === null || valor === undefined || valor === "") return ""
   if (coluna.tipo === "select") return coluna.opcoes?.find((o) => o.value === valor)?.label ?? String(valor)
   if (coluna.tipo === "moeda") return BRL.format(Number(valor))
   if (coluna.tipo === "data") return formatarDataBR(String(valor))
+  if (coluna.tipo === "datahora") return formatarDataHoraBR(String(valor))
   return String(valor)
 }
 
@@ -1156,10 +1186,22 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
         setErroAcao(json.error?.message ?? "Erro ao salvar a alteração.")
         return
       }
+      // Quem alterou/quando vem da resposta (o trigger só atualiza se algum campo mudou de verdade).
+      // O nome só vem quando é o admin logado; se quem alterou for o mesmo de antes, mantém o nome que já estava.
       setItens((prev) =>
         prev.map((it) =>
           it.id === item.id
-            ? { ...it, [coluna.chave]: valorConvertido, total_unidades: json.data.total_unidades ?? it.total_unidades }
+            ? {
+                ...it,
+                [coluna.chave]: valorConvertido,
+                total_unidades: json.data.total_unidades ?? it.total_unidades,
+                atualizado_por: json.data.atualizado_por ?? null,
+                atualizado_em: json.data.atualizado_em ?? null,
+                atualizado_por_nome:
+                  json.data.atualizado_por === it.atualizado_por
+                    ? it.atualizado_por_nome
+                    : (json.data.atualizado_por_nome ?? null),
+              }
             : it
         )
       )

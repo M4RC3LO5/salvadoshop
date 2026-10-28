@@ -42,7 +42,7 @@ export async function PATCH(
 
   const { data: adminUser } = await supabase
     .from("admin_usuarios")
-    .select("id")
+    .select("id, nome")
     .eq("user_id", user.id)
     .eq("ativo", true)
     .single()
@@ -90,7 +90,7 @@ export async function PATCH(
     .from("estoque_itens")
     .update({ ...parsed.data, updated_at: new Date().toISOString() })
     .eq("id", params.id)
-    .select("id, total_unidades")
+    .select("id, total_unidades, atualizado_por, atualizado_em")
     .single()
 
   if (error || !data) {
@@ -101,7 +101,12 @@ export async function PATCH(
     )
   }
 
-  return Response.json({ success: true, data })
+  // atualizado_por/atualizado_em vêm do trigger (só mudam se algum campo mudou de verdade).
+  // O nome só é conhecido aqui quando quem alterou é quem está logado; senão o cliente mantém o que já tinha.
+  return Response.json({
+    success: true,
+    data: { ...data, atualizado_por_nome: data.atualizado_por === adminUser.id ? adminUser.nome : null },
+  })
 }
 
 // ── DELETE — exclusão individual ─────────────────────────────────────────────
