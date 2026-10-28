@@ -146,6 +146,13 @@ const COLUNAS: ColunaConfig[] = [
   { chave: "data_entrada", label: "Entrada", tipo: "data", editavel: false, ordenavel: true },
 ]
 
+// A tela da triagem tem exatamente a altura da janela (a página não rola, só a
+// lista), descontando o que o layout do admin (admin/layout.tsx) põe em volta:
+//   celular = barra do topo h-14 (3.5rem) + padding p-6 do main (3rem) + folga 0.1rem
+//   desktop = padding p-6 do main (3rem) + folga 0.1rem
+// Se o layout do admin mudar (barra, padding), estes valores têm que mudar junto.
+const ALTURA_TELA_TRIAGEM = "h-[calc(100dvh-6.6rem)] lg:h-[calc(100dvh-3.1rem)] print:h-auto"
+
 // Cabeçalho que gruda no topo do container rolável. O fundo e a borda ficam no th
 // (não no tr): com sticky as linhas aparecem por baixo e a borda do tr some.
 const CLASSE_TH_FIXO = "sticky top-14 z-10 bg-stone-50 shadow-[inset_0_-1px_0_#e7e5e4] print:static"
@@ -726,7 +733,7 @@ function LinhaItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "border-b border-stone-100 transition-colors",
+        "[&>td]:border-b [&>td]:border-stone-100 transition-colors",
         selecionado ? "bg-amber-50/60" : "hover:bg-stone-50/60"
       )}
     >
@@ -1373,7 +1380,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-[calc(100dvh-6.6rem)] flex-col gap-6 lg:h-[calc(100dvh-3.1rem)] print:h-auto">
+    <div className={cn("flex flex-col gap-6", ALTURA_TELA_TRIAGEM)}>
 
       {confirmarSubstituirOrdem && (
         <ConfirmDialog
@@ -1451,7 +1458,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
       </div>
 
       {/* Área rolável: só a lista (seletor) e os títulos das colunas ficam fixos ao rolar; o resto sobe junto */}
-      <div className="min-h-0 flex-1 space-y-4 overflow-auto print:overflow-visible">
+      <div data-rolagem-principal className="min-h-0 flex-1 space-y-4 overflow-auto print:overflow-visible">
         <div className="sticky left-0 top-0 z-20 flex h-14 items-center bg-stone-100 print:static">
           {/* Seletor de lista */}
           <select
@@ -1666,11 +1673,11 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
               </div>
             ) : itensExibidos.length > 0 ? (
               <div>
-                <table className="w-full text-sm">
+                <table className="w-full border-separate border-spacing-0 text-sm">
                   <thead>
                     <tr className="text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                      <th className={cn("hidden w-8 px-2 py-3 md:table-cell", CLASSE_TH_FIXO)} aria-hidden="true" />
-                      <th className={cn("w-8 px-2 py-3", CLASSE_TH_FIXO)}>
+                      <th className={cn("hidden w-8 rounded-tl-xl px-2 py-3 md:table-cell", CLASSE_TH_FIXO)} aria-hidden="true" />
+                      <th className={cn("w-8 rounded-tl-xl px-2 py-3 md:rounded-none", CLASSE_TH_FIXO)}>
                         <input
                           type="checkbox"
                           checked={todosSelecionados}
@@ -1679,11 +1686,11 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
                           className="h-4 w-4 rounded border-stone-300 text-amber-700 focus:ring-amber-700"
                         />
                       </th>
-                      {colunasExibidas.map((c) => (
+                      {colunasExibidas.map((c, indice) => (
                         <th
                           key={c.chave}
                           onClick={() => clicarCabecalho(c)}
-                          className={cn("px-3 py-3 whitespace-nowrap", CLASSE_TH_FIXO, c.ordenavel && "cursor-pointer select-none hover:text-stone-700")}
+                          className={cn("px-3 py-3 whitespace-nowrap", CLASSE_TH_FIXO, indice === colunasExibidas.length - 1 && "rounded-tr-xl", c.ordenavel && "cursor-pointer select-none hover:text-stone-700")}
                         >
                           <span className="inline-flex items-center gap-1">
                             {c.label}

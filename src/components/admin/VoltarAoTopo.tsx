@@ -5,6 +5,14 @@ import { ArrowUp } from "lucide-react"
 
 const LIMITE_ROLAGEM_PX = 400
 
+// Telas que rolam num container interno (e não na janela) marcam esse container
+// com data-rolagem-principal; o botão passa a observar e a rolar esse elemento.
+const SELETOR_ROLAGEM_PRINCIPAL = "[data-rolagem-principal]"
+
+function elementoRolagemPrincipal(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(SELETOR_ROLAGEM_PRINCIPAL)
+}
+
 // Botão flutuante "voltar ao topo" do painel admin. Fica no canto inferior
 // direito, acima da posição dos avisos (toast) e de qualquer outro botão
 // flutuante, e nunca aparece no papel.
@@ -12,15 +20,26 @@ export function VoltarAoTopo() {
   const [visivel, setVisivel] = useState(false)
 
   useEffect(() => {
-    const atualizar = () => setVisivel(window.scrollY > LIMITE_ROLAGEM_PX)
+    const atualizar = () => {
+      const interno = elementoRolagemPrincipal()
+      setVisivel(window.scrollY > LIMITE_ROLAGEM_PX || (interno?.scrollTop ?? 0) > LIMITE_ROLAGEM_PX)
+    }
     atualizar()
-    window.addEventListener("scroll", atualizar, { passive: true })
-    return () => window.removeEventListener("scroll", atualizar)
+    // capture: true — o evento scroll não borbulha, então é a única forma de
+    // ouvir a rolagem de elementos a partir da janela.
+    window.addEventListener("scroll", atualizar, { passive: true, capture: true })
+    return () => window.removeEventListener("scroll", atualizar, { capture: true })
   }, [])
 
   function voltar() {
     const reduzir = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    window.scrollTo({ top: 0, behavior: reduzir ? "auto" : "smooth" })
+    const behavior = reduzir ? "auto" : "smooth"
+    const interno = elementoRolagemPrincipal()
+    if (interno && interno.scrollTop > 0) {
+      interno.scrollTo({ top: 0, behavior })
+    } else {
+      window.scrollTo({ top: 0, behavior })
+    }
   }
 
   if (!visivel) return null
