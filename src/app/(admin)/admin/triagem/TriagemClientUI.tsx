@@ -146,6 +146,17 @@ const COLUNAS: ColunaConfig[] = [
   { chave: "data_entrada", label: "Entrada", tipo: "data", editavel: false, ordenavel: true },
 ]
 
+// A tela da triagem tem exatamente a altura da janela (a página não rola, só a
+// lista), descontando o que o layout do admin (admin/layout.tsx) põe em volta:
+//   celular = barra do topo h-14 (3.5rem) + padding p-6 do main (3rem) + folga 0.1rem
+//   desktop = padding p-6 do main (3rem) + folga 0.1rem
+// Se o layout do admin mudar (barra, padding), estes valores têm que mudar junto.
+const ALTURA_TELA_TRIAGEM = "h-[calc(100dvh-6.6rem)] lg:h-[calc(100dvh-3.1rem)] print:h-auto"
+
+// Cabeçalho que gruda no topo do container rolável. O fundo e a borda ficam no th
+// (não no tr): com sticky as linhas aparecem por baixo e a borda do tr some.
+const CLASSE_TH_FIXO = "sticky top-14 z-10 bg-stone-50 shadow-[inset_0_-1px_0_#e7e5e4] print:static"
+
 // ── Helpers de formatação ────────────────────────────────────────────────────
 
 function formatarDataBR(iso: string): string {
@@ -722,7 +733,7 @@ function LinhaItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "border-b border-stone-100 transition-colors",
+        "[&>td]:border-b [&>td]:border-stone-100 transition-colors",
         selecionado ? "bg-amber-50/60" : "hover:bg-stone-50/60"
       )}
     >
@@ -1369,7 +1380,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className={cn("flex flex-col gap-6", ALTURA_TELA_TRIAGEM)}>
 
       {confirmarSubstituirOrdem && (
         <ConfirmDialog
@@ -1444,8 +1455,11 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
             Capturar item
           </Link>
         </div>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+      {/* Área rolável: só a lista (seletor) e os títulos das colunas ficam fixos ao rolar; o resto sobe junto */}
+      <div data-rolagem-principal className="min-h-0 flex-1 space-y-4 overflow-auto print:overflow-visible">
+        <div className="sticky left-0 top-0 z-20 flex h-14 items-center bg-stone-100 print:static">
           {/* Seletor de lista */}
           <select
             value={listaSelecionadaId ?? ""}
@@ -1458,7 +1472,9 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
               <option key={l.id} value={l.id}>{l.nome} ({l.qtd_itens})</option>
             ))}
           </select>
+        </div>
 
+        <div className="sticky left-0 flex flex-wrap items-center gap-3">
           {/* Nome editável */}
           {listaSelecionada && (
             editandoNomeLista ? (
@@ -1510,11 +1526,10 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
             {itens.length} {itens.length === 1 ? "item" : "itens"}
           </span>
         </div>
-      </div>
 
       {/* Sucesso */}
       {mensagemSucesso && (
-        <div role="status" className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
+        <div role="status" className="sticky left-0 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">
           <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
           {mensagemSucesso}
         </div>
@@ -1522,7 +1537,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
 
       {/* Erro */}
       {erroAcao && (
-        <div role="alert" className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div role="alert" className="sticky left-0 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {erroAcao}
           <button onClick={() => setErroAcao("")} className="ml-auto text-red-500 hover:text-red-700" aria-label="Fechar erro">
@@ -1532,7 +1547,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
       )}
 
       {!listaSelecionada ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-stone-200 bg-white px-4 py-16 text-center">
+        <div className="sticky left-0 flex flex-col items-center gap-4 rounded-xl border border-stone-200 bg-white px-4 py-16 text-center">
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-stone-100">
             <PackageOpen className="h-8 w-8 text-stone-400" aria-hidden="true" />
           </div>
@@ -1546,6 +1561,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
         </div>
       ) : (
         <>
+          <div className="sticky left-0 space-y-4">
           {/* Filtros */}
           <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[220px]">
@@ -1647,20 +1663,21 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
               <span className="self-center text-xs text-stone-400">Nada selecionado — exporta a lista inteira</span>
             </div>
           )}
+          </div>
 
           {/* Tabela */}
-          <div className="overflow-hidden rounded-xl border border-stone-200 bg-white shadow-sm">
+          <div className="w-max min-w-full rounded-xl border border-stone-200 bg-white shadow-sm">
             {carregandoItens ? (
               <div className="flex items-center justify-center gap-2 px-4 py-16 text-sm text-stone-400">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Carregando itens...
               </div>
             ) : itensExibidos.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div>
+                <table className="w-full border-separate border-spacing-0 text-sm">
                   <thead>
-                    <tr className="border-b border-stone-100 bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                      <th className="hidden w-8 px-2 py-3 md:table-cell" aria-hidden="true" />
-                      <th className="w-8 px-2 py-3">
+                    <tr className="text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                      <th className={cn("hidden w-8 rounded-tl-xl px-2 py-3 md:table-cell", CLASSE_TH_FIXO)} aria-hidden="true" />
+                      <th className={cn("w-8 rounded-tl-xl px-2 py-3 md:rounded-none", CLASSE_TH_FIXO)}>
                         <input
                           type="checkbox"
                           checked={todosSelecionados}
@@ -1669,11 +1686,11 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
                           className="h-4 w-4 rounded border-stone-300 text-amber-700 focus:ring-amber-700"
                         />
                       </th>
-                      {colunasExibidas.map((c) => (
+                      {colunasExibidas.map((c, indice) => (
                         <th
                           key={c.chave}
                           onClick={() => clicarCabecalho(c)}
-                          className={cn("px-3 py-3 whitespace-nowrap", c.ordenavel && "cursor-pointer select-none hover:text-stone-700")}
+                          className={cn("px-3 py-3 whitespace-nowrap", CLASSE_TH_FIXO, indice === colunasExibidas.length - 1 && "rounded-tr-xl", c.ordenavel && "cursor-pointer select-none hover:text-stone-700")}
                         >
                           <span className="inline-flex items-center gap-1">
                             {c.label}
@@ -1718,6 +1735,7 @@ export function TriagemClientUI({ listasIniciais, role, listaInicialId = null }:
           </div>
         </>
       )}
+      </div>
     </div>
   )
 }
