@@ -39,13 +39,13 @@ function normalizarValidade(valor: string | null | undefined): string | null {
 export function encontrarRepeticoes(
   candidato: CandidatoRepeticao,
   itens: ItemRepeticao[]
-): { iguais: ItemRepeticao[]; parecidos: ItemRepeticao[] } {
+): { iguais: ItemRepeticao[]; parecidos: ItemRepeticao[]; chave: "sku" | "ean" | null } {
   const sku = normalizarCodigo(candidato.sku)
   const ean = normalizarCodigo(candidato.ean)
   const usaSku = sku !== null
-  const chave = usaSku ? sku : ean
+  const valorChave = usaSku ? sku : ean
 
-  if (chave === null) return { iguais: [], parecidos: [] }
+  if (valorChave === null) return { iguais: [], parecidos: [], chave: null }
 
   const validade = normalizarValidade(candidato.validade)
   const lote = normalizarTexto(candidato.lote)
@@ -56,7 +56,7 @@ export function encontrarRepeticoes(
 
   for (const item of itens) {
     const chaveItem = usaSku ? normalizarCodigo(item.sku) : normalizarCodigo(item.ean)
-    if (chaveItem !== chave) continue
+    if (chaveItem !== valorChave) continue
 
     const igual =
       normalizarValidade(item.validade) === validade &&
@@ -67,5 +67,9 @@ export function encontrarRepeticoes(
   }
 
   const porOrdem = (a: ItemRepeticao, b: ItemRepeticao) => a.ordem - b.ordem
-  return { iguais: iguais.sort(porOrdem), parecidos: parecidos.sort(porOrdem) }
+  return {
+    iguais: iguais.sort(porOrdem),
+    parecidos: parecidos.sort(porOrdem),
+    chave: usaSku ? "sku" : "ean",
+  }
 }
