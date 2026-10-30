@@ -185,7 +185,12 @@ export function EditorListaVenda({
     if (!r.ok) { setRodape(anterior); setRodapeRascunho(anterior) }
   }
 
-  async function salvarCampo(item: ItemVenda, campo: CampoItem, valor: string | number | null) {
+  async function salvarCampo(item: ItemVenda, campo: CampoItem, bruto: string | number | null) {
+    // Descrição e fabricante ficam em caixa alta (o trigger 040 garante o mesmo no banco).
+    const valor =
+      (campo === "descricao" || campo === "fabricante") && typeof bruto === "string"
+        ? bruto.toLocaleUpperCase("pt-BR")
+        : bruto
     const anterior = item[campo]
     setItens((prev) => prev.map((i) => (i.id === item.id ? { ...i, [campo]: valor } : i)))
     const r = await requisitar(`${base}/itens/${item.id}`, { method: "PATCH", body: JSON.stringify({ [campo]: valor }) })
