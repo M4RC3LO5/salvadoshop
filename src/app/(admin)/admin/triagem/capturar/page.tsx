@@ -213,6 +213,10 @@ function formatarData(iso: string | null): string {
   return `${d}/${m}/${a}`
 }
 
+function plural(n: number, singular: string, pluralForma: string): string {
+  return `${n} ${n === 1 ? singular : pluralForma}`
+}
+
 function descreverVariacao(item: ItemRepeticao): string {
   return `validade ${formatarData(item.validade)} / lote ${item.lote?.trim() || "sem lote"} / ${item.qtd_embalagem} por caixa`
 }
@@ -535,7 +539,7 @@ export default function CapturarTriagemPage({
         return
       }
 
-      setMensagemSucesso(`Caixa somada: ${itemIgual.nome} agora tem ${json.data.num_caixas} caixas.`)
+      setMensagemSucesso(`Caixa somada: ${itemIgual.nome} agora tem ${plural(json.data.num_caixas, "caixa", "caixas")}.`)
       iniciarProximoItem()
     } catch {
       setErroSalvar("Erro de conexão. Tente novamente.")
@@ -815,7 +819,7 @@ export default function CapturarTriagemPage({
                 </button>
               </div>
 
-              {processando && (
+              {(processando || erroProcessamento) && (
                 <button
                   type="button"
                   onClick={preencherManualmente}
@@ -1092,13 +1096,13 @@ export default function CapturarTriagemPage({
                 <p className="flex items-start gap-2 font-medium">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 break-words">
-                    Este item já foi triado nesta lista: {itemIgual.nome} - {itemIgual.num_caixas} caixas de{" "}
+                    Este item já foi triado nesta lista: {itemIgual.nome} - {plural(itemIgual.num_caixas, "caixa", "caixas")} de{" "}
                     {itemIgual.qtd_embalagem}, validade {formatarData(itemIgual.validade)}, lote{" "}
                     {itemIgual.lote?.trim() || "sem lote"}.
                   </span>
                 </p>
                 {repeticoes.iguais.length > 1 && (
-                  <p className="pl-6 text-xs">+ {repeticoes.iguais.length - 1} linhas iguais</p>
+                  <p className="pl-6 text-xs">+ {plural(repeticoes.iguais.length - 1, "linha igual", "linhas iguais")}</p>
                 )}
               </div>
             )}
@@ -1110,7 +1114,7 @@ export default function CapturarTriagemPage({
               >
                 {repeticoes.parecidos.slice(0, 3).map((p) => (
                   <p key={p.id} className="break-words">
-                    Já existe este SKU nesta lista com {descreverVariacao(p)}. Será salvo como linha nova.
+                    Já existe este {repeticoes.chave === "ean" ? "EAN" : "SKU"} nesta lista com {descreverVariacao(p)}. Será salvo como linha nova.
                   </p>
                 ))}
               </div>
@@ -1129,7 +1133,7 @@ export default function CapturarTriagemPage({
                 >
                   {somando
                     ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Somando...</>
-                    : `Somar ${numCaixasNum} caixa(s) - fica com ${itemIgual.num_caixas + numCaixasNum} caixas`
+                    : `Somar ${plural(numCaixasNum, "caixa", "caixas")} - fica com ${plural(itemIgual.num_caixas + numCaixasNum, "caixa", "caixas")}`
                   }
                 </button>
                 <button

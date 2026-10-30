@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { ArrowUp } from "lucide-react"
 
 const LIMITE_ROLAGEM_PX = 400
@@ -18,18 +19,26 @@ function elementoRolagemPrincipal(): HTMLElement | null {
 // flutuante, e nunca aparece no papel.
 export function VoltarAoTopo() {
   const [visivel, setVisivel] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     const atualizar = () => {
       const interno = elementoRolagemPrincipal()
       setVisivel(window.scrollY > LIMITE_ROLAGEM_PX || (interno?.scrollTop ?? 0) > LIMITE_ROLAGEM_PX)
     }
+    // O componente fica no layout e não remonta ao navegar: recalcula a cada
+    // mudança de rota, e de novo no próximo frame porque a tela nova pode
+    // montar o [data-rolagem-principal] depois.
     atualizar()
+    const frame = requestAnimationFrame(atualizar)
     // capture: true — o evento scroll não borbulha, então é a única forma de
     // ouvir a rolagem de elementos a partir da janela.
     window.addEventListener("scroll", atualizar, { passive: true, capture: true })
-    return () => window.removeEventListener("scroll", atualizar, { capture: true })
-  }, [])
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener("scroll", atualizar, { capture: true })
+    }
+  }, [pathname])
 
   function voltar() {
     const reduzir = window.matchMedia("(prefers-reduced-motion: reduce)").matches
