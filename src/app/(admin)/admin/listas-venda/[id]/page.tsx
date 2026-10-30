@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { normalizarLarguras } from "@/lib/lista-venda/larguras"
+import { FOLHA_CSS } from "@/lib/lista-venda/folha-css"
 import { EditorListaVenda, type ItemVenda } from "./EditorListaVenda"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
@@ -48,5 +49,11 @@ export default async function ListaVendaPage({ params }: { params: { id: string 
     preco_unitario: i.preco_unitario === null ? null : Number(i.preco_unitario),
   }))
 
-  return <EditorListaVenda listaId={lista.id} tituloInicial={lista.titulo} rodapeInicial={lista.rodape} itensIniciais={itens} larguras={normalizarLarguras(lista.larguras_colunas)} />
+  return (
+    <>
+      {/* Estilo da folha no servidor: texto com aspas dentro de <style> num componente cliente quebra a hidratação */}
+      <style>{FOLHA_CSS}</style>
+      <EditorListaVenda listaId={lista.id} tituloInicial={lista.titulo} rodapeInicial={lista.rodape} itensIniciais={itens} larguras={normalizarLarguras(lista.larguras_colunas)} />
+    </>
+  )
 }
