@@ -62,8 +62,8 @@ export const FOLHA_CSS = `
   .folha th:first-child, .folha td:first-child { border-left-width: 1px; }
   .folha thead tr:first-child th { border-top-width: 1px; }
   .folha thead th { position: sticky; z-index: 3; }
-  .folha thead tr:first-child th { top: 0; }
-  .folha thead tr:nth-child(2) th { top: var(--h-titulo, 28px); }
+  .folha thead tr:first-child th { top: var(--h-barra, 0px); }
+  .folha thead tr:nth-child(2) th { top: calc(var(--h-barra, 0px) + var(--h-titulo, 28px)); }
   .folha tr.sem-preco td { background: #fffbeb; }
   .folha td.col-desc { position: relative; overflow: visible; }
   .folha .calha { display: flex; position: absolute; right: calc(100% + 6px); top: 0; gap: 1px; opacity: .55; z-index: 5; }

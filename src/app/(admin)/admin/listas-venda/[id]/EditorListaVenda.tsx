@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, ArrowDown, ArrowUp, Check, FileSpreadsheet, Loader2, Plus, Printer, RotateCcw, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowDown, ArrowUp, Check, CheckCircle2, FileSpreadsheet, Loader2, Plus, Printer, RotateCcw, Trash2 } from "lucide-react"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 import { FOLHA_CSS_PAGINA } from "@/lib/lista-venda/folha-css"
 import { EMPRESA, LIMITE_DESCRICAO_LONGA } from "@/lib/lista-venda/empresa"
@@ -190,6 +190,12 @@ export function EditorListaVenda({
   const tabelaRef = useRef<HTMLTableElement>(null)
   const linhaTituloRef = useRef<HTMLTableRowElement>(null)
   const [alturaTitulo, setAlturaTitulo] = useState(28)
+  const barraRef = useRef<HTMLDivElement>(null)
+  const [alturaBarra, setAlturaBarra] = useState(48)
+  // Linha recém-criada: depois de renderizar, a tela rola até ela e foca a descrição.
+  const [focarLinhaId, setFocarLinhaId] = useState<string | null>(null)
+  // Última linha sem preço visitada pelo clique em "N sem preço" (percurso circular).
+  const ultimaSemPrecoId = useRef<string | null>(null)
   const larguraAtual = useRef(larguras)
   const arraste = useRef<{ indice: number; inicioX: number; base: LargurasColunas; larguraTabela: number } | null>(null)
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -213,6 +219,17 @@ export function EditorListaVenda({
     const el = linhaTituloRef.current
     if (!el) return
     const medir = () => setAlturaTitulo(el.offsetHeight)
+    medir()
+    const observador = new ResizeObserver(medir)
+    observador.observe(el)
+    return () => observador.disconnect()
+  }, [])
+
+  // A barra fixa fica no topo da área rolável; o título e o cabeçalho das colunas grudam logo abaixo dela.
+  useLayoutEffect(() => {
+    const el = barraRef.current
+    if (!el) return
+    const medir = () => setAlturaBarra(el.offsetHeight)
     medir()
     const observador = new ResizeObserver(medir)
     observador.observe(el)
@@ -279,7 +296,36 @@ export function EditorListaVenda({
     if (r.ok && r.data) {
       const novo = r.data as ItemVenda
       setItens((prev) => [...prev, { ...novo, preco_unitario: novo.preco_unitario === null ? null : Number(novo.preco_unitario) }])
+      setFocarLinhaId(novo.id)
     }
+  }
+
+  // Depois que a linha nova aparece, rola até ela e foca a descrição.
+  useEffect(() => {
+    if (!focarLinhaId) return
+    const linha = document.querySelector<HTMLElement>(`[data-item-id="${focarLinhaId}"]`)
+    if (!linha) return
+    linha.scrollIntoView({ block: "center" })
+    linha.querySelector<HTMLTextAreaElement>('textarea[aria-label^="Descrição"]')?.focus({ preventScroll: true })
+    setFocarLinhaId(null)
+  }, [focarLinhaId, itens])
+
+  // "N sem preço": cada clique vai para a próxima linha sem preço (circular) e foca o R$ UND dela.
+  function irParaProximaSemPreco() {
+    if (!itens.some((i) => i.preco_unitario === null)) return
+    // Segue a partir da posição da última visitada (mesmo que ela já tenha ganhado preço) e dá a volta no fim.
+    const inicio = ultimaSemPrecoId.current ? itens.findIndex((i) => i.id === ultimaSemPrecoId.current) + 1 : 0
+    let alvoId = ""
+    for (let k = 0; k < itens.length; k++) {
+      const candidato = itens[(inicio + k) % itens.length]
+      if (candidato.preco_unitario === null) { alvoId = candidato.id; break }
+    }
+    if (!alvoId) return
+    ultimaSemPrecoId.current = alvoId
+    const linha = document.querySelector<HTMLElement>(`[data-item-id="${alvoId}"]`)
+    if (!linha) return
+    linha.scrollIntoView({ block: "center" })
+    linha.querySelector<HTMLInputElement>('input[aria-label^="Preço unitário"]')?.focus({ preventScroll: true })
   }
 
   async function removerItem(item: ItemVenda) {
@@ -407,48 +453,71 @@ export function EditorListaVenda({
   const semPreco = itens.filter((i) => i.preco_unitario === null).length
   const ehPadrao = COLUNAS_LISTA.every((c) => larguras[c.chave] === LARGURAS_PADRAO[c.chave])
   const salvando = pendentes > 0 || estadoLarguras === "salvando"
-  const botaoBarra = "inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+  const botaoBarra = "inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white p-2 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:px-3 sm:py-1.5"
+  const textoBotao = "sr-only sm:not-sr-only"
 
   return (
-    <div className={`lista-folha mx-auto flex max-w-7xl flex-col p-4 lg:p-8 ${ALTURA_TELA_EDITOR} print:block print:h-auto print:max-w-none print:p-0`}>
+    <div className={`lista-folha mx-auto flex max-w-7xl flex-col p-4 lg:p-8 ${ALTURA_TELA_EDITOR} print:block print:h-auto print:max-w-none print:p-0`} style={{ "--h-barra": `${alturaBarra}px`, "--h-titulo": `${alturaTitulo}px` } as React.CSSProperties}>
       {/* Área rolável (dentro dela a folha rola para o lado no celular): título e cabeçalho da tabela ficam fixos ao rolar */}
-      <div data-rolagem-principal className="min-h-0 flex-1 overflow-auto print:overflow-visible">
-        <div className="sticky left-0 mb-3 flex flex-wrap items-center justify-between gap-2 print:hidden">
-          <Link href="/admin/listas-venda" className="inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Listas de Venda
-          </Link>
-          <div className="flex flex-wrap items-center gap-2">
-            <span role="status" aria-live="polite" className="mr-1 inline-flex items-center gap-1.5 text-xs text-stone-500">
-              {salvando
-                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Salvando…</>
-                : estadoLarguras === "erro"
-                  ? <span className="text-red-600">{erroLarguras}</span>
-                  : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> {ultimoSalvo === "larguras" ? "Larguras salvas" : "Alterações salvas"}</>}
-            </span>
-            <button type="button" onClick={adicionarLinha} className={botaoBarra}>
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Adicionar linha
-            </button>
-            <button type="button" onClick={restaurarPadrao} disabled={ehPadrao || estadoLarguras === "salvando"} className={botaoBarra}>
-              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Restaurar larguras
-            </button>
-            <button type="button" onClick={() => window.print()} className={botaoBarra}>
-              <Printer className="h-3.5 w-3.5" aria-hidden="true" /> Imprimir
-            </button>
-            <button type="button" onClick={exportarExcel} disabled={salvando || exportando} className={botaoBarra}>
-              {exportando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" />} Exportar Excel
-            </button>
+      <div data-rolagem-principal className="min-h-0 flex-1 overflow-auto print:overflow-visible" style={{ scrollPaddingTop: "calc(var(--h-barra) + var(--h-titulo) + 32px)" }}>
+        {/* Barra fixa: o resumo do que sai no rodapé e as ações ficam sempre à vista ao rolar */}
+        <div ref={barraRef} className="sticky left-0 top-0 z-30 border-b border-stone-200 bg-stone-100 pb-2 print:hidden">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <Link href="/admin/listas-venda" aria-label="Voltar para Listas de Venda" className="inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Listas de Venda</span>
+            </Link>
+
+            <p className="flex flex-wrap items-center gap-x-2 text-xs text-stone-700 sm:text-sm">
+              <span><span className="hidden sm:inline">Total geral </span><span className="sm:hidden">Total </span><strong className="tabular-nums">{BRL.format(geral)}</strong></span>
+              <span aria-hidden="true" className="text-stone-300">|</span>
+              <span>{itens.length === 1 ? "1 linha" : `${itens.length} linhas`}</span>
+              <span aria-hidden="true" className="text-stone-300">|</span>
+              {semPreco > 0 ? (
+                <button
+                  type="button"
+                  onClick={irParaProximaSemPreco}
+                  title="Ir para a próxima linha sem preço"
+                  className="rounded font-medium text-amber-700 underline underline-offset-2 hover:text-amber-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-600"
+                >
+                  {semPreco} sem preço
+                </button>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-medium text-green-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Todas com preço
+                </span>
+              )}
+            </p>
+
+            <div className="ml-auto flex items-center gap-2">
+              <span role="status" aria-live="polite" className="mr-1 inline-flex items-center gap-1.5 text-xs text-stone-500">
+                {salvando
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Salvando…</>
+                  : estadoLarguras === "erro"
+                    ? <span className="text-red-600">{erroLarguras}</span>
+                    : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> {ultimoSalvo === "larguras" ? "Larguras salvas" : "Alterações salvas"}</>}
+              </span>
+              <button type="button" onClick={adicionarLinha} aria-label="Adicionar linha" title="Adicionar linha" className={botaoBarra}>
+                <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" /> <span className={textoBotao}>Adicionar linha</span>
+              </button>
+              <button type="button" onClick={restaurarPadrao} disabled={ehPadrao || estadoLarguras === "salvando"} aria-label="Restaurar larguras" title="Restaurar larguras" className={botaoBarra}>
+                <RotateCcw className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" /> <span className={textoBotao}>Restaurar larguras</span>
+              </button>
+              <button type="button" onClick={() => window.print()} aria-label="Imprimir" title="Imprimir" className={botaoBarra}>
+                <Printer className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" /> <span className={textoBotao}>Imprimir</span>
+              </button>
+              <button type="button" onClick={exportarExcel} disabled={salvando || exportando} aria-label="Exportar Excel" title="Exportar Excel" className={botaoBarra}>
+                {exportando ? <Loader2 className="h-4 w-4 animate-spin sm:h-3.5 sm:w-3.5" aria-hidden="true" /> : <FileSpreadsheet className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" />} <span className={textoBotao}>Exportar Excel</span>
+              </button>
+            </div>
           </div>
+
+          {erro && (
+            <p role="alert" className="mt-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+          )}
         </div>
 
-        {erro && (
-          <p role="alert" className="sticky left-0 mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 print:hidden">{erro}</p>
-        )}
-
-        <p className="sticky left-0 mb-2 text-xs text-stone-500 print:hidden">
-          Esta é a folha que será impressa: clique em qualquer campo para editar. Arraste a borda direita de um título de coluna para ajustar a largura (ou use as setas ← → com a alça focada).
-          {semPreco > 0 && (
-            <span className="text-amber-700"> {semPreco === 1 ? "1 linha sem preço (destacada)." : `${semPreco} linhas sem preço (destacadas).`} O total geral soma só as que têm preço.</span>
-          )}
+        <p className="sticky left-0 my-2 text-xs text-stone-500 print:hidden">
+          Clique em qualquer campo para editar. Arraste a borda de um título de coluna para ajustar a largura (ou use ← → na alça focada).
         </p>
 
         <div className="folha-area">
@@ -465,7 +534,7 @@ export function EditorListaVenda({
               />
             </div>
 
-            <table ref={tabelaRef} style={{ "--h-titulo": `${alturaTitulo}px` } as React.CSSProperties}>
+            <table ref={tabelaRef}>
               <colgroup>
                 {COLUNAS_LISTA.map((c) => (
                   <col key={c.chave} style={{ width: `${larguras[c.chave]}%` }} />
@@ -511,7 +580,7 @@ export function EditorListaVenda({
                   const total = totalItem(item)
                   const n = idx + 1
                   return (
-                    <tr key={item.id} className={item.preco_unitario === null ? "sem-preco" : undefined}>
+                    <tr key={item.id} data-item-id={item.id} className={item.preco_unitario === null ? "sem-preco" : undefined}>
                       <td className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}`}>
                         {/* Calha de controles: fica à esquerda, fora das colunas da folha; nunca sai no papel */}
                         <span className="calha">
