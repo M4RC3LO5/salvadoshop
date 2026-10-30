@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -16,6 +16,7 @@ import {
   PackageX,
 } from "lucide-react"
 import { EscolherLista, type ListaCaptura } from "./EscolherLista"
+import { encontrarRepeticoes, type ItemRepeticao } from "@/lib/triagem/repeticao"
 
 function cn(...classes: (string | false | undefined)[]) {
   return classes.filter(Boolean).join(" ")
@@ -206,6 +207,16 @@ function inputCls(opts: { erro?: boolean; destaque?: boolean } = {}) {
   )
 }
 
+function formatarData(iso: string | null): string {
+  if (!iso) return "sem validade"
+  const [a, m, d] = iso.split("-")
+  return `${d}/${m}/${a}`
+}
+
+function descreverVariacao(item: ItemRepeticao): string {
+  return `validade ${formatarData(item.validade)} / lote ${item.lote?.trim() || "sem lote"} / ${item.qtd_embalagem} por caixa`
+}
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function uuidOuNulo(valor: string | string[] | undefined): string | null {
@@ -251,6 +262,10 @@ export default function CapturarTriagemPage({
 
   const [mensagemSucesso, setMensagemSucesso] = useState("")
 
+  // Itens já triados na lista ativa (para o aviso de repetição)
+  const [itensLista, setItensLista] = useState<ItemRepeticao[]>([])
+  const [somando, setSomando] = useState(false)
+
   async function carregarListas() {
     setErroListas("")
     try {
@@ -287,6 +302,24 @@ export default function CapturarTriagemPage({
     if (etapa === 1) trocarLista()
     else setConfirmandoTroca(true)
   }
+
+  async function carregarItensLista(id: string) {
+    try {
+      const res = await fetch(`/api/triagem/itens?lista_id=${id}`)
+      const json = await res.json()
+      if (!res.ok || !json.success) return
+      setItensLista(json.data as ItemRepeticao[])
+    } catch {
+      // falha na busca não bloqueia o salvamento — segue sem aviso
+    }
+  }
+
+  const listaAtivaId = listaAtiva?.id ?? null
+  useEffect(() => {
+    if (etapa !== 3 || !listaAtivaId) return
+    setItensLista([])
+    carregarItensLista(listaAtivaId)
+  }, [etapa, listaAtivaId])
 
   useEffect(() => {
     if (!mensagemSucesso) return
@@ -408,6 +441,22 @@ export default function CapturarTriagemPage({
   const numCaixasNum = Math.max(1, parseInt(campos.num_caixas, 10) || 1)
   const totalUnidades = qtdEmbalagemNum * numCaixasNum
 
+  const repeticoes = useMemo(
+    () =>
+      encontrarRepeticoes(
+        {
+          sku: campos.sku,
+          ean: campos.ean,
+          validade: campos.validade,
+          lote: campos.lote,
+          qtd_embalagem: qtdEmbalagemNum,
+        },
+        itensLista
+      ),
+    [campos.sku, campos.ean, campos.validade, campos.lote, qtdEmbalagemNum, itensLista]
+  )
+  const itemIgual = repeticoes.iguais[0] ?? null
+
   const erroNome = submetido && !campos.nome.trim() ? "Informe o nome do produto." : ""
   const formValido = campos.nome.trim().length > 0
 
@@ -461,6 +510,37 @@ export default function CapturarTriagemPage({
       setErroSalvar("Erro de conexão. Tente novamente.")
     } finally {
       setSalvando(false)
+    }
+  }
+
+  async function somarCaixas() {
+    if (!itemIgual || !listaAtiva) return
+    setErroSalvar("")
+    setSomando(true)
+    try {
+      const res = await fetch(`/api/triagem/itens/${itemIgual.id}/somar-caixas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quantidade: numCaixasNum,
+          caixas_atuais: itemIgual.num_caixas,
+          lista_id: listaAtiva.id,
+        }),
+      })
+      const json = await res.json()
+
+      if (!res.ok || !json.success) {
+        setErroSalvar(json.error?.message ?? "Não foi possível somar a caixa. Tente novamente.")
+        if (res.status === 409) await carregarItensLista(listaAtiva.id)
+        return
+      }
+
+      setMensagemSucesso(`Caixa somada: ${itemIgual.nome} agora tem ${json.data.num_caixas} caixas.`)
+      iniciarProximoItem()
+    } catch {
+      setErroSalvar("Erro de conexão. Tente novamente.")
+    } finally {
+      setSomando(false)
     }
   }
 
@@ -1004,20 +1084,82 @@ export default function CapturarTriagemPage({
               </div>
             )}
 
-            <button
-              type="button"
-              onClick={concluirTriagem}
-              disabled={salvando}
-              className={cn(
-                "mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold text-white transition",
-                salvando ? "cursor-not-allowed bg-amber-700 opacity-70" : "bg-amber-700 hover:bg-amber-800"
-              )}
-            >
-              {salvando
-                ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</>
-                : "Concluir Triagem"
-              }
-            </button>
+            {itemIgual && (
+              <div
+                role="status"
+                className="flex flex-col gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900"
+              >
+                <p className="flex items-start gap-2 font-medium">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="min-w-0 break-words">
+                    Este item já foi triado nesta lista: {itemIgual.nome} - {itemIgual.num_caixas} caixas de{" "}
+                    {itemIgual.qtd_embalagem}, validade {formatarData(itemIgual.validade)}, lote{" "}
+                    {itemIgual.lote?.trim() || "sem lote"}.
+                  </span>
+                </p>
+                {repeticoes.iguais.length > 1 && (
+                  <p className="pl-6 text-xs">+ {repeticoes.iguais.length - 1} linhas iguais</p>
+                )}
+              </div>
+            )}
+
+            {!itemIgual && repeticoes.parecidos.length > 0 && (
+              <div
+                role="status"
+                className="flex flex-col gap-1 rounded-lg border border-sky-300 bg-sky-50 px-3 py-2.5 text-sm text-sky-900"
+              >
+                {repeticoes.parecidos.slice(0, 3).map((p) => (
+                  <p key={p.id} className="break-words">
+                    Já existe este SKU nesta lista com {descreverVariacao(p)}. Será salvo como linha nova.
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {itemIgual ? (
+              <div className="mt-2 flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={somarCaixas}
+                  disabled={somando || salvando}
+                  className={cn(
+                    "inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 py-2 text-center text-sm font-semibold text-white transition",
+                    somando || salvando ? "cursor-not-allowed bg-amber-700 opacity-70" : "bg-amber-700 hover:bg-amber-800"
+                  )}
+                >
+                  {somando
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Somando...</>
+                    : `Somar ${numCaixasNum} caixa(s) - fica com ${itemIgual.num_caixas + numCaixasNum} caixas`
+                  }
+                </button>
+                <button
+                  type="button"
+                  onClick={concluirTriagem}
+                  disabled={somando || salvando}
+                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-stone-300 bg-white px-5 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {salvando
+                    ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</>
+                    : "Salvar como linha nova"
+                  }
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={concluirTriagem}
+                disabled={salvando}
+                className={cn(
+                  "mt-2 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-5 text-sm font-semibold text-white transition",
+                  salvando ? "cursor-not-allowed bg-amber-700 opacity-70" : "bg-amber-700 hover:bg-amber-800"
+                )}
+              >
+                {salvando
+                  ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Salvando...</>
+                  : "Concluir Triagem"
+                }
+              </button>
+            )}
           </form>
         </div>
       )}
