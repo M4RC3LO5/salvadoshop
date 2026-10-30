@@ -30,7 +30,7 @@ export const FOLHA_CSS = `
 .folha td.apertada { font-size: 8pt; }
 .folha td.fab { font-size: 8.5pt; }
 .folha td { border-top-color: #9a9a9a; border-bottom-color: #9a9a9a; vertical-align: bottom; height: 4.9mm; overflow-wrap: anywhere; }
-.folha th { background: #${COR_CABECALHO}; font-family: Arial Black, Arial, sans-serif; font-weight: 900; font-size: 9pt; text-align: center; }
+.folha th { background: #${COR_CABECALHO}; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: Arial Black, Arial, sans-serif; font-weight: 900; font-size: 9pt; text-align: center; }
 .folha th.titulo { text-decoration: underline; border-bottom: 1px solid #000; }
 .folha td.centro { text-align: center; }
 .folha td.direita { text-align: left; }
