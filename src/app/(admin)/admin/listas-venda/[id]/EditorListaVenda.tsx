@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog"
 import { ArrowLeft, ArrowDown, ArrowUp, Check, CheckCircle2, FileSpreadsheet, Loader2, Plus, Printer, RotateCcw, Trash2 } from "lucide-react"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 import { FOLHA_CSS_PAGINA } from "@/lib/lista-venda/folha-css"
@@ -40,6 +41,23 @@ type EstadoLarguras = "ocioso" | "salvando" | "salvo" | "erro"
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 const ATRASO_SALVAR_MS = 500
 const PASSO_TECLADO_PCT = 0.5
+
+// Marcas de quebra de página (só na tela). Área útil de uma folha na impressão:
+// A4 (297mm) menos as margens do @page (8mm em cima, 12mm embaixo) = 277mm.
+// O cálculo é APROXIMADO (mede a tela, não o papel): a referência final é a prévia do Ctrl+P.
+const PX_POR_MM = 96 / 25.4
+const ALTURA_UTIL_PX = 277 * PX_POR_MM
+const MARGEM_LOGO_PX = 9 * PX_POR_MM // mb-[9mm] abaixo do logo
+const MARGENS_BLOCO_FINAL_PX = (1 + 7) * PX_POR_MM // margin-top do total geral (1mm) e do aviso (7mm)
+
+interface QuebraPagina {
+  pagina: number
+  topo: number
+}
+interface PaginasFolha {
+  total: number
+  quebras: QuebraPagina[]
+}
 
 // ── Células editáveis: salvam ao sair do campo (blur) ou Enter; Esc cancela ──
 // Na tela o campo parece o texto da folha; no papel sai o texto (.so-papel).
@@ -196,6 +214,16 @@ export function EditorListaVenda({
   const [focarLinhaId, setFocarLinhaId] = useState<string | null>(null)
   // Última linha sem preço visitada pelo clique em "N sem preço" (percurso circular).
   const ultimaSemPrecoId = useRef<string | null>(null)
+  // Remoção de linha: confirmação em diálogo próprio (window.confirm não funciona no navegador embutido do app).
+  const [removerAlvo, setRemoverAlvo] = useState<ItemVenda | null>(null)
+  const [removendo, setRemovendo] = useState(false)
+  // Marcas de quebra de página
+  const folhaRef = useRef<HTMLDivElement>(null)
+  const logoRef = useRef<HTMLDivElement>(null)
+  const totalGeralRef = useRef<HTMLDivElement>(null)
+  const avisoRef = useRef<HTMLDivElement>(null)
+  const rodapeEmpresaRef = useRef<HTMLDivElement>(null)
+  const [paginas, setPaginas] = useState<PaginasFolha>({ total: 1, quebras: [] })
   const larguraAtual = useRef(larguras)
   const arraste = useRef<{ indice: number; inicioX: number; base: LargurasColunas; larguraTabela: number } | null>(null)
   const temporizador = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -235,6 +263,63 @@ export function EditorListaVenda({
     observador.observe(el)
     return () => observador.disconnect()
   }, [])
+
+  // Simula a quebra de página da impressão: a página 1 leva o logo e o cabeçalho, as demais só o
+  // cabeçalho (ele repete); linha nunca quebra no meio; o bloco final (total, aviso, endereço) conta na
+  // última página e, se não couber nela, vai para uma página a mais.
+  const recalcularPaginas = useCallback(() => {
+    const folha = folhaRef.current
+    const tabela = tabelaRef.current
+    if (!folha || !tabela) return
+    const cabecalho = tabela.tHead?.offsetHeight ?? 0
+    const logo = (logoRef.current?.offsetHeight ?? 0) + MARGEM_LOGO_PX
+    const linhas = Array.from(tabela.tBodies[0]?.querySelectorAll<HTMLTableRowElement>("tr[data-item-id]") ?? [])
+    const topoFolha = folha.getBoundingClientRect().top
+
+    let usado = logo + cabecalho
+    let pagina = 1
+    const quebras: QuebraPagina[] = []
+    for (const linha of linhas) {
+      const altura = linha.offsetHeight
+      const inicioDaPagina = pagina === 1 ? logo + cabecalho : cabecalho
+      if (usado + altura > ALTURA_UTIL_PX && usado > inicioDaPagina) {
+        pagina += 1
+        usado = cabecalho
+        quebras.push({ pagina, topo: Math.round(linha.getBoundingClientRect().top - topoFolha) })
+      }
+      usado += altura
+    }
+
+    const bloco =
+      (totalGeralRef.current?.offsetHeight ?? 0) +
+      (avisoRef.current?.offsetHeight ?? 0) +
+      (rodapeEmpresaRef.current?.offsetHeight ?? 0) +
+      MARGENS_BLOCO_FINAL_PX
+    if (usado + bloco > ALTURA_UTIL_PX) {
+      pagina += 1
+      const topoBloco = totalGeralRef.current?.getBoundingClientRect().top ?? topoFolha
+      quebras.push({ pagina, topo: Math.round(topoBloco - topoFolha) })
+    }
+
+    const novo: PaginasFolha = { total: pagina, quebras }
+    setPaginas((atual) => (JSON.stringify(atual) === JSON.stringify(novo) ? atual : novo))
+  }, [])
+
+  // Recalcula quando linhas são adicionadas, removidas, reordenadas ou editadas e quando as larguras mudam...
+  useLayoutEffect(() => {
+    recalcularPaginas()
+  }, [recalcularPaginas, itens, larguras, titulo, rodape])
+
+  // ...e quando uma linha muda de altura sozinha (texto que quebra, fonte que carrega).
+  useEffect(() => {
+    const observador = new ResizeObserver(() => recalcularPaginas())
+    // Cada linha (e não só a tabela): uma linha pode crescer enquanto outra encolhe sem a tabela mudar de altura.
+    tabelaRef.current?.querySelectorAll("thead, tbody tr[data-item-id]").forEach((el) => observador.observe(el))
+    if (tabelaRef.current) observador.observe(tabelaRef.current)
+    if (avisoRef.current) observador.observe(avisoRef.current)
+    document.fonts?.ready.then(recalcularPaginas)
+    return () => observador.disconnect()
+  }, [recalcularPaginas, itens])
 
   // Toda gravação passa por aqui: contador de "Salvando…" + erro visível.
   async function requisitar(url: string, init: RequestInit): Promise<{ ok: boolean; data?: unknown }> {
@@ -328,11 +413,13 @@ export function EditorListaVenda({
     linha.querySelector<HTMLInputElement>('input[aria-label^="Preço unitário"]')?.focus({ preventScroll: true })
   }
 
-  async function removerItem(item: ItemVenda) {
-    const nome = item.descricao.trim() || "esta linha em branco"
-    if (!window.confirm(`Remover "${nome}" da lista de venda?`)) return
-    const r = await requisitar(`${base}/itens/${item.id}`, { method: "DELETE" })
-    if (r.ok) setItens((prev) => prev.filter((i) => i.id !== item.id))
+  async function confirmarRemocao() {
+    if (!removerAlvo) return
+    setRemovendo(true)
+    const r = await requisitar(`${base}/itens/${removerAlvo.id}`, { method: "DELETE" })
+    if (r.ok) setItens((prev) => prev.filter((i) => i.id !== removerAlvo.id))
+    setRemovendo(false)
+    setRemoverAlvo(null)
   }
 
   async function mover(idx: number, delta: -1 | 1) {
@@ -463,14 +550,16 @@ export function EditorListaVenda({
         {/* Barra fixa: o resumo do que sai no rodapé e as ações ficam sempre à vista ao rolar */}
         <div ref={barraRef} className="sticky left-0 top-0 z-30 border-b border-stone-200 bg-stone-100 pb-2 print:hidden">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <Link href="/admin/listas-venda" aria-label="Voltar para Listas de Venda" className="inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900">
+            <Link href="/admin/listas-venda" aria-label="Voltar para Listas de Venda" className="order-2 inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900 sm:order-none">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Listas de Venda</span>
             </Link>
 
-            <p className="flex flex-wrap items-center gap-x-2 text-xs text-stone-700 sm:text-sm">
+            <p className="order-1 flex w-full flex-wrap items-center gap-x-2 text-xs text-stone-700 sm:order-none sm:w-auto sm:text-sm">
               <span><span className="hidden sm:inline">Total geral </span><span className="sm:hidden">Total </span><strong className="tabular-nums">{BRL.format(geral)}</strong></span>
               <span aria-hidden="true" className="text-stone-300">|</span>
               <span>{itens.length === 1 ? "1 linha" : `${itens.length} linhas`}</span>
+              <span aria-hidden="true" className="text-stone-300">|</span>
+              <span title="Estimativa: a referência final é a prévia da impressão (Ctrl+P)">{paginas.total === 1 ? "1 página" : `${paginas.total} páginas`}</span>
               <span aria-hidden="true" className="text-stone-300">|</span>
               {semPreco > 0 ? (
                 <button
@@ -488,13 +577,13 @@ export function EditorListaVenda({
               )}
             </p>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="order-3 ml-auto flex items-center gap-2 sm:order-none">
               <span role="status" aria-live="polite" className="mr-1 inline-flex items-center gap-1.5 text-xs text-stone-500">
                 {salvando
-                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> Salvando…</>
+                  ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Salvando…</span></>
                   : estadoLarguras === "erro"
                     ? <span className="text-red-600">{erroLarguras}</span>
-                    : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> {ultimoSalvo === "larguras" ? "Larguras salvas" : "Alterações salvas"}</>}
+                    : <><Check className="h-3.5 w-3.5 text-green-600" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">{ultimoSalvo === "larguras" ? "Larguras salvas" : "Alterações salvas"}</span></>}
               </span>
               <button type="button" onClick={adicionarLinha} aria-label="Adicionar linha" title="Adicionar linha" className={botaoBarra}>
                 <Plus className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" /> <span className={textoBotao}>Adicionar linha</span>
@@ -521,8 +610,8 @@ export function EditorListaVenda({
         </p>
 
         <div className="folha-area">
-          <div className="folha">
-            <div className="mb-[9mm]">
+          <div ref={folhaRef} className="folha">
+            <div ref={logoRef} className="mb-[9mm]">
               <Image
                 src={EMPRESA.logoPublicPath}
                 alt="Comercial Dantas de Salvados e Sinistros — compra e venda por atacado, desde 2004"
@@ -543,12 +632,14 @@ export function EditorListaVenda({
               <thead>
                 <tr ref={linhaTituloRef}>
                   <th colSpan={COLUNAS_LISTA.length} className="titulo">
+                    <span className="capa-calha print:hidden" aria-hidden="true" />
                     <CelulaTexto key={tituloChave} valor={titulo} label="Título da lista" maxLength={200} onSalvar={salvarTitulo} />
                   </th>
                 </tr>
                 <tr>
                   {COLUNAS_LISTA.map((c, indice) => (
                     <th key={c.chave} scope="col">
+                      {indice === 0 && <span className="capa-calha print:hidden" aria-hidden="true" />}
                       {c.rotulo}
                       {/* Alça de arraste: só na tela, nunca no papel. A última coluna não tem (a tabela tem largura fixa). */}
                       {indice < COLUNAS_LISTA.length - 1 && (
@@ -590,7 +681,7 @@ export function EditorListaVenda({
                           <button type="button" onClick={() => mover(idx, 1)} disabled={idx === itens.length - 1} aria-label={`Descer a linha ${n}`}>
                             <ArrowDown className="h-3 w-3" aria-hidden="true" />
                           </button>
-                          <button type="button" className="remover" onClick={() => removerItem(item)} aria-label={`Remover a linha ${n}`}>
+                          <button type="button" className="remover" onClick={() => setRemoverAlvo(item)} aria-label={`Remover a linha ${n}`}>
                             <Trash2 className="h-3 w-3" aria-hidden="true" />
                           </button>
                         </span>
@@ -618,20 +709,39 @@ export function EditorListaVenda({
               </tbody>
             </table>
 
-            <div className="total-geral">{BRL.format(geral)}</div>
+            <div ref={totalGeralRef} className="total-geral">{BRL.format(geral)}</div>
 
-            <div className="aviso">
+            <div ref={avisoRef} className="aviso">
               <CelulaTexto multilinha valor={rodape} label="Aviso (rodapé da lista)" maxLength={1000} onSalvar={salvarRodape} />
             </div>
 
-            <div className="rodape-empresa">
+            <div ref={rodapeEmpresaRef} className="rodape-empresa">
               {EMPRESA.linhasRodape.map((linha) => (
                 <div key={linha}>{linha}</div>
               ))}
             </div>
+
+            {/* Marcas de quebra de página: só na tela, posicionadas por cima (não mudam alturas nem larguras) */}
+            {paginas.quebras.map((q) => (
+              <div key={q.pagina} className="marca-pagina print:hidden" style={{ top: q.topo }} aria-hidden="true">
+                <span>Página {q.pagina}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
+
+      {removerAlvo && (
+        <ConfirmDialog
+          titulo="Remover linha?"
+          mensagem={`Remover "${removerAlvo.descricao.trim() || "esta linha em branco"}" da lista de venda?`}
+          confirmarLabel="Remover"
+          destrutivo
+          carregando={removendo}
+          onConfirmar={confirmarRemocao}
+          onCancelar={() => setRemoverAlvo(null)}
+        />
+      )}
     </div>
   )
 }

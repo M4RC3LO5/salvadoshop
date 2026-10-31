@@ -46,9 +46,9 @@ export const FOLHA_CSS = `
 .folha .so-papel { display: none; }
 .folha .qtd-edit { display: flex; align-items: center; justify-content: center; gap: 2px; }
 .folha .qtd-edit .edit { text-align: center; min-width: 0; }
-.folha .calha { display: none; }
+.folha .calha, .folha .capa-calha { display: none; }
 @media print {
-  .folha .edit, .folha .calha { display: none !important; }
+  .folha .edit, .folha .calha, .folha .capa-calha, .marca-pagina { display: none !important; }
   .folha .so-papel { display: block; }
   .folha td.num .so-papel, .folha .qtd-papel { white-space: nowrap; }
   .folha th.titulo .so-papel { text-decoration: underline; }
@@ -61,9 +61,16 @@ export const FOLHA_CSS = `
   .folha th, .folha td { border-width: 0 1px 1px 0; }
   .folha th:first-child, .folha td:first-child { border-left-width: 1px; }
   .folha thead tr:first-child th { border-top-width: 1px; }
-  .folha thead th { position: sticky; z-index: 3; }
+  .folha thead th { position: sticky; z-index: 6; }
   .folha thead tr:first-child th { top: var(--h-barra, 0px); }
   .folha thead tr:nth-child(2) th { top: calc(var(--h-barra, 0px) + var(--h-titulo, 28px)); }
+  /* Faixa da calha (à esquerda da tabela): o cabeçalho fixo a cobre com este elemento, para as setas e a lixeira
+     das linhas que passam por baixo dele não aparecerem (nem receberem clique) por cima. Branco do padding da folha
+     (8mm) junto da tabela e a cor da página mais à esquerda. */
+  .folha .capa-calha { display: block; position: absolute; top: 0; bottom: -1px; right: calc(100% + 1px); width: 18mm; background: linear-gradient(to right, #f5f5f4 calc(100% - 8mm), #fff calc(100% - 8mm)); }
+  .folha { position: relative; }
+  .marca-pagina { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed #b45309; z-index: 2; pointer-events: none; }
+  .marca-pagina span { position: absolute; right: 3mm; top: 0; transform: translateY(-50%); padding: 0 6px; background: #fff; color: #b45309; font-family: Arial, sans-serif; font-size: 10px; font-weight: 700; }
   .folha tr.sem-preco td { background: #fffbeb; }
   .folha td.col-desc { position: relative; overflow: visible; }
   .folha .calha { display: flex; position: absolute; right: calc(100% + 6px); top: 0; gap: 1px; opacity: .55; z-index: 5; }
