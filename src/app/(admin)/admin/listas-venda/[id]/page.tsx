@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { normalizarLarguras } from "@/lib/lista-venda/larguras"
 import { FOLHA_CSS } from "@/lib/lista-venda/folha-css"
+import { normalizarFormatacao } from "@/lib/lista-venda/formatacao"
 import { EditorListaVenda, type ItemVenda } from "./EditorListaVenda"
 
 // Painel admin nunca usa cache — dados sempre frescos (CLAUDE.md item 9).
@@ -36,7 +37,7 @@ export default async function ListaVendaPage({ params }: { params: { id: string 
 
   const { data: itensData, error } = await supabase
     .from("listas_venda_itens")
-    .select("id, ordem, descricao, fabricante, referencia, vencimento, qtd_caixas, unid_por_caixa, preco_unitario")
+    .select("id, ordem, descricao, fabricante, referencia, vencimento, qtd_caixas, unid_por_caixa, preco_unitario, formatacao")
     .eq("lista_venda_id", params.id)
     .order("ordem", { ascending: true })
 
@@ -47,6 +48,7 @@ export default async function ListaVendaPage({ params }: { params: { id: string 
   const itens: ItemVenda[] = (itensData ?? []).map((i) => ({
     ...i,
     preco_unitario: i.preco_unitario === null ? null : Number(i.preco_unitario),
+    formatacao: normalizarFormatacao(i.formatacao),
   }))
 
   return (

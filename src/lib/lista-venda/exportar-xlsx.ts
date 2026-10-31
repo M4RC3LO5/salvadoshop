@@ -5,13 +5,20 @@
 
 import { precoCaixa, totalGeral, totalItem, type ItemCalculavel } from "@/lib/utils/lista-venda"
 import { COR_CABECALHO, EMPRESA, LIMITE_DESCRICAO_LONGA } from "@/lib/lista-venda/empresa"
-import { LARGURAS_PADRAO, type LargurasColunas } from "@/lib/lista-venda/larguras"
+import { LARGURAS_PADRAO, type ChaveColuna, type LargurasColunas } from "@/lib/lista-venda/larguras"
+import type { FormatacaoItem } from "@/lib/lista-venda/formatacao"
 
 export interface ItemExportavel extends ItemCalculavel {
+  formatacao?: FormatacaoItem
   descricao: string
   fabricante: string | null
   referencia: string | null
   vencimento: string | null
+}
+
+// Coluna do Excel (1 a 10) -> chave da coluna da lista, para aplicar a formatação por célula
+const CHAVE_DA_COLUNA: Record<number, ChaveColuna> = {
+  1: "descricao", 2: "fabr", 3: "ref", 4: "vencto", 5: "qtd", 6: "qtd", 7: "qtd", 8: "und", 9: "cx", 10: "total",
 }
 
 const PRIMEIRA_LINHA_DADOS = 8
@@ -186,7 +193,16 @@ export async function gerarXlsxListaVenda(dados: {
     for (let c = 1; c <= 10; c++) {
       const cell = ws.getCell(r, c)
       const longa = c === 1 && item.descricao.length > LIMITE_DESCRICAO_LONGA
-      cell.font = { name: "Calibri", size: longa ? 8 : c === 2 ? 9 : 10 }
+      // Formatação da célula somada à fonte atual (não troca nome nem tamanho). Qtd (E, F, G) leva a mesma nas 3 células.
+      const est = item.formatacao?.[CHAVE_DA_COLUNA[c]]
+      cell.font = {
+        name: "Calibri",
+        size: longa ? 8 : c === 2 ? 9 : 10,
+        ...(est?.n && { bold: true }),
+        ...(est?.i && { italic: true }),
+        ...(est?.s && { underline: true }),
+        ...(est?.t && { strike: true }),
+      }
       cell.border = { top: cinza, bottom: cinza, left: preta, right: preta }
       cell.alignment = {
         vertical: "bottom",

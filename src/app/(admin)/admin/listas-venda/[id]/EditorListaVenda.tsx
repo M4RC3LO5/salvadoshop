@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import Image from "next/image"
 import Link from "next/link"
 import { ConfirmDialog } from "@/components/admin/ConfirmDialog"
-import { ArrowLeft, ArrowDown, ArrowUp, Check, CheckCircle2, FileSpreadsheet, Loader2, Plus, Printer, RotateCcw, Trash2 } from "lucide-react"
+import { ArrowLeft, ArrowDown, ArrowUp, Bold, Check, CheckCircle2, FileSpreadsheet, Italic, Loader2, Plus, Printer, RotateCcw, Strikethrough, Trash2, Underline } from "lucide-react"
 import { precoCaixa, totalGeral, totalItem } from "@/lib/utils/lista-venda"
 import { FOLHA_CSS_PAGINA } from "@/lib/lista-venda/folha-css"
 import { EMPRESA, LIMITE_DESCRICAO_LONGA } from "@/lib/lista-venda/empresa"
@@ -12,8 +12,10 @@ import {
   COLUNAS_LISTA,
   LARGURAS_PADRAO,
   redimensionar,
+  type ChaveColuna,
   type LargurasColunas,
 } from "@/lib/lista-venda/larguras"
+import { ESTILOS, alternarEstilo, chaveEstilo, estiloCss, normalizarFormatacao, type EstiloChave, type FormatacaoItem } from "@/lib/lista-venda/formatacao"
 
 // A tela do editor tem exatamente a altura da janela (a página não rola, só a
 // folha), descontando o que o layout do admin (admin/layout.tsx) põe em volta:
@@ -33,6 +35,7 @@ export interface ItemVenda {
   qtd_caixas: number
   unid_por_caixa: number
   preco_unitario: number | null
+  formatacao: FormatacaoItem
 }
 
 type CampoItem = "descricao" | "fabricante" | "referencia" | "vencimento" | "qtd_caixas" | "unid_por_caixa" | "preco_unitario"
@@ -93,8 +96,10 @@ function useAutoAltura(ref: React.RefObject<HTMLTextAreaElement>, dependencia: s
 }
 
 function CelulaTexto({
-  valor, onSalvar, label, opcional = false, multilinha = false, maxLength,
+  valor, onSalvar, label, opcional = false, multilinha = false, maxLength, formato = "",
 }: {
+  // formato: muda quando a formatação da célula muda (negrito alarga o texto e pode quebrar a linha)
+  formato?: string
   valor: string | null
   onSalvar: (novo: string | null) => void
   label: string
@@ -105,7 +110,7 @@ function CelulaTexto({
   const [v, setV] = useState(valor ?? "")
   const ref = useRef<HTMLTextAreaElement>(null)
   useEffect(() => setV(valor ?? ""), [valor])
-  useAutoAltura(ref, v)
+  useAutoAltura(ref, v + "|" + formato)
 
   return (
     <>
@@ -182,9 +187,11 @@ function CelulaNumero({
 }
 
 // Valores muito grandes (ex.: R$ 1.481.400,00) usam fonte menor para caber na célula.
-function Moeda({ valor }: { valor: number | null }) {
+function Moeda({
+  valor, ativa = false, ...props
+}: { valor: number | null; ativa?: boolean } & Pick<React.TdHTMLAttributes<HTMLTableCellElement>, "style" | "onClick" | "onFocus" | "onKeyDown">) {
   const txt = valor === null ? "" : BRL.format(valor)
-  return <td className={`direita num${txt.length > 12 ? " apertada" : ""}`}>{txt}</td>
+  return <td className={`direita num${txt.length > 12 ? " apertada" : ""}${ativa ? " celula-ativa" : ""}`} {...props}>{txt}</td>
 }
 
 // ── Cópia invisível da folha, só para medir a quebra de página ──────────────
@@ -231,14 +238,14 @@ function FolhaMedicao({
               const apertada = item.preco_unitario !== null && BRL.format(item.preco_unitario).length > 12
               return (
                 <tr key={item.id}>
-                  <td className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}`}><span className="so-papel">{item.descricao}</span></td>
-                  <td className="centro fab"><span className="so-papel">{item.fabricante ?? ""}</span></td>
-                  <td className="centro"><span className="so-papel">{item.referencia ?? ""}</span></td>
-                  <td className="centro"><span className="so-papel">{item.vencimento ?? ""}</span></td>
-                  <td className="centro num"><span className="so-papel qtd-papel">{item.qtd_caixas} &nbsp;x&nbsp; {item.unid_por_caixa}</span></td>
-                  <td className={`direita num${apertada ? " apertada" : ""}`}><span className="so-papel">{item.preco_unitario === null ? "" : BRL.format(item.preco_unitario)}</span></td>
-                  <Moeda valor={precoCaixa(item)} />
-                  <Moeda valor={totalItem(item)} />
+                  <td style={estiloCss(item.formatacao.descricao)} className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}`}><span className="so-papel">{item.descricao}</span></td>
+                  <td style={estiloCss(item.formatacao.fabr)} className="centro fab"><span className="so-papel">{item.fabricante ?? ""}</span></td>
+                  <td style={estiloCss(item.formatacao.ref)} className="centro"><span className="so-papel">{item.referencia ?? ""}</span></td>
+                  <td style={estiloCss(item.formatacao.vencto)} className="centro"><span className="so-papel">{item.vencimento ?? ""}</span></td>
+                  <td style={estiloCss(item.formatacao.qtd)} className="centro num"><span className="so-papel qtd-papel">{item.qtd_caixas} &nbsp;x&nbsp; {item.unid_por_caixa}</span></td>
+                  <td style={estiloCss(item.formatacao.und)} className={`direita num${apertada ? " apertada" : ""}`}><span className="so-papel">{item.preco_unitario === null ? "" : BRL.format(item.preco_unitario)}</span></td>
+                  <Moeda valor={precoCaixa(item)} style={estiloCss(item.formatacao.cx)} />
+                  <Moeda valor={totalItem(item)} style={estiloCss(item.formatacao.total)} />
                 </tr>
               )
             })}
@@ -294,6 +301,8 @@ export function EditorListaVenda({
   // Marcas de quebra de página
   const folhaRef = useRef<HTMLDivElement>(null)
   const medicaoRef = useRef<HTMLDivElement>(null)
+  // Célula ativa para a formatação: a última que recebeu foco (ou clique, nas de só leitura).
+  const [ativa, setAtiva] = useState<{ itemId: string; coluna: ChaveColuna } | null>(null)
   const totalGeralRef = useRef<HTMLDivElement>(null)
   const [paginas, setPaginas] = useState<PaginasFolha>({ total: 1, quebras: [] })
   const larguraAtual = useRef(larguras)
@@ -454,11 +463,42 @@ export function EditorListaVenda({
     if (!r.ok) setItens((prev) => prev.map((i) => (i.id === item.id ? { ...i, [campo]: anterior } : i)))
   }
 
+  // Liga/desliga um estilo na célula ativa. Otimista; reverte se a gravação falhar.
+  async function alternarFormato(estilo: EstiloChave, alvo = ativa) {
+    if (!alvo) return
+    const item = itens.find((i) => i.id === alvo.itemId)
+    if (!item) return
+    const anterior = item.formatacao
+    const novo = alternarEstilo(anterior, alvo.coluna, estilo)
+    setItens((prev) => prev.map((i) => (i.id === item.id ? { ...i, formatacao: novo } : i)))
+    const r = await requisitar(`${base}/itens/${item.id}`, { method: "PATCH", body: JSON.stringify({ formatacao: novo }) })
+    if (!r.ok) setItens((prev) => prev.map((i) => (i.id === item.id ? { ...i, formatacao: anterior } : i)))
+  }
+
+  // Props comuns das células de dados: marca como ativa, aplica a formatação e atende Ctrl+B/I/U.
+  function celula(item: ItemVenda, coluna: ChaveColuna) {
+    const alvo = { itemId: item.id, coluna }
+    return {
+      style: estiloCss(item.formatacao[coluna]),
+      onFocus: () => setAtiva((a) => (a?.itemId === alvo.itemId && a.coluna === coluna ? a : alvo)),
+      onClick: () => setAtiva((a) => (a?.itemId === alvo.itemId && a.coluna === coluna ? a : alvo)),
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+        const estilo = ({ b: "n", i: "i", u: "s" } as Record<string, EstiloChave>)[e.key.toLowerCase()]
+        if (!estilo) return
+        e.preventDefault()
+        alternarFormato(estilo, alvo)
+      },
+    }
+  }
+  const eAtiva = (item: ItemVenda, coluna: ChaveColuna) => ativa?.itemId === item.id && ativa.coluna === coluna
+  const sufixoAtiva = (item: ItemVenda, coluna: ChaveColuna) => (eAtiva(item, coluna) ? " celula-ativa" : "")
+
   async function adicionarLinha() {
     const r = await requisitar(`${base}/itens`, { method: "POST" })
     if (r.ok && r.data) {
       const novo = r.data as ItemVenda
-      setItens((prev) => [...prev, { ...novo, preco_unitario: novo.preco_unitario === null ? null : Number(novo.preco_unitario) }])
+      setItens((prev) => [...prev, { ...novo, preco_unitario: novo.preco_unitario === null ? null : Number(novo.preco_unitario), formatacao: normalizarFormatacao(novo.formatacao) }])
       setFocarLinhaId(novo.id)
     }
   }
@@ -618,8 +658,11 @@ export function EditorListaVenda({
   const semPreco = itens.filter((i) => i.preco_unitario === null).length
   const ehPadrao = COLUNAS_LISTA.every((c) => larguras[c.chave] === LARGURAS_PADRAO[c.chave])
   const salvando = pendentes > 0 || estadoLarguras === "salvando"
-  const botaoBarra = "inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white p-2 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:px-3 sm:py-1.5"
+  const botaoBarra = "inline-flex items-center gap-1.5 rounded-md border border-stone-300 bg-white p-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:px-3 sm:py-1.5"
   const textoBotao = "sr-only sm:not-sr-only"
+  const itemAtivo = ativa ? itens.find((i) => i.id === ativa.itemId) : undefined
+  const estiloAtivo = itemAtivo && ativa ? itemAtivo.formatacao[ativa.coluna] : undefined
+  const iconesEstilo = { n: Bold, i: Italic, s: Underline, t: Strikethrough }
 
   return (
     <div className={`lista-folha mx-auto flex max-w-7xl flex-col p-4 lg:p-8 ${ALTURA_TELA_EDITOR} print:block print:h-auto print:max-w-none print:p-0`} style={{ "--h-barra": `${alturaBarra}px`, "--h-titulo": `${alturaTitulo}px` } as React.CSSProperties}>
@@ -627,7 +670,7 @@ export function EditorListaVenda({
       <div data-rolagem-principal className="min-h-0 flex-1 overflow-auto print:overflow-visible" style={{ scrollPaddingTop: "calc(var(--h-barra) + var(--h-titulo) + 32px)" }}>
         {/* Barra fixa: o resumo do que sai no rodapé e as ações ficam sempre à vista ao rolar */}
         <div ref={barraRef} className="sticky left-0 top-0 z-30 border-b border-stone-200 bg-stone-100 pb-2 print:hidden">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3">
             <Link href="/admin/listas-venda" aria-label="Voltar para Listas de Venda" className="order-2 inline-flex items-center gap-1.5 text-sm text-stone-600 hover:text-stone-900 sm:order-none">
               <ArrowLeft className="h-4 w-4" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Listas de Venda</span>
             </Link>
@@ -655,7 +698,30 @@ export function EditorListaVenda({
               )}
             </p>
 
-            <div className="order-3 ml-auto flex items-center gap-2 sm:order-none">
+            <div role="group" aria-label="Formatação da célula selecionada" className="order-2 inline-flex overflow-hidden rounded-md border border-stone-300 bg-white sm:order-none">
+              {ESTILOS.map(({ chave, rotulo, atalho }, k) => {
+                const Icone = iconesEstilo[chave]
+                const ligado = !!estiloAtivo?.[chave]
+                return (
+                  <button
+                    key={chave}
+                    type="button"
+                    // Não tira o foco do campo que está sendo editado (nem dispara o blur que salvaria o texto pela metade)
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => alternarFormato(chave)}
+                    disabled={!itemAtivo}
+                    aria-pressed={ligado}
+                    aria-label={rotulo}
+                    title={atalho ? `${rotulo} (${atalho})` : rotulo}
+                    className={`grid h-8 w-6 place-items-center text-stone-700 hover:bg-stone-50 disabled:opacity-40 sm:h-[30px] sm:w-8 ${k > 0 ? "border-l border-stone-300" : ""} ${ligado ? "bg-stone-200 text-stone-900 hover:bg-stone-200" : ""}`}
+                  >
+                    <Icone className="h-4 w-4 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="order-3 ml-auto flex items-center gap-1 sm:order-none sm:gap-2">
               <span role="status" aria-live="polite" className="mr-1 inline-flex items-center gap-1.5 text-xs text-stone-500">
                 {salvando
                   ? <><Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> <span className="sr-only sm:not-sr-only">Salvando…</span></>
@@ -750,7 +816,7 @@ export function EditorListaVenda({
                   const n = idx + 1
                   return (
                     <tr key={item.id} data-item-id={item.id} className={item.preco_unitario === null ? "sem-preco" : undefined}>
-                      <td className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}`}>
+                      <td {...celula(item, "descricao")} className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}${sufixoAtiva(item, "descricao")}`}>
                         {/* Calha de controles: fica à esquerda, fora das colunas da folha; nunca sai no papel */}
                         <span className="calha">
                           <button type="button" onClick={() => mover(idx, -1)} disabled={idx === 0} aria-label={`Subir a linha ${n}`}>
@@ -763,12 +829,12 @@ export function EditorListaVenda({
                             <Trash2 className="h-3 w-3" aria-hidden="true" />
                           </button>
                         </span>
-                        <CelulaTexto valor={item.descricao} label={`Descrição da linha ${n}`} onSalvar={(v) => salvarCampo(item, "descricao", v ?? "")} />
+                        <CelulaTexto formato={chaveEstilo(item.formatacao.descricao)} valor={item.descricao} label={`Descrição da linha ${n}`} onSalvar={(v) => salvarCampo(item, "descricao", v ?? "")} />
                       </td>
-                      <td className="centro fab"><CelulaTexto opcional valor={item.fabricante} label={`Fabricante da linha ${n}`} onSalvar={(v) => salvarCampo(item, "fabricante", v)} /></td>
-                      <td className="centro"><CelulaTexto opcional valor={item.referencia} label={`Referência da linha ${n}`} onSalvar={(v) => salvarCampo(item, "referencia", v)} /></td>
-                      <td className="centro"><CelulaTexto opcional valor={item.vencimento} label={`Vencimento da linha ${n}`} onSalvar={(v) => salvarCampo(item, "vencimento", v)} /></td>
-                      <td className="centro num">
+                      <td {...celula(item, "fabr")} className={`centro fab${sufixoAtiva(item, "fabr")}`}><CelulaTexto formato={chaveEstilo(item.formatacao.fabr)} opcional valor={item.fabricante} label={`Fabricante da linha ${n}`} onSalvar={(v) => salvarCampo(item, "fabricante", v)} /></td>
+                      <td {...celula(item, "ref")} className={`centro${sufixoAtiva(item, "ref")}`}><CelulaTexto formato={chaveEstilo(item.formatacao.ref)} opcional valor={item.referencia} label={`Referência da linha ${n}`} onSalvar={(v) => salvarCampo(item, "referencia", v)} /></td>
+                      <td {...celula(item, "vencto")} className={`centro${sufixoAtiva(item, "vencto")}`}><CelulaTexto formato={chaveEstilo(item.formatacao.vencto)} opcional valor={item.vencimento} label={`Vencimento da linha ${n}`} onSalvar={(v) => salvarCampo(item, "vencimento", v)} /></td>
+                      <td {...celula(item, "qtd")} className={`centro num${sufixoAtiva(item, "qtd")}`}>
                         <div className="qtd-edit">
                           <CelulaNumero tipo="inteiro" valor={item.qtd_caixas} label={`Quantidade de caixas da linha ${n}`} onSalvar={(v) => v !== null && salvarCampo(item, "qtd_caixas", v)} />
                           <span aria-hidden="true" className="print:hidden">x</span>
@@ -776,11 +842,11 @@ export function EditorListaVenda({
                         </div>
                         <span className="so-papel qtd-papel">{item.qtd_caixas} &nbsp;x&nbsp; {item.unid_por_caixa}</span>
                       </td>
-                      <td className={`direita num${item.preco_unitario !== null && BRL.format(item.preco_unitario).length > 12 ? " apertada" : ""}`}>
+                      <td {...celula(item, "und")} className={`direita num${item.preco_unitario !== null && BRL.format(item.preco_unitario).length > 12 ? " apertada" : ""}${sufixoAtiva(item, "und")}`}>
                         <CelulaNumero tipo="preco" valor={item.preco_unitario} label={`Preço unitário da linha ${n}`} papel={item.preco_unitario === null ? "" : BRL.format(item.preco_unitario)} onSalvar={(v) => salvarCampo(item, "preco_unitario", v)} />
                       </td>
-                      <Moeda valor={cx} />
-                      <Moeda valor={total} />
+                      <Moeda valor={cx} {...celula(item, "cx")} ativa={eAtiva(item, "cx")} />
+                      <Moeda valor={total} {...celula(item, "total")} ativa={eAtiva(item, "total")} />
                     </tr>
                   )
                 })}

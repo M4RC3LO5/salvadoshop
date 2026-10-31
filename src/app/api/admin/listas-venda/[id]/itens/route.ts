@@ -5,7 +5,7 @@ import { requireAdmin, erroValidacao, erroInterno } from "@/lib/supabase/admin-g
 const idSchema = z.string().uuid()
 
 const COLUNAS_ITEM =
-  "id, ordem, descricao, fabricante, referencia, vencimento, qtd_caixas, unid_por_caixa, preco_unitario"
+  "id, ordem, descricao, fabricante, referencia, vencimento, qtd_caixas, unid_por_caixa, preco_unitario, formatacao"
 
 // POST — adiciona uma linha manual em branco ao final da lista
 export async function POST(_request: NextRequest, { params }: { params: { id: string } }) {
