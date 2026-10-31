@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server"
 import { z } from "zod"
 import { requireAdmin, erroValidacao, erroInterno } from "@/lib/supabase/admin-guard"
+import { formatacaoSchema } from "@/lib/validations/formatacao-lista-venda"
 
 const idSchema = z.string().uuid()
 
@@ -14,6 +15,8 @@ const patchSchema = z.object({
   qtd_caixas: z.number().int().min(0, "Quantidade de caixas não pode ser negativa.").max(1_000_000).optional(),
   unid_por_caixa: z.number().int().min(1, "Unidades por caixa deve ser ao menos 1.").max(1_000_000).optional(),
   preco_unitario: z.number().min(0, "O preço não pode ser negativo.").max(99_999_999).nullable().optional(),
+  // Formatação por célula: o objeto inteiro substitui o anterior.
+  formatacao: formatacaoSchema.optional(),
 }).strict()
 
 export async function PATCH(

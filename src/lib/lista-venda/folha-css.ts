@@ -84,6 +84,7 @@ ${regrasPapel(".folha.modo-papel")}
   .marca-pagina { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed #b45309; z-index: 2; pointer-events: none; }
   .marca-pagina span { position: absolute; right: 3mm; top: 0; transform: translateY(-50%); padding: 0 6px; background: #fff; color: #b45309; font-family: Arial, sans-serif; font-size: 10px; font-weight: 700; }
   ${TELA} tr.sem-preco td { background: #fffbeb; }
+  ${TELA} td.celula-ativa { box-shadow: inset 0 0 0 2px rgba(180, 83, 9, .55); }
   ${TELA} td.col-desc { position: relative; overflow: visible; }
   ${TELA} .calha { display: flex; position: absolute; right: calc(100% + 6px); top: 0; gap: 1px; opacity: .55; z-index: 5; }
   ${TELA} tr:hover .calha, ${TELA} .calha:focus-within { opacity: 1; }
