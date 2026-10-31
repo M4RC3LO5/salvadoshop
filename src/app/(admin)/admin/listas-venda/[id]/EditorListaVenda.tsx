@@ -189,7 +189,7 @@ function CelulaNumero({
 // Valores muito grandes (ex.: R$ 1.481.400,00) usam fonte menor para caber na célula.
 function Moeda({
   valor, ativa = false, ...props
-}: { valor: number | null; ativa?: boolean } & Pick<React.TdHTMLAttributes<HTMLTableCellElement>, "style" | "onClick" | "onFocus" | "onKeyDown">) {
+}: { valor: number | null; ativa?: boolean } & Pick<React.TdHTMLAttributes<HTMLTableCellElement>, "style" | "onClick" | "onFocus">) {
   const txt = valor === null ? "" : BRL.format(valor)
   return <td className={`direita num${txt.length > 12 ? " apertada" : ""}${ativa ? " celula-ativa" : ""}`} {...props}>{txt}</td>
 }
@@ -482,15 +482,39 @@ export function EditorListaVenda({
       style: estiloCss(item.formatacao[coluna]),
       onFocus: () => setAtiva((a) => (a?.itemId === alvo.itemId && a.coluna === coluna ? a : alvo)),
       onClick: () => setAtiva((a) => (a?.itemId === alvo.itemId && a.coluna === coluna ? a : alvo)),
-      onKeyDown: (e: React.KeyboardEvent) => {
-        if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
-        const estilo = ({ b: "n", i: "i", u: "s" } as Record<string, EstiloChave>)[e.key.toLowerCase()]
-        if (!estilo) return
-        e.preventDefault()
-        alternarFormato(estilo, alvo)
-      },
     }
   }
+
+  // Atalhos Ctrl/Cmd + B, I, U valem para a célula ativa em qualquer ponto da página (também sem foco no campo,
+  // e impedem o Ctrl+U de abrir o código-fonte). Um único tratador no document: com o campo focado o evento
+  // sobe até aqui e é aplicado uma vez só. O clique fora da folha limpa a célula ativa.
+  const aoAtalhoRef = useRef<(e: KeyboardEvent) => void>(() => {})
+  aoAtalhoRef.current = (e: KeyboardEvent) => {
+    if (!ativa || removerAlvo) return
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || e.shiftKey) return
+    const estilo = ({ b: "n", i: "i", u: "s" } as Record<string, EstiloChave>)[e.key.toLowerCase()]
+    if (!estilo) return
+    // Campo que não é célula de dados (diálogo, título, aviso, outra caixa da página): deixa o atalho com ele.
+    const alvo = e.target as HTMLElement | null
+    const editavel = !!alvo && (["INPUT", "TEXTAREA", "SELECT"].includes(alvo.tagName) || alvo.isContentEditable)
+    if (alvo?.closest?.("[role=dialog]") || (editavel && !alvo?.closest("tbody td"))) return
+    e.preventDefault()
+    alternarFormato(estilo)
+  }
+  useEffect(() => {
+    const aoTeclar = (e: KeyboardEvent) => aoAtalhoRef.current(e)
+    const aoClicar = (e: MouseEvent) => {
+      const alvo = e.target as HTMLElement | null
+      if (!alvo || alvo.closest("[role=dialog]") || alvo.closest("[data-barra-formatacao]") || folhaRef.current?.contains(alvo)) return
+      setAtiva(null)
+    }
+    document.addEventListener("keydown", aoTeclar)
+    document.addEventListener("mousedown", aoClicar)
+    return () => {
+      document.removeEventListener("keydown", aoTeclar)
+      document.removeEventListener("mousedown", aoClicar)
+    }
+  }, [])
   const eAtiva = (item: ItemVenda, coluna: ChaveColuna) => ativa?.itemId === item.id && ativa.coluna === coluna
   const sufixoAtiva = (item: ItemVenda, coluna: ChaveColuna) => (eAtiva(item, coluna) ? " celula-ativa" : "")
 
@@ -698,7 +722,7 @@ export function EditorListaVenda({
               )}
             </p>
 
-            <div role="group" aria-label="Formatação da célula selecionada" className="order-2 inline-flex overflow-hidden rounded-md border border-stone-300 bg-white sm:order-none">
+            <div role="group" data-barra-formatacao aria-label="Formatação da célula selecionada" className="order-2 inline-flex overflow-hidden rounded-md border border-stone-300 bg-white sm:order-none">
               {ESTILOS.map(({ chave, rotulo, atalho }, k) => {
                 const Icone = iconesEstilo[chave]
                 const ligado = !!estiloAtivo?.[chave]
