@@ -28,6 +28,7 @@ import {
   Layers,
   Info,
 } from "lucide-react"
+import { ConfirmDialog } from "@/components/admin/ConfirmDialog"
 import {
   DndContext,
   closestCenter,
@@ -246,53 +247,6 @@ function escapeHtml(valor: string): string {
   const div = document.createElement("div")
   div.textContent = valor
   return div.innerHTML
-}
-
-// ── Diálogo de confirmação genérico ─────────────────────────────────────────
-
-function ConfirmDialog({
-  titulo, mensagem, confirmarLabel, destrutivo, carregando, onConfirmar, onCancelar,
-}: {
-  titulo: string
-  mensagem: string
-  confirmarLabel: string
-  destrutivo?: boolean
-  carregando?: boolean
-  onConfirmar: () => void
-  onCancelar: () => void
-}) {
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancelar} aria-hidden="true" />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-start gap-3">
-          <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", destrutivo ? "bg-red-100" : "bg-amber-100")}>
-            <AlertTriangle className={cn("h-5 w-5", destrutivo ? "text-red-600" : "text-amber-700")} aria-hidden="true" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-stone-900">{titulo}</h2>
-            <p className="mt-1 text-sm text-stone-500">{mensagem}</p>
-          </div>
-        </div>
-        <div className="flex justify-end gap-3">
-          <button type="button" onClick={onCancelar} disabled={carregando} className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:opacity-50">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={onConfirmar}
-            disabled={carregando}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-50",
-              destrutivo ? "bg-red-600 hover:bg-red-700" : "bg-amber-700 hover:bg-amber-800"
-            )}
-          >
-            {carregando ? <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Aguarde...</> : confirmarLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 // ── Diálogo "mover para outra lista" ────────────────────────────────────────
