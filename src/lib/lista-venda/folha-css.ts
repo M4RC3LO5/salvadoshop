@@ -9,13 +9,27 @@ import { COR_CABECALHO } from "./empresa"
 // campo, calha de controles, alças de largura, destaque de linha sem preço)
 // nunca vai para o papel. No papel, cada campo editável é trocado por um texto
 // (.so-papel) para o resultado ser idêntico à impressão antiga.
+// Regras do PAPEL, escritas uma vez só: valem dentro de @media print (raiz = .folha) e na cópia invisível
+// usada para medir a quebra de página (raiz = .folha.modo-papel). Assim a medida tem a mesma altura do papel.
+function regrasPapel(raiz: string) {
+  return `
+  ${raiz} { width: auto; padding: 0; margin: 0; min-height: 277mm; }
+  ${raiz} .edit, ${raiz} .calha, ${raiz} .capa-calha { display: none !important; }
+  ${raiz} .so-papel { display: block; }
+  ${raiz} td.num .so-papel, ${raiz} .qtd-papel { white-space: nowrap; }
+  ${raiz} th.titulo .so-papel { text-decoration: underline; }
+`
+}
+
+// Regras só de tela não valem na cópia de medição (.modo-papel): ela tem de ficar como o papel.
+const TELA = ".folha:not(.modo-papel)"
+
 export const FOLHA_CSS = `
 @media print {
   html, body { background: #fff !important; }
 }
 .lista-folha { font-family: Calibri, Carlito, Arial, sans-serif; color: #000; }
 .folha { background: #fff; width: 210mm; flex: none; margin: 0 auto; padding: 8mm; box-sizing: border-box; display: flex; flex-direction: column; min-height: 297mm; }
-@media print { .folha { width: auto; padding: 0; margin: 0; min-height: 277mm; } }
 .folha table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; }
 .folha thead { display: table-header-group; }
 .folha tr { break-inside: avoid; page-break-inside: avoid; }
@@ -48,37 +62,35 @@ export const FOLHA_CSS = `
 .folha .qtd-edit .edit { text-align: center; min-width: 0; }
 .folha .calha, .folha .capa-calha { display: none; }
 @media print {
-  .folha .edit, .folha .calha, .folha .capa-calha, .marca-pagina { display: none !important; }
-  .folha .so-papel { display: block; }
-  .folha td.num .so-papel, .folha .qtd-papel { white-space: nowrap; }
-  .folha th.titulo .so-papel { text-decoration: underline; }
-}
+  .marca-pagina, .medicao-papel { display: none !important; }
+${regrasPapel(".folha")}}
+${regrasPapel(".folha.modo-papel")}
 @media screen {
   .folha-area { width: max-content; margin: 0 auto; padding-left: 48px; }
   .folha { box-shadow: 0 1px 4px rgba(0,0,0,.2); }
   /* Bordas separadas (não colapsadas) para o título e o cabeçalho fixos não perderem as linhas ao rolar */
-  .folha table { border-collapse: separate; border-spacing: 0; }
-  .folha th, .folha td { border-width: 0 1px 1px 0; }
-  .folha th:first-child, .folha td:first-child { border-left-width: 1px; }
-  .folha thead tr:first-child th { border-top-width: 1px; }
-  .folha thead th { position: sticky; z-index: 6; }
-  .folha thead tr:first-child th { top: var(--h-barra, 0px); }
-  .folha thead tr:nth-child(2) th { top: calc(var(--h-barra, 0px) + var(--h-titulo, 28px)); }
+  ${TELA} table { border-collapse: separate; border-spacing: 0; }
+  ${TELA} th, ${TELA} td { border-width: 0 1px 1px 0; }
+  ${TELA} th:first-child, ${TELA} td:first-child { border-left-width: 1px; }
+  ${TELA} thead tr:first-child th { border-top-width: 1px; }
+  ${TELA} thead th { position: sticky; z-index: 6; }
+  ${TELA} thead tr:first-child th { top: var(--h-barra, 0px); }
+  ${TELA} thead tr:nth-child(2) th { top: calc(var(--h-barra, 0px) + var(--h-titulo, 28px)); }
   /* Faixa da calha (à esquerda da tabela): o cabeçalho fixo a cobre com este elemento, para as setas e a lixeira
      das linhas que passam por baixo dele não aparecerem (nem receberem clique) por cima. Branco do padding da folha
      (8mm) junto da tabela e a cor da página mais à esquerda. */
-  .folha .capa-calha { display: block; position: absolute; top: 0; bottom: -1px; right: calc(100% + 1px); width: 18mm; background: linear-gradient(to right, #f5f5f4 calc(100% - 8mm), #fff calc(100% - 8mm)); }
+  ${TELA} .capa-calha { display: block; position: absolute; top: 0; bottom: -1px; right: calc(100% + 1px); width: 18mm; background: linear-gradient(to right, #f5f5f4 calc(100% - 8mm), #fff calc(100% - 8mm)); }
   .folha { position: relative; }
   .marca-pagina { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed #b45309; z-index: 2; pointer-events: none; }
   .marca-pagina span { position: absolute; right: 3mm; top: 0; transform: translateY(-50%); padding: 0 6px; background: #fff; color: #b45309; font-family: Arial, sans-serif; font-size: 10px; font-weight: 700; }
-  .folha tr.sem-preco td { background: #fffbeb; }
-  .folha td.col-desc { position: relative; overflow: visible; }
-  .folha .calha { display: flex; position: absolute; right: calc(100% + 6px); top: 0; gap: 1px; opacity: .55; z-index: 5; }
-  .folha tr:hover .calha, .folha .calha:focus-within { opacity: 1; }
-  .folha .calha button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid #d6d3d1; border-radius: 3px; background: #fff; color: #57534e; cursor: pointer; }
-  .folha .calha button:hover:not(:disabled) { background: #f5f5f4; }
-  .folha .calha button.remover:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
-  .folha .calha button:disabled { opacity: .3; cursor: default; }
+  ${TELA} tr.sem-preco td { background: #fffbeb; }
+  ${TELA} td.col-desc { position: relative; overflow: visible; }
+  ${TELA} .calha { display: flex; position: absolute; right: calc(100% + 6px); top: 0; gap: 1px; opacity: .55; z-index: 5; }
+  ${TELA} tr:hover .calha, ${TELA} .calha:focus-within { opacity: 1; }
+  ${TELA} .calha button { display: grid; place-items: center; width: 18px; height: 18px; padding: 0; border: 1px solid #d6d3d1; border-radius: 3px; background: #fff; color: #57534e; cursor: pointer; }
+  ${TELA} .calha button:hover:not(:disabled) { background: #f5f5f4; }
+  ${TELA} .calha button.remover:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+  ${TELA} .calha button:disabled { opacity: .3; cursor: default; }
 }
 `
 

@@ -44,9 +44,14 @@ const PASSO_TECLADO_PCT = 0.5
 
 // Marcas de quebra de página (só na tela). Área útil de uma folha na impressão:
 // A4 (297mm) menos as margens do @page (8mm em cima, 12mm embaixo) = 277mm.
-// O cálculo é APROXIMADO (mede a tela, não o papel): a referência final é a prévia do Ctrl+P.
+// As alturas são medidas numa cópia invisível da folha com as regras do papel (FolhaMedicao), não na
+// tela editável. Mesmo assim é uma ESTIMATIVA: a referência final é a prévia do Ctrl+P.
+// Folga (mm) descontada da área útil, para preferir quebrar uma linha antes a uma linha depois do papel.
+// Com a medida no modo papel a estimativa já bate com o Ctrl+P (lista de 47 itens: linha 31 termina em
+// 276,6mm de 277mm); qualquer folga acima de ~0,4mm empurra essa linha para a página seguinte.
 const PX_POR_MM = 96 / 25.4
-const ALTURA_UTIL_PX = 277 * PX_POR_MM
+const FOLGA_MM = 0
+const ALTURA_UTIL_PX = (277 - FOLGA_MM) * PX_POR_MM
 const MARGEM_LOGO_PX = 9 * PX_POR_MM // mb-[9mm] abaixo do logo
 const MARGENS_BLOCO_FINAL_PX = (1 + 7) * PX_POR_MM // margin-top do total geral (1mm) e do aviso (7mm)
 
@@ -182,6 +187,75 @@ function Moeda({ valor }: { valor: number | null }) {
   return <td className={`direita num${txt.length > 12 ? " apertada" : ""}`}>{txt}</td>
 }
 
+// ── Cópia invisível da folha, só para medir a quebra de página ──────────────
+// Mesmo conteúdo e mesmas larguras da folha, mas com as regras do papel (.modo-papel): campos viram
+// texto (.so-papel), sem calha, sem bordas separadas, largura útil do papel (210mm - 2x8mm de @page).
+// As classes das células espelham as da tabela editável; ao mudar uma, mude a outra.
+function FolhaMedicao({
+  titulo, rodape, itens, larguras, geral,
+}: {
+  titulo: string
+  rodape: string
+  itens: ItemVenda[]
+  larguras: LargurasColunas
+  geral: number
+}) {
+  return (
+    <div
+      className="medicao-papel"
+      aria-hidden="true"
+      style={{ position: "fixed", top: 0, left: "-10000px", width: "194mm", visibility: "hidden", pointerEvents: "none" }}
+    >
+      <div className="folha modo-papel">
+        <div data-med="logo" className="mb-[9mm]">
+          <Image src={EMPRESA.logoPublicPath} alt="" width={EMPRESA.logoLargura} height={EMPRESA.logoAltura} unoptimized style={{ width: "100mm", height: "auto" }} />
+        </div>
+        <table>
+          <colgroup>
+            {COLUNAS_LISTA.map((c) => (
+              <col key={c.chave} style={{ width: `${larguras[c.chave]}%` }} />
+            ))}
+          </colgroup>
+          <thead>
+            <tr>
+              <th colSpan={COLUNAS_LISTA.length} className="titulo"><span className="so-papel">{titulo}</span></th>
+            </tr>
+            <tr>
+              {COLUNAS_LISTA.map((c) => (
+                <th key={c.chave} scope="col">{c.rotulo}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item) => {
+              const apertada = item.preco_unitario !== null && BRL.format(item.preco_unitario).length > 12
+              return (
+                <tr key={item.id}>
+                  <td className={`col-desc${item.descricao.length > LIMITE_DESCRICAO_LONGA ? " longa" : ""}`}><span className="so-papel">{item.descricao}</span></td>
+                  <td className="centro fab"><span className="so-papel">{item.fabricante ?? ""}</span></td>
+                  <td className="centro"><span className="so-papel">{item.referencia ?? ""}</span></td>
+                  <td className="centro"><span className="so-papel">{item.vencimento ?? ""}</span></td>
+                  <td className="centro num"><span className="so-papel qtd-papel">{item.qtd_caixas} &nbsp;x&nbsp; {item.unid_por_caixa}</span></td>
+                  <td className={`direita num${apertada ? " apertada" : ""}`}><span className="so-papel">{item.preco_unitario === null ? "" : BRL.format(item.preco_unitario)}</span></td>
+                  <Moeda valor={precoCaixa(item)} />
+                  <Moeda valor={totalItem(item)} />
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <div data-med="total" className="total-geral">{BRL.format(geral)}</div>
+        <div data-med="aviso" className="aviso"><span className="so-papel">{rodape}</span></div>
+        <div data-med="rodape" className="rodape-empresa">
+          {EMPRESA.linhasRodape.map((linha) => (
+            <div key={linha}>{linha}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Editor: a folha A4 editável ──────────────────────────────────────────────
 
 export function EditorListaVenda({
@@ -219,10 +293,8 @@ export function EditorListaVenda({
   const [removendo, setRemovendo] = useState(false)
   // Marcas de quebra de página
   const folhaRef = useRef<HTMLDivElement>(null)
-  const logoRef = useRef<HTMLDivElement>(null)
+  const medicaoRef = useRef<HTMLDivElement>(null)
   const totalGeralRef = useRef<HTMLDivElement>(null)
-  const avisoRef = useRef<HTMLDivElement>(null)
-  const rodapeEmpresaRef = useRef<HTMLDivElement>(null)
   const [paginas, setPaginas] = useState<PaginasFolha>({ total: 1, quebras: [] })
   const larguraAtual = useRef(larguras)
   const arraste = useRef<{ indice: number; inicioX: number; base: LargurasColunas; larguraTabela: number } | null>(null)
@@ -264,36 +336,41 @@ export function EditorListaVenda({
     return () => observador.disconnect()
   }, [])
 
-  // Simula a quebra de página da impressão: a página 1 leva o logo e o cabeçalho, as demais só o
-  // cabeçalho (ele repete); linha nunca quebra no meio; o bloco final (total, aviso, endereço) conta na
-  // última página e, se não couber nela, vai para uma página a mais.
+  // Simula a quebra de página da impressão com as alturas da cópia de medição (regras do papel): a página 1
+  // leva o logo e o cabeçalho, as demais só o cabeçalho (ele repete); linha nunca quebra no meio; o bloco
+  // final (total, aviso, endereço) conta na última página e, se não couber nela, vai para uma página a mais.
+  // A posição da marca vem da linha correspondente na tela (mesma ordem da cópia).
   const recalcularPaginas = useCallback(() => {
     const folha = folhaRef.current
     const tabela = tabelaRef.current
-    if (!folha || !tabela) return
-    const cabecalho = tabela.tHead?.offsetHeight ?? 0
-    const logo = (logoRef.current?.offsetHeight ?? 0) + MARGEM_LOGO_PX
-    const linhas = Array.from(tabela.tBodies[0]?.querySelectorAll<HTMLTableRowElement>("tr[data-item-id]") ?? [])
+    const medicao = medicaoRef.current
+    if (!folha || !tabela || !medicao) return
+    const altura = (el: Element | null) => el?.getBoundingClientRect().height ?? 0
+    const cabecalho = altura(medicao.querySelector("thead"))
+    const logo = altura(medicao.querySelector("[data-med=logo]")) + MARGEM_LOGO_PX
+    const linhasPapel = Array.from(medicao.querySelectorAll("tbody tr"))
+    const linhasTela = Array.from(tabela.tBodies[0]?.querySelectorAll<HTMLTableRowElement>("tr[data-item-id]") ?? [])
     const topoFolha = folha.getBoundingClientRect().top
 
     let usado = logo + cabecalho
     let pagina = 1
     const quebras: QuebraPagina[] = []
-    for (const linha of linhas) {
-      const altura = linha.offsetHeight
+    linhasPapel.forEach((linha, i) => {
+      const h = altura(linha)
       const inicioDaPagina = pagina === 1 ? logo + cabecalho : cabecalho
-      if (usado + altura > ALTURA_UTIL_PX && usado > inicioDaPagina) {
+      if (usado + h > ALTURA_UTIL_PX && usado > inicioDaPagina) {
         pagina += 1
         usado = cabecalho
-        quebras.push({ pagina, topo: Math.round(linha.getBoundingClientRect().top - topoFolha) })
+        const naTela = linhasTela[i]
+        if (naTela) quebras.push({ pagina, topo: Math.round(naTela.getBoundingClientRect().top - topoFolha) })
       }
-      usado += altura
-    }
+      usado += h
+    })
 
     const bloco =
-      (totalGeralRef.current?.offsetHeight ?? 0) +
-      (avisoRef.current?.offsetHeight ?? 0) +
-      (rodapeEmpresaRef.current?.offsetHeight ?? 0) +
+      altura(medicao.querySelector("[data-med=total]")) +
+      altura(medicao.querySelector("[data-med=aviso]")) +
+      altura(medicao.querySelector("[data-med=rodape]")) +
       MARGENS_BLOCO_FINAL_PX
     if (usado + bloco > ALTURA_UTIL_PX) {
       pagina += 1
@@ -314,9 +391,10 @@ export function EditorListaVenda({
   useEffect(() => {
     const observador = new ResizeObserver(() => recalcularPaginas())
     // Cada linha (e não só a tabela): uma linha pode crescer enquanto outra encolhe sem a tabela mudar de altura.
+    // Observa a cópia de medição (alturas do papel) e a tabela da tela (posição das marcas).
+    medicaoRef.current?.querySelectorAll("[data-med=logo], thead, tbody tr, [data-med=aviso]").forEach((el) => observador.observe(el))
     tabelaRef.current?.querySelectorAll("thead, tbody tr[data-item-id]").forEach((el) => observador.observe(el))
     if (tabelaRef.current) observador.observe(tabelaRef.current)
-    if (avisoRef.current) observador.observe(avisoRef.current)
     document.fonts?.ready.then(recalcularPaginas)
     return () => observador.disconnect()
   }, [recalcularPaginas, itens])
@@ -611,7 +689,7 @@ export function EditorListaVenda({
 
         <div className="folha-area">
           <div ref={folhaRef} className="folha">
-            <div ref={logoRef} className="mb-[9mm]">
+            <div className="mb-[9mm]">
               <Image
                 src={EMPRESA.logoPublicPath}
                 alt="Comercial Dantas de Salvados e Sinistros — compra e venda por atacado, desde 2004"
@@ -711,11 +789,11 @@ export function EditorListaVenda({
 
             <div ref={totalGeralRef} className="total-geral">{BRL.format(geral)}</div>
 
-            <div ref={avisoRef} className="aviso">
+            <div className="aviso">
               <CelulaTexto multilinha valor={rodape} label="Aviso (rodapé da lista)" maxLength={1000} onSalvar={salvarRodape} />
             </div>
 
-            <div ref={rodapeEmpresaRef} className="rodape-empresa">
+            <div className="rodape-empresa">
               {EMPRESA.linhasRodape.map((linha) => (
                 <div key={linha}>{linha}</div>
               ))}
@@ -729,6 +807,10 @@ export function EditorListaVenda({
             ))}
           </div>
         </div>
+      </div>
+
+      <div ref={medicaoRef} style={{ display: "contents" }}>
+        <FolhaMedicao titulo={titulo} rodape={rodape} itens={itens} larguras={larguras} geral={geral} />
       </div>
 
       {removerAlvo && (
