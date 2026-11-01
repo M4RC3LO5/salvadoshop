@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server"
 
 const ESTADOS = ["lacrado", "avaria_leve", "avaria_grave", "sucata"] as const
 const ORIGENS = ["sinistro", "fabricante", "ecommerce", "atacado", "avulso"] as const
-const TIPOS_CAPTURA = ["etiqueta", "item_avulso"] as const
+const TIPOS_CAPTURA = ["etiqueta", "item_avulso", "manual"] as const
 
 const bodySchema = z.object({
   nome: z.string().min(1, "Nome é obrigatório."),

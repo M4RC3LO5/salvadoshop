@@ -73,7 +73,7 @@ interface ItemRow {
   id: string
   lista_id: string
   ordem: number
-  tipo_captura: "etiqueta" | "item_avulso"
+  tipo_captura: "etiqueta" | "item_avulso" | "manual"
   nome: string
   marca: string | null
   sku: string | null
