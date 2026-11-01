@@ -14,6 +14,7 @@ import {
   SkipForward,
   Tag as TagIcon,
   PackageX,
+  PencilLine,
 } from "lucide-react"
 import { EscolherLista, type ListaCaptura } from "./EscolherLista"
 import { encontrarRepeticoes, type ItemRepeticao } from "@/lib/triagem/repeticao"
@@ -24,7 +25,7 @@ function cn(...classes: (string | false | undefined)[]) {
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
-type TipoCaptura = "etiqueta" | "item_avulso"
+type TipoCaptura = "etiqueta" | "item_avulso" | "manual"
 type NivelConfianca = "alta" | "media" | "baixa"
 
 type CampoChave =
@@ -334,7 +335,9 @@ export default function CapturarTriagemPage({
   // ── Etapa 1 ──
   function escolherTipoCaptura(tipo: TipoCaptura) {
     setTipoCaptura(tipo)
-    setEtapa(2)
+    setOrigemIA(new Set())
+    setConfianca({})
+    setEtapa(tipo === "manual" ? 3 : 2)
   }
 
   // ── Etapa 2 ──
@@ -425,6 +428,8 @@ export default function CapturarTriagemPage({
   function preencherManualmente() {
     abortRef.current?.abort()
     setProcessando(false)
+    // Sem foto, o item é digitado a mão (tipo "manual"); com foto, mantém o tipo escolhido
+    if (!fotoConvertida) setTipoCaptura("manual")
     setOrigemIA(new Set())
     setConfianca({})
     setEtapa(3)
@@ -474,7 +479,7 @@ export default function CapturarTriagemPage({
       return
     }
 
-    if (!fotoConvertida || !tipoCaptura) {
+    if (!tipoCaptura || (tipoCaptura !== "manual" && !fotoConvertida)) {
       setErroSalvar("Foto não encontrada. Volte e capture a foto novamente.")
       return
     }
@@ -572,6 +577,11 @@ export default function CapturarTriagemPage({
     setErroSalvar("")
   }
 
+  // No modo manual não há etapa da câmera: o indicador mostra 2 etapas
+  const manual = tipoCaptura === "manual"
+  const totalEtapas = manual ? 2 : 3
+  const etapaAtual = manual && etapa === 3 ? 2 : etapa
+
   const voltarHref = listaAtiva ? `/admin/triagem?lista=${listaAtiva.id}` : "/admin/triagem"
 
   // ── Etapa 0 — escolha da lista ──
@@ -631,13 +641,13 @@ export default function CapturarTriagemPage({
       {/* Cabeçalho com progresso */}
       <div>
         <h1 className="text-2xl font-bold text-stone-800">Triagem de Estoque</h1>
-        <div className="mt-3 flex items-center gap-2" aria-label={`Etapa ${etapa} de 3`}>
-          {[1, 2, 3].map((n) => (
+        <div className="mt-3 flex items-center gap-2" aria-label={`Etapa ${etapaAtual} de ${totalEtapas}`}>
+          {Array.from({ length: totalEtapas }, (_, i) => i + 1).map((n) => (
             <div
               key={n}
               className={cn(
                 "h-1.5 flex-1 rounded-full transition-colors",
-                n <= etapa ? "bg-amber-700" : "bg-stone-200"
+                n <= etapaAtual ? "bg-amber-700" : "bg-stone-200"
               )}
             />
           ))}
@@ -726,6 +736,22 @@ export default function CapturarTriagemPage({
               <p className="font-semibold text-stone-800">Sem etiqueta</p>
               <p className="mt-0.5 text-xs text-stone-500">
                 Item avulso — a IA tenta reconhecer nome, marca, SKU e EAN pela foto do produto.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => escolherTipoCaptura("manual")}
+            className="flex min-h-[44px] items-center gap-4 rounded-xl border-2 border-stone-200 bg-white p-5 text-left transition hover:border-amber-400 hover:bg-amber-50/40 focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
+          >
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-stone-500 text-white">
+              <PencilLine className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-semibold text-stone-800">Digitar sem foto</p>
+              <p className="mt-0.5 text-xs text-stone-500">
+                Preencha os dados à mão, sem foto e sem IA.
               </p>
             </div>
           </button>
@@ -819,17 +845,16 @@ export default function CapturarTriagemPage({
                 </button>
               </div>
 
-              {(processando || erroProcessamento) && (
-                <button
-                  type="button"
-                  onClick={preencherManualmente}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 text-sm font-medium text-stone-500 underline underline-offset-2 hover:text-stone-700"
-                >
-                  <SkipForward className="h-4 w-4" aria-hidden="true" /> Preencher manualmente
-                </button>
-              )}
             </div>
           )}
+
+          <button
+            type="button"
+            onClick={preencherManualmente}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 text-sm font-medium text-stone-500 underline underline-offset-2 hover:text-stone-700"
+          >
+            <SkipForward className="h-4 w-4" aria-hidden="true" /> Preencher manualmente
+          </button>
         </div>
       )}
 
@@ -838,7 +863,7 @@ export default function CapturarTriagemPage({
         <div className="flex flex-col gap-5">
           <button
             type="button"
-            onClick={() => setEtapa(2)}
+            onClick={() => setEtapa(manual ? 1 : 2)}
             className="inline-flex min-h-[44px] w-fit items-center gap-1.5 rounded-lg border border-stone-300 bg-white px-4 text-sm font-medium text-stone-700 transition hover:bg-stone-50"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Etapa anterior
