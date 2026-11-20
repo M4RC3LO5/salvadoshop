@@ -15,8 +15,22 @@ export interface ListaVendaRow {
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" })
 
-function formatData(iso: string) {
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" })
+const FORMATO_DATAHORA_BR = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+})
+
+// dd/mm/aaaa hh:mm no fuso de São Paulo (monta pelas partes para não depender do separador do ICU).
+function formatDataHora(iso: string) {
+  const data = new Date(iso)
+  if (Number.isNaN(data.getTime())) return iso
+  const p = Object.fromEntries(FORMATO_DATAHORA_BR.formatToParts(data).map((x) => [x.type, x.value]))
+  return `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}`
 }
 
 export function ListasVendaClientUI({
@@ -166,7 +180,7 @@ export function ListasVendaClientUI({
                 <th scope="col" className="px-4 py-3">Título</th>
                 <th scope="col" className="px-4 py-3 text-right">Itens</th>
                 <th scope="col" className="px-4 py-3 text-right">Total geral</th>
-                <th scope="col" className="px-4 py-3">Data</th>
+                <th scope="col" className="px-4 py-3">Criada em</th>
                 <th scope="col" className="px-4 py-3"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
@@ -191,7 +205,7 @@ export function ListasVendaClientUI({
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{l.qtd_itens}</td>
                     <td className="px-4 py-3 text-right tabular-nums">{BRL.format(l.total)}</td>
-                    <td className="px-4 py-3 text-stone-600">{formatData(l.created_at)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-stone-600">{formatDataHora(l.created_at)}</td>
                     <td className="px-4 py-3 text-right">
                       <button
                         type="button"
