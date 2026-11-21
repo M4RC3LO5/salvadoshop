@@ -39,6 +39,7 @@ export default function AdminLoginPage({ searchParams }: LoginPageProps) {
         )}
 
         <form action={loginAction} className="flex flex-col gap-5">
+          <input type="hidden" name="redirect" value={searchParams.redirect ?? ""} />
           {/* Campo e-mail */}
           <div className="flex flex-col gap-1.5">
             <label
