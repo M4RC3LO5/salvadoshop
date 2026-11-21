@@ -1,4 +1,10 @@
 import { z } from "zod"
+import {
+  MSG_CELULAR,
+  MSG_TELEFONE,
+  formatarTelefone,
+  type TipoTelefone,
+} from "@/lib/compradores/telefone"
 
 export const UFS = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
@@ -20,6 +26,24 @@ function textoOpcional(max: number, rotulo: string) {
     .transform((v) => (v ? v : null))
 }
 
+// Telefone/celular: vazio vira null; preenchido precisa ser válido e é gravado já formatado.
+function telefoneOpcional(tipo: TipoTelefone) {
+  return z
+    .string()
+    .trim()
+    .max(30, tipo === "celular" ? MSG_CELULAR : MSG_TELEFONE)
+    .nullish()
+    .transform((v, ctx) => {
+      if (!v) return null
+      const formatado = formatarTelefone(v, tipo)
+      if (!formatado) {
+        ctx.issues.push({ code: "custom", message: tipo === "celular" ? MSG_CELULAR : MSG_TELEFONE, input: v })
+        return z.NEVER
+      }
+      return formatado
+    })
+}
+
 const camposComuns = {
   empresa: z
     .string({ error: "Informe o nome da empresa." })
@@ -27,8 +51,8 @@ const camposComuns = {
     .min(1, "Informe o nome da empresa.")
     .max(200, "Empresa pode ter no máximo 200 caracteres."),
   pessoa_contato: textoOpcional(120, "Pessoa de contato"),
-  telefone: textoOpcional(30, "Telefone"),
-  celular: textoOpcional(30, "Celular"),
+  telefone: telefoneOpcional("telefone"),
+  celular: telefoneOpcional("celular"),
   celular_whatsapp: z.boolean().default(false),
   email: z
     .string()

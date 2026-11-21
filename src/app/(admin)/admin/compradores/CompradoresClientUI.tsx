@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Contact, Plus, Search } from "lucide-react"
+import { exibirTelefone } from "@/lib/compradores/telefone"
 import { COR_STATUS, ROTULO_ORIGEM, ROTULO_STATUS, formatarData, soDigitos } from "@/lib/compradores/rotulos"
 
 export interface SegmentoOpcao {
@@ -58,11 +59,19 @@ export function CompradoresClientUI({
   const [status, setStatus] = useState("ativos")
   const [origem, setOrigem] = useState("")
   const [aviso, setAviso] = useState(salvo)
+  const [pausado, setPausado] = useState(false)
 
   // Tira o ?salvo=1 do endereço para o aviso não voltar ao recarregar.
   useEffect(() => {
     if (salvo) window.history.replaceState(null, "", "/admin/compradores")
   }, [salvo])
+
+  // O aviso some sozinho em 8 s; o tempo pausa com o mouse em cima ou o foco no "Fechar".
+  useEffect(() => {
+    if (!aviso || pausado) return
+    const t = setTimeout(() => setAviso(false), 8000)
+    return () => clearTimeout(t)
+  }, [aviso, pausado])
 
   const contagem = useMemo(() => {
     const r: Record<string, number> = { lead: 0, contato: 0, cliente: 0, descartado: 0 }
@@ -121,10 +130,18 @@ export function CompradoresClientUI({
       {aviso && (
         <p
           role="status"
+          onMouseEnter={() => setPausado(true)}
+          onMouseLeave={() => setPausado(false)}
           className="mb-4 flex items-center justify-between rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
         >
           Comprador salvo.
-          <button type="button" onClick={() => setAviso(false)} className="text-xs underline">Fechar</button>
+          <button
+            type="button"
+            onClick={() => setAviso(false)}
+            onFocus={() => setPausado(true)}
+            onBlur={() => setPausado(false)}
+            className="text-xs underline"
+          >Fechar</button>
         </p>
       )}
 
@@ -202,7 +219,7 @@ export function CompradoresClientUI({
             </thead>
             <tbody className="divide-y divide-stone-100">
               {filtrados.map((c) => {
-                const fone = c.celular || c.telefone
+                const fone = exibirTelefone(c.celular || c.telefone)
                 return (
                   <tr key={c.id} className="hover:bg-stone-50">
                     <td className="px-4 py-3 font-medium text-stone-900">

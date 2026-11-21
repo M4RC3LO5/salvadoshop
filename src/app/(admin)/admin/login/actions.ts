@@ -10,12 +10,25 @@ import { createClient } from "@/lib/supabase/server"
 //   const { success } = await ratelimit.limit(ip)
 //   if (!success) redirect("/admin/login?error=rate_limit")
 
+// Só aceita caminhos internos do painel (evita redirecionamento aberto).
+function destinoSeguro(valor: FormDataEntryValue | null): string | null {
+  if (typeof valor !== "string") return null
+  if (!valor.startsWith("/admin/")) return null
+  if (valor.startsWith("//") || valor.includes("://")) return null
+  if (valor === "/admin/login" || valor.startsWith("/admin/login/") || valor.startsWith("/admin/login?")) return null
+  return valor
+}
+
 export async function loginAction(formData: FormData) {
   const email = formData.get("email") as string
   const password = formData.get("password") as string
+  const destino = destinoSeguro(formData.get("redirect"))
+  const urlErro = destino
+    ? `/admin/login?error=1&redirect=${encodeURIComponent(destino)}`
+    : "/admin/login?error=1"
 
   if (!email || !password) {
-    redirect("/admin/login?error=1")
+    redirect(urlErro)
   }
 
   const supabase = createClient()
@@ -26,7 +39,7 @@ export async function loginAction(formData: FormData) {
   })
 
   if (authError || !authData.user) {
-    redirect("/admin/login?error=1")
+    redirect(urlErro)
   }
 
   // Verifica se o usuário existe em admin_usuarios e está ativo.
@@ -41,8 +54,8 @@ export async function loginAction(formData: FormData) {
   if (!adminUser) {
     // Encerra a sessão para não deixar o cliente autenticado na área admin
     await supabase.auth.signOut()
-    redirect("/admin/login?error=1")
+    redirect(urlErro)
   }
 
-  redirect("/admin/dashboard")
+  redirect(destino ?? "/admin/dashboard")
 }

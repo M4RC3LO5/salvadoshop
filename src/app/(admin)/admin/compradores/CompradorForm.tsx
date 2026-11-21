@@ -5,6 +5,13 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { UFS } from "@/lib/validations/comprador"
+import {
+  MSG_CELULAR,
+  MSG_TELEFONE,
+  celularValido,
+  mascararDigitando,
+  telefoneValido,
+} from "@/lib/compradores/telefone"
 import { ROTULO_ORIGEM, ROTULO_STATUS, formatarDataHora } from "@/lib/compradores/rotulos"
 import type { SegmentoOpcao } from "./CompradoresClientUI"
 
@@ -64,6 +71,9 @@ export function CompradorForm({
   const [erro, setErro] = useState("")
   const [duplicado, setDuplicado] = useState<{ id: string; empresa: string } | null>(null)
 
+  const [erroTelefone, setErroTelefone] = useState(false)
+  const [erroCelular, setErroCelular] = useState(false)
+
   const editando = !!id
   const descartado = editando && v.status === "descartado"
 
@@ -86,6 +96,11 @@ export function CompradorForm({
       setErro("Informe o nome da empresa.")
       return
     }
+    const telRuim = !!v.telefone.trim() && !telefoneValido(v.telefone)
+    const celRuim = !!v.celular.trim() && !celularValido(v.celular)
+    setErroTelefone(telRuim)
+    setErroCelular(celRuim)
+    if (telRuim || celRuim) return
     setSalvando(true)
     try {
       const corpo: Record<string, unknown> = {
@@ -155,11 +170,35 @@ export function CompradorForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="c-telefone" className={ROTULO}>Telefone</label>
-            <input id="c-telefone" type="tel" maxLength={30} value={v.telefone} onChange={(e) => set("telefone", e.target.value)} className={CAMPO} />
+            <input
+              id="c-telefone"
+              type="tel"
+              inputMode="numeric"
+              placeholder="(11) 0000-0000"
+              value={v.telefone}
+              onChange={(e) => { set("telefone", mascararDigitando(e.target.value, "telefone")); setErroTelefone(false) }}
+              onBlur={() => setErroTelefone(!!v.telefone.trim() && !telefoneValido(v.telefone))}
+              aria-invalid={erroTelefone}
+              aria-describedby={erroTelefone ? "c-telefone-erro" : undefined}
+              className={CAMPO}
+            />
+            {erroTelefone && <p id="c-telefone-erro" role="alert" className="mt-1 text-sm text-red-600">{MSG_TELEFONE}</p>}
           </div>
           <div>
             <label htmlFor="c-celular" className={ROTULO}>Celular</label>
-            <input id="c-celular" type="tel" maxLength={30} value={v.celular} onChange={(e) => set("celular", e.target.value)} className={CAMPO} />
+            <input
+              id="c-celular"
+              type="tel"
+              inputMode="numeric"
+              placeholder="(11) 90000-0000"
+              value={v.celular}
+              onChange={(e) => { set("celular", mascararDigitando(e.target.value, "celular")); setErroCelular(false) }}
+              onBlur={() => setErroCelular(!!v.celular.trim() && !celularValido(v.celular))}
+              aria-invalid={erroCelular}
+              aria-describedby={erroCelular ? "c-celular-erro" : undefined}
+              className={CAMPO}
+            />
+            {erroCelular && <p id="c-celular-erro" role="alert" className="mt-1 text-sm text-red-600">{MSG_CELULAR}</p>}
             <label className="mt-2 flex items-center gap-2 text-sm text-stone-700">
               <input
                 type="checkbox"
