@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useCarrinho } from "@/contexts/CarrinhoContext"
+import { BotaoInstalarApp } from "@/components/shared/BotaoInstalarApp"
 
 const navLinks = [
   { href: "/", label: "Catálogo" },
@@ -39,6 +40,9 @@ export function Header() {
 
         {/* Ações direita */}
         <div className="flex items-center gap-3">
+          {/* Baixar o app (some quando já está instalado) */}
+          <BotaoInstalarApp className="flex items-center gap-2 rounded-md border border-white/40 px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10" />
+
           {/* Botão Carrinho */}
           <Link
             href="/carrinho"
