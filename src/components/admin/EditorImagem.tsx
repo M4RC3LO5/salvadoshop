@@ -393,7 +393,7 @@ export function EditorImagem({ imagem, onSalvar, onCancelar }: EditorImagemProps
                   src={imagem.url}
                   alt="Imagem em edição"
                   onLoad={onImageLoad}
-                  className="max-h-[calc(100vh-200px)] max-w-full object-contain"
+                  className="max-h-[calc(100dvh-200px)] max-w-full object-contain"
                   style={{
                     transform: [
                       transforms.espelhar ? "scaleX(-1)" : "",
@@ -417,7 +417,7 @@ export function EditorImagem({ imagem, onSalvar, onCancelar }: EditorImagemProps
                   setNaturalDims({ w: img.naturalWidth, h: img.naturalHeight })
                   setDisplayDims({ w: img.offsetWidth, h: img.offsetHeight })
                 }}
-                className="max-h-[calc(100vh-200px)] max-w-full object-contain"
+                className="max-h-[calc(100dvh-200px)] max-w-full object-contain"
               />
             )}
           </div>

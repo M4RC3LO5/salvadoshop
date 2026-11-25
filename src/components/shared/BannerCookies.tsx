@@ -26,7 +26,7 @@ export function BannerCookies() {
       role="region"
       aria-label="Aviso de cookies"
       aria-live="polite"
-      className="fixed bottom-0 left-0 right-0 z-50 bg-marrom-900 text-white px-4 py-4 shadow-2xl"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-marrom-900 text-white px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] shadow-2xl"
     >
       <div className="container flex flex-col sm:flex-row sm:items-center gap-4">
 

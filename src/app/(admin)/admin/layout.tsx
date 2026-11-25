@@ -51,7 +51,7 @@ export default async function AdminPanelLayout({
   }
 
   return (
-    <div className="flex min-h-screen print:block print:min-h-0">
+    <div className="flex min-h-dvh print:block print:min-h-0">
       <Sidebar role={adminUser.role as "master" | "auxiliar"} pendingCount={pendingCount} />
 
       {/* Área de conteúdo */}

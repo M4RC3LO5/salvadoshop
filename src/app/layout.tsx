@@ -14,6 +14,19 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+// Sem maximumScale/userScalable: zoom continua liberado (acessibilidade).
+// viewport-fit=cover permite pintar sob o notch; o conteudo usa env(safe-area-inset-*).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
+};
+
 export const metadata: Metadata = {
   title: "SalvadoShop",
   description: "E-commerce de produtos salvados",

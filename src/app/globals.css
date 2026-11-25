@@ -58,6 +58,43 @@
   }
 }
 
+/* ── Comportamento nativo no celular ───────────────────────────────────────── */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* iOS da zoom na pagina se o campo tiver fonte < 16px (so em toque) */
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
+/* Sem espera de 300ms no toque */
+button,
+a,
+[role="button"],
+summary,
+label {
+  touch-action: manipulation;
+}
+
+/* Controles nao selecionam texto no toque longo (conteudo continua selecionavel) */
+button,
+[role="button"] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Rolagem interna nao arrasta a pagina de fundo (modais, popups) */
+[role="dialog"],
+[aria-modal="true"] {
+  overscroll-behavior: contain;
+}
+
 /* ── Animações ─────────────────────────────────────────────────────────────── */
 @keyframes blink {
   0%, 100% { opacity: 1; }

@@ -9,7 +9,7 @@ export default function AdminLoginPage({ searchParams }: LoginPageProps) {
   const hasError = searchParams.error === "1"
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-12">
 
       {/* Logo */}
       <div className="mb-8 text-center">
