@@ -97,7 +97,7 @@ export default async function PaginaLote(
   const imagens = lote.produto_imagens.map((i) => i.url_cloudinary)
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-dvh">
       <div className="container py-8 lg:py-12">
 
         {/* Breadcrumb */}

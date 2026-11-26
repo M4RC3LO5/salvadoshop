@@ -117,7 +117,7 @@ export default async function PaginaProduto(
   )
 
   return (
-    <div className="bg-white min-h-screen">
+    <div className="bg-white min-h-dvh">
       <div className="container py-8 lg:py-12">
 
         {/* Breadcrumb */}
