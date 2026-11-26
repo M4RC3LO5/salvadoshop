@@ -21,10 +21,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  // Cor da marca (mesma do manifest); o site nao tem tema escuro.
+  themeColor: "#7c3f1e",
 };
 
 export const metadata: Metadata = {
@@ -33,10 +31,6 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icons/site-192.png", apple: "/icons/site-apple-180.png" },
   appleWebApp: { capable: true, title: "SalvadoShop", statusBarStyle: "default" },
-};
-
-export const viewport: Viewport = {
-  themeColor: "#7c3f1e",
 };
 
 export default function RootLayout({
