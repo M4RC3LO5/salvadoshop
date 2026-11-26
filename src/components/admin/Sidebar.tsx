@@ -17,6 +17,7 @@ import {
   ScanLine,
   ClipboardList,
   Camera,
+  Contact,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { BotaoInstalarApp } from "@/components/shared/BotaoInstalarApp"
@@ -40,6 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Pedidos",       href: "/admin/pedidos",    icon: Receipt },
   { label: "Triagem",       href: "/admin/triagem", icon: ScanLine },
   { label: "Listas de Venda", href: "/admin/listas-venda", icon: ClipboardList },
+  { label: "Compradores", href: "/admin/compradores", icon: Contact },
   { label: "Anúncio por Fotos", href: "/admin/anuncios-ia", icon: Camera },
   { label: "Novo Produto",  href: "/admin/produtos/novo", icon: PlusCircle },
   { label: "Aprovações",    href: "/admin/aprovacoes", icon: CheckSquare, masterOnly: true },
